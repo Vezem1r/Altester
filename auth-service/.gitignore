@@ -1,4 +1,5 @@
 HELP.md
+readme.md
 .env
 target/
 /src/main/resources/static/**
