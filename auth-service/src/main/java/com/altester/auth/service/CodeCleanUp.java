@@ -17,7 +17,7 @@ public class CodeCleanUp {
 
     @Scheduled(cron = "0 0 * * * *")
     public void cleanUp() {
-        int deletedCount = codeRepository.deleteByVerificationCodeExpiredAtBefore(LocalDateTime.now());
+        int deletedCount = codeRepository.deleteByExpirationBefore(LocalDateTime.now());
         log.info("Deleted " + deletedCount + "expired verification codes");
     }
 }

@@ -1,5 +1,6 @@
 package com.altester.auth.models;
 
+import com.altester.auth.models.enums.CodeType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -15,33 +16,21 @@ public class Codes {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "verification_code")
+    @Column(name = "code", nullable = false)
     @JsonIgnore
-    private String verificationCode;
+    private String code;
 
-    @Column(name = "verification_expiration")
+    @Column(name = "expiration", nullable = false)
     @JsonIgnore
-    private LocalDateTime verificationCodeExpiredAt;
-
-    @Column(name = "password_reset_code")
-    @JsonIgnore
-    private String passwordResetCode;
-
-    @Column(name = "password_reset_expiration")
-    @JsonIgnore
-    private LocalDateTime passwordResetCodeExpiredAt;
-
-    @Column(name = "sms_code")
-    @JsonIgnore
-    private String smsCode;
-
-    @Column(name = "sms_code_expiration")
-    @JsonIgnore
-    private LocalDateTime smsCodeExpiredAt;
+    private LocalDateTime expiration;
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "code_type", nullable = false)
+    private CodeType codeType;
 
     @Column(name = "sendAt")
     @JsonIgnore

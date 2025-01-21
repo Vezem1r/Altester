@@ -60,7 +60,6 @@ public class AuthController {
         }
     }
 
-
     @PostMapping("/resend")
     public ResponseEntity<?> resendVerificationCode(@RequestParam String email){
         try{

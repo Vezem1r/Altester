@@ -6,6 +6,7 @@ import com.altester.auth.dto.VerifyUserDTO;
 import com.altester.auth.exception.BadRequest;
 import com.altester.auth.models.Codes;
 import com.altester.auth.models.User;
+import com.altester.auth.models.enums.CodeType;
 import com.altester.auth.models.enums.RolesEnum;
 import com.altester.auth.repository.CodeRepository;
 import com.altester.auth.repository.UserRepository;
@@ -67,12 +68,17 @@ public class AuthService {
         user.setEnabled(false);
         user.setRole(RolesEnum.STUDENT);
         user.setUsername(userUtils.generateUsername(registerUserDTO.getSurname()));
-        code.setVerificationCode(generateVerificationCode());
-        code.setVerificationCodeExpiredAt(LocalDateTime.now().plusMinutes(15));
+
+        code.setCode(generateVerificationCode());
+        code.setExpiration(LocalDateTime.now().plusMinutes(15));
         code.setUser(user);
+        code.setCodeType(CodeType.VERIFICATION);
+
         code.setSendAt(LocalDateTime.now());
         userRepository.save(user);
+
         codeRepository.save(code);
+
         sendVerificationEmail(user);
         log.info("Registered user with email: {}", registerUserDTO.getEmail());
         return user;
@@ -121,7 +127,7 @@ public class AuthService {
             throw new RuntimeException("User not found");
         }
 
-        Optional<Codes> optionalCode = codeRepository.findByUser(optionalUser.get());
+        Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(optionalUser.get(), CodeType.VERIFICATION);
         if (optionalCode.isEmpty()) {
             log.error("Code not found for user: {}", verifyUserDto.getEmail());
             throw new RuntimeException("Code not found");
@@ -130,11 +136,11 @@ public class AuthService {
         User user = optionalUser.get();
         Codes code = optionalCode.get();
 
-        if (code.getVerificationCodeExpiredAt().isBefore(LocalDateTime.now())) {
+        if (code.getExpiration().isBefore(LocalDateTime.now())) {
             log.error("Verification code has expired for user: {}", verifyUserDto.getEmail());
             throw new RuntimeException("Verification code has expired");
         }
-        if (code.getVerificationCode().equals(verifyUserDto.getVerificationCode())) {
+        if (code.getCode().equals(verifyUserDto.getVerificationCode())) {
             user.setEnabled(true);
             codeRepository.delete(code);
             userRepository.save(user);
@@ -149,7 +155,7 @@ public class AuthService {
         Optional<User> optionalUser = userRepository.findByEmail(email);
         if (optionalUser.isPresent()) {
             User user = optionalUser.get();
-            Optional<Codes> optionalCode = codeRepository.findByUser(optionalUser.get());
+            Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(optionalUser.get(), CodeType.VERIFICATION);
             if (user.isEnabled()) {
                 log.warn("Account is already verified for user: {}", email);
                 throw new RuntimeException("Account is already verified");
@@ -167,8 +173,8 @@ public class AuthService {
                 throw new RuntimeException("Verification code was sent less than a minute ago");
             }
 
-            code.setVerificationCode(generateVerificationCode());
-            code.setVerificationCodeExpiredAt(LocalDateTime.now().plusMinutes(15));
+            code.setCode(generateVerificationCode());
+            code.setExpiration(LocalDateTime.now().plusMinutes(15));
             sendVerificationEmail(user);
             code.setSendAt(LocalDateTime.now());
             codeRepository.save(code);
@@ -179,14 +185,14 @@ public class AuthService {
         }
     }
 
-    private String generateVerificationCode() {
+    public String generateVerificationCode() {
         Random random = new Random();
         int code = random.nextInt(900000) + 100000;
         return String.valueOf(code);
     }
 
     private void sendVerificationEmail(User user) {
-        Optional<Codes> optionalCode = codeRepository.findByUser(user);
+        Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(user, CodeType.VERIFICATION);
         if (optionalCode.isEmpty()) {
             log.error("Nothing to send for user: {}", user.getUsername());
             throw new RuntimeException("Code not found");
@@ -194,8 +200,8 @@ public class AuthService {
 
         Codes code = optionalCode.get();
         Context context = new Context();
-        context.setVariable("verificationCode", code.getVerificationCode());
-        context.setVariable("expiration", code.getVerificationCodeExpiredAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+        context.setVariable("verificationCode", code.getCode());
+        context.setVariable("expiration", code.getExpiration().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
         context.setVariable("year", LocalDate.now().getYear());
 
         String htmlMessage = templateEngine.process("verification-email", context);

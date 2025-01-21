@@ -38,7 +38,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
-        final String userEmail;
+        final String username;
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             log.warn("Authorization header is missing or invalid.");
@@ -49,11 +49,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         try {
             jwt = authHeader.substring(7);
             log.info("Extracted JWT: {}", jwt);
-            userEmail = jwtService.extractUsername(jwt);
-            log.info("Extracted user: {}", userEmail);
+            username = jwtService.extractUsername(jwt);
+            log.info("Extracted user: {}", username);
 
-            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
                 log.info("Loaded UserDetails: {}", userDetails);
 
                 if (jwtService.isTokenValid(jwt, userDetails)) {
