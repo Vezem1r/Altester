@@ -44,6 +44,10 @@ public class User implements UserDetails {
     @Enumerated()
     private RolesEnum role;
 
+    @Column(name = "two_factor_enabled", nullable = false)
+    private boolean twoFactorEnabled = false;
+
+
     /*-----------------------------------------------------*/
 
     @Override

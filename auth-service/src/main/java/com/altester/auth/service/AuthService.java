@@ -4,6 +4,7 @@ import com.altester.auth.dto.LoginUserDTO;
 import com.altester.auth.dto.RegisterUserDTO;
 import com.altester.auth.dto.VerifyUserDTO;
 import com.altester.auth.exception.BadRequest;
+import com.altester.auth.exception.TwoFactorAuth;
 import com.altester.auth.models.Codes;
 import com.altester.auth.models.User;
 import com.altester.auth.models.enums.CodeType;
@@ -40,6 +41,7 @@ public class AuthService {
     private final UserUtils userUtils;
     private final CodeRepository codeRepository;
     private final TemplateEngine templateEngine;
+    private final TwoFactorService twoFactorService;
 
     public User signUp(RegisterUserDTO registerUserDTO){
         log.info("Attempting to register user with email: {}", registerUserDTO.getEmail());
@@ -116,6 +118,21 @@ public class AuthService {
                         loginUserDTO.getPassword()
                 )
         );
+
+        if (user.isTwoFactorEnabled()) {
+            String code = generateVerificationCode();
+            Codes twoFactorCode = new Codes();
+            twoFactorCode.setCode(code);
+            twoFactorCode.setExpiration(LocalDateTime.now().plusMinutes(5));
+            twoFactorCode.setUser(user);
+            twoFactorCode.setCodeType(CodeType.TWO_FACTOR);
+            twoFactorCode.setSendAt(LocalDateTime.now());
+
+            codeRepository.save(twoFactorCode);
+            twoFactorService.send2FACode(user);
+            throw new TwoFactorAuth("2FA verification required. Please enter the code sent to your email.");
+        }
+
         log.info("Logged in user with email: {}", usernameOrEmail);
         return user;
     }

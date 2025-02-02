@@ -25,5 +25,4 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handleBadCredentialsException(BadCredentialsException ex, WebRequest request) {
         return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
-
 }
