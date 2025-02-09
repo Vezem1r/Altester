@@ -1,0 +1,50 @@
+services:
+  auth-service:
+    container_name: auth-service_container
+    build:
+      context: ./auth-service
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      - internal
+    volumes:
+      - ./logs:/app/logs
+  core:
+    container_name: core_container
+    build:
+      context: ./core
+    env_file:
+      - .env
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:8080
+    depends_on:
+      - auth-service
+    networks:
+      - internal
+    ports:
+      - 8080:8080
+  db:
+    image: postgres:15
+    container_name: postgres_container
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${SPRING_DATASOURCE_USERNAME}
+      POSTGRES_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      POSTGRES_DB: ${SPRING_DATASOURCE_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  postgres_data:

@@ -29,7 +29,8 @@ public class SecurityConfig {
     private final String[] WHITE_LIST = {
             "/auth/**",
             "/password/**",
-            "/email/**"
+            "/email/**",
+            "/health/**"
     };
 
     private final AuthenticationProvider authenticationProvider;
@@ -53,7 +54,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(allowedOrigins));
-        configuration.setAllowedMethods(List.of("POST"));
+        configuration.setAllowedMethods(List.of("POST", "GET"));
         configuration.setAllowedHeaders(List.of());
         configuration.setAllowCredentials(true);
 
