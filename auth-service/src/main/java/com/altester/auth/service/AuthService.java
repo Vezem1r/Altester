@@ -8,11 +8,12 @@ import com.altester.auth.exception.TwoFactorAuth;
 import com.altester.auth.models.Codes;
 import com.altester.auth.models.User;
 import com.altester.auth.models.enums.CodeType;
+import com.altester.auth.models.enums.EmailType;
 import com.altester.auth.models.enums.RolesEnum;
 import com.altester.auth.repository.CodeRepository;
 import com.altester.auth.repository.UserRepository;
+import com.altester.auth.utils.EmailUtils;
 import com.altester.auth.utils.UserUtils;
-import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -20,12 +21,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.Random;
 
@@ -37,11 +34,10 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
-    private final EmailService emailService;
     private final UserUtils userUtils;
     private final CodeRepository codeRepository;
-    private final TemplateEngine templateEngine;
     private final TwoFactorService twoFactorService;
+    private final EmailUtils emailUtils;
 
     public User signUp(RegisterUserDTO registerUserDTO){
         log.info("Attempting to register user with email: {}", registerUserDTO.getEmail());
@@ -81,7 +77,7 @@ public class AuthService {
 
         codeRepository.save(code);
 
-        sendVerificationEmail(user);
+        emailUtils.sendVerificationEmail(user, EmailType.REGISTER);
         log.info("Registered user with email: {}", registerUserDTO.getEmail());
         return user;
     }
@@ -192,7 +188,7 @@ public class AuthService {
 
             code.setCode(generateVerificationCode());
             code.setExpiration(LocalDateTime.now().plusMinutes(15));
-            sendVerificationEmail(user);
+            emailUtils.sendVerificationEmail(user, EmailType.REGISTER);
             code.setSendAt(LocalDateTime.now());
             codeRepository.save(code);
             log.info("Resent verification code to user: {}", email);
@@ -206,29 +202,5 @@ public class AuthService {
         Random random = new Random();
         int code = random.nextInt(900000) + 100000;
         return String.valueOf(code);
-    }
-
-    private void sendVerificationEmail(User user) {
-        Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(user, CodeType.VERIFICATION);
-        if (optionalCode.isEmpty()) {
-            log.error("Nothing to send for user: {}", user.getUsername());
-            throw new RuntimeException("Code not found");
-        }
-
-        Codes code = optionalCode.get();
-        Context context = new Context();
-        context.setVariable("verificationCode", code.getCode());
-        context.setVariable("expiration", code.getExpiration().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
-        context.setVariable("year", LocalDate.now().getYear());
-
-        String htmlMessage = templateEngine.process("verification-email", context);
-
-        String subject = "Account Verification";
-        try {
-            emailService.sendEmail(user.getEmail(), subject, htmlMessage);
-            log.info("Verification email sent to: {}", user.getEmail());
-        } catch (MessagingException e) {
-            log.error("Failed to send verification email to: {}", user.getEmail(), e);
-        }
     }
 }

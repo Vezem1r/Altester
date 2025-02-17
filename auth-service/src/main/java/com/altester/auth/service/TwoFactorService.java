@@ -31,10 +31,9 @@ public class TwoFactorService {
 
 
     public void send2FACode(User user) {
-
         Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(user, CodeType.TWO_FACTOR);
         if (optionalCode.isEmpty()) {
-            log.error("There is no 2FA code for user: {}", user);
+            log.error("Two-factor authorization code for user does not exists: {}", user);
             throw new RuntimeException("There is no 2FA code for user: " + user);
         }
 

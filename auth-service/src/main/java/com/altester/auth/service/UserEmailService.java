@@ -3,20 +3,17 @@ package com.altester.auth.service;
 import com.altester.auth.models.Codes;
 import com.altester.auth.models.User;
 import com.altester.auth.models.enums.CodeType;
+import com.altester.auth.models.enums.EmailType;
 import com.altester.auth.repository.CodeRepository;
 import com.altester.auth.repository.UserRepository;
-import jakarta.mail.MessagingException;
+import com.altester.auth.utils.EmailUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 @Service
@@ -26,10 +23,9 @@ public class UserEmailService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final EmailService emailService;
     private final CodeRepository codeRepository;
     private final AuthService authService;
-    private final TemplateEngine templateEngine;
+    private final EmailUtils emailUtils;
 
     public void initiateEmailReset(String email, String password, String username) {
 
@@ -61,7 +57,7 @@ public class UserEmailService {
         code.setCode(resetCode);
         code.setExpiration(LocalDateTime.now().plusMinutes(15));
         codeRepository.save(code);
-        sendEmailChangeCode(user, email);
+        emailUtils.sendVerificationEmail(user, EmailType.CHANGE_EMAIL, email);
     }
 
     public void resendMailCode(String email, String username) {
@@ -86,35 +82,11 @@ public class UserEmailService {
             code.setExpiration(LocalDateTime.now().plusMinutes(15));
             code.setSendAt(LocalDateTime.now());
             codeRepository.save(code);
-            sendEmailChangeCode(user, email);
+            emailUtils.sendVerificationEmail(user, EmailType.CHANGE_EMAIL, email);
             log.info("Resent email change code to user: {}", user.getEmail());
         } else {
             log.error("User not found for resending email change code: {}", email);
             throw new RuntimeException("User not found");
-        }
-    }
-
-    private void sendEmailChangeCode(User user, String email) {
-        Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(user, CodeType.EMAIL_CHANGE);
-        if (optionalCode.isEmpty()) {
-            log.error("Nothing to send for user: {}", user.getUsername());
-            throw new RuntimeException("Email change code not found");
-        }
-
-        Codes code = optionalCode.get();
-        Context context = new Context();
-        context.setVariable("emailcode", code.getCode());
-        context.setVariable("expiration", code.getExpiration().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
-        context.setVariable("year", LocalDate.now().getYear());
-
-        String htmlMessage = templateEngine.process("email-change", context);
-
-        String subject = "Email change code";
-        try {
-            emailService.sendEmail(email, subject, htmlMessage);
-            log.info("Email change code sent to: {}", email);
-        } catch (MessagingException e) {
-            log.error("Failed to send email change code to: {}", user.getEmail(), e);
         }
     }
 

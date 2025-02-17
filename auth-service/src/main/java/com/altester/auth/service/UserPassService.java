@@ -3,19 +3,16 @@ package com.altester.auth.service;
 import com.altester.auth.models.Codes;
 import com.altester.auth.models.User;
 import com.altester.auth.models.enums.CodeType;
+import com.altester.auth.models.enums.EmailType;
 import com.altester.auth.repository.CodeRepository;
 import com.altester.auth.repository.UserRepository;
-import jakarta.mail.MessagingException;
+import com.altester.auth.utils.EmailUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.thymeleaf.context.Context;
-import org.thymeleaf.spring6.SpringTemplateEngine;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 @Service
@@ -27,8 +24,7 @@ public class UserPassService {
     private final AuthService authService;
     private final PasswordEncoder passwordEncoder;
     private final CodeRepository codeRepository;
-    private final SpringTemplateEngine templateEngine;
-    private final EmailService emailService;
+    private final EmailUtils emailUtils;
 
 
     public void initiatePasswordReset(String email) {
@@ -54,7 +50,7 @@ public class UserPassService {
         code.setCode(resetCode);
         code.setExpiration(LocalDateTime.now().plusMinutes(15));
         codeRepository.save(code);
-        sendResetEmail(user);
+        emailUtils.sendVerificationEmail(user, EmailType.CHANGE_PASS);
     }
 
     public void resetPassword(Long userId, String resetCode, String newPassword){
@@ -110,35 +106,11 @@ public class UserPassService {
             code.setExpiration(LocalDateTime.now().plusMinutes(15));
             code.setSendAt(LocalDateTime.now());
             codeRepository.save(code);
-            sendResetEmail(user);
+            emailUtils.sendVerificationEmail(user, EmailType.CHANGE_PASS);
             log.info("Resent password reset code to user: {}", email);
         } else {
             log.error("User not found for resending password reset code: {}", email);
             throw new RuntimeException("User not found");
-        }
-    }
-
-    private void sendResetEmail(User user) {
-        Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(user, CodeType.PASSWORD_RESET);
-        if (optionalCode.isEmpty()) {
-            log.error("Nothing to send for user: {}", user.getUsername());
-            throw new RuntimeException("Password reset code not found");
-        }
-
-        Codes code = optionalCode.get();
-        Context context = new Context();
-        context.setVariable("resetCode", code.getCode());
-        context.setVariable("expiration", code.getExpiration().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
-        context.setVariable("year", LocalDate.now().getYear());
-
-        String htmlMessage = templateEngine.process("password-reset-email", context);
-
-        String subject = "Password reset code";
-        try {
-            emailService.sendEmail(user.getEmail(), subject, htmlMessage);
-            log.info("Password reset email sent to: {}", user.getEmail());
-        } catch (MessagingException e) {
-            log.error("Failed to send password reset email to: {}", user.getEmail(), e);
         }
     }
 }
