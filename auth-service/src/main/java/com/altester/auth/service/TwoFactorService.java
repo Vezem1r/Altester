@@ -3,8 +3,10 @@ package com.altester.auth.service;
 import com.altester.auth.models.Codes;
 import com.altester.auth.models.User;
 import com.altester.auth.models.enums.CodeType;
+import com.altester.auth.models.enums.EmailType;
 import com.altester.auth.repository.CodeRepository;
 import com.altester.auth.repository.UserRepository;
+import com.altester.auth.utils.EmailUtils;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +30,7 @@ public class TwoFactorService {
     private final TemplateEngine templateEngine;
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final EmailUtils emailUtils;
 
 
     public void send2FACode(User user) {
@@ -53,6 +56,55 @@ public class TwoFactorService {
         } catch (MessagingException e) {
             log.error("Failed to send 2FA email to: {}", user.getEmail(), e);
         }
+    }
+
+    public void verifyTwoFactorManagement(Long userId, String userCode) {
+
+        Optional<User> optionalUser = userRepository.findById(userId);
+        if (optionalUser.isEmpty()) {
+            log.error("User with id not found for verify switching two-factor: {}", userId);
+            throw new RuntimeException("User not found for managing two-factor");
+        }
+        User user = optionalUser.get();
+
+        Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(optionalUser.get(), CodeType.TWO_FACTOR_MANAGEMENT);
+        if (optionalCode.isEmpty()) {
+            log.error("Two-factor managing code not found for user: {}", user.getEmail());
+            throw new RuntimeException("Two-factor managing code not found");
+        }
+
+        Codes code = optionalCode.get();
+
+        if (code.getExpiration().isBefore(LocalDateTime.now())) {
+            log.error("Two-factor managing code has expired for user : {}", user.getEmail());
+            throw new RuntimeException("Two-factor managing code has expired");
+        }
+        if (!code.getCode().equals(userCode)) {
+            log.error("Two-factor managing code does not match user code: {}", user.getEmail());
+            throw new RuntimeException("Two-factor managing code does not match user code");
+        }
+
+        if (user.isTwoFactorEnabled()) {
+            user.setTwoFactorEnabled(false);
+            userRepository.save(user);
+        }
+
+        user.setTwoFactorEnabled(true);
+        userRepository.save(user);
+        codeRepository.delete(code);
+        log.info("User managed two-factor successfully: {}", user.getEmail());
+    }
+
+    public void manageTwoFactor(User user) {
+        Optional<User> optionalUser = userRepository.findByEmail(user.getEmail());
+        if (optionalUser.isEmpty()) {
+            log.error("User with such email does not exists: {}", user);
+            throw new RuntimeException("There is no user with such email: " + user);
+        }
+
+        user = optionalUser.get();
+
+        emailUtils.sendVerificationEmail(user, EmailType.TWO_FACTOR_MANAGEMENT);
     }
 
     public String verifyCode(String twoFactorCode, String emailOrUsername) {

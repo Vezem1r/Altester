@@ -16,13 +16,13 @@ import com.altester.auth.utils.EmailUtils;
 import com.altester.auth.utils.UserUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
@@ -33,7 +33,6 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final AuthenticationManager authenticationManager;
     private final UserUtils userUtils;
     private final CodeRepository codeRepository;
     private final TwoFactorService twoFactorService;
@@ -44,12 +43,14 @@ public class AuthService {
 
         Optional<User> existingUserByEmail = userRepository.findByEmail(registerUserDTO.getEmail());
 
-        if (existingUserByEmail.isPresent()){
+        if (existingUserByEmail.isPresent()) {
             User userByEmail = existingUserByEmail.get();
             if (userByEmail.isEnabled()) {
                 log.error("User with email '{}' already exists.", registerUserDTO.getEmail());
                 throw new BadRequest("User with this email already exists.");
             } else {
+                List<Codes> codes = codeRepository.findAllByUser(userByEmail);
+                codeRepository.deleteAll(codes);
                 userRepository.delete(userByEmail);
                 log.info("Deleted disabled user with email: {}", registerUserDTO.getEmail());
             }
@@ -107,13 +108,6 @@ public class AuthService {
             log.warn("User with email '{}' is disabled.", usernameOrEmail);
             throw new RuntimeException("User with email " + usernameOrEmail + " is disabled.");
         }
-
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        usernameOrEmail,
-                        loginUserDTO.getPassword()
-                )
-        );
 
         if (user.isTwoFactorEnabled()) {
             String code = generateVerificationCode();

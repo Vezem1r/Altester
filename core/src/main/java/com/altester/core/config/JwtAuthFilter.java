@@ -1,6 +1,6 @@
-package com.altester.auth.config;
+package com.altester.core.config;
 
-import com.altester.auth.service.JwtService;
+import com.altester.core.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

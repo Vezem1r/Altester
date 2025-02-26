@@ -5,4 +5,5 @@ public enum EmailType {
     LOGIN,
     CHANGE_PASS,
     CHANGE_EMAIL,
+    TWO_FACTOR_MANAGEMENT
 }

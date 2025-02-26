@@ -1,4 +1,4 @@
-package com.altester.auth.models.enums;
+package com.altester.core.model.auth.enums;
 
 public enum CodeType {
     VERIFICATION,
