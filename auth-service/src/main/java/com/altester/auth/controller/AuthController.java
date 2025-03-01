@@ -1,9 +1,9 @@
 package com.altester.auth.controller;
 
-import com.altester.auth.dto.LoginResponse;
-import com.altester.auth.dto.LoginUserDTO;
-import com.altester.auth.dto.RegisterUserDTO;
-import com.altester.auth.dto.VerifyUserDTO;
+import com.altester.auth.dto.Auth.LoginResponse;
+import com.altester.auth.dto.Auth.LoginUserDTO;
+import com.altester.auth.dto.Auth.RegisterUserDTO;
+import com.altester.auth.dto.Auth.VerifyUserDTO;
 import com.altester.auth.models.User;
 import com.altester.auth.repository.UserRepository;
 import com.altester.auth.service.AuthService;
@@ -39,9 +39,6 @@ public class AuthController {
         log.info("Received login request: {}", loginUserDto);
 
         User authenticatedUser = authService.signIn(loginUserDto);
-        authenticatedUser.setLastLogin(LocalDateTime.now());
-        userRepository.save(authenticatedUser);
-
         String jwtToken = jwtService.generateToken(authenticatedUser, authenticatedUser.getRole().name(), loginUserDto.isRememberMe());
 
         long expirationTimeMillis = jwtService.extractExpiration(jwtToken).getTime();

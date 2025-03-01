@@ -1,6 +1,5 @@
 package com.altester.auth.controller;
 
-import com.altester.auth.dto.ChangePassDTO;
 import com.altester.auth.dto.EmailConfirmDTO;
 import com.altester.auth.dto.EmailInitDTO;
 import com.altester.auth.dto.EmailResendDTO;

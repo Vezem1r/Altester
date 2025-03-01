@@ -1,6 +1,5 @@
 package com.altester.auth.utils;
 
-
 import com.altester.auth.models.Codes;
 import com.altester.auth.models.User;
 import com.altester.auth.models.enums.CodeType;
@@ -64,25 +63,6 @@ public class EmailUtils {
 
             String htmlMessage = templateEngine.process("password-reset-email", context);
             String subject = "Password reset code";
-            sendEmail(user.getEmail(), subject, htmlMessage);
-        }
-
-        // Two factor activate
-        if (emailType.equals(EmailType.TWO_FACTOR_MANAGEMENT)) {
-            Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(user, CodeType.TWO_FACTOR_MANAGEMENT);
-            if (optionalCode.isEmpty()) {
-                log.error("Two factor activate code does not exists`: {}", user.getUsername());
-                throw new RuntimeException("Two factor activate code not found");
-            }
-
-            Codes code = optionalCode.get();
-            Context context = new Context();
-            context.setVariable("twoFactorActivationCode", code.getCode());
-            context.setVariable("expiration", code.getExpiration().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
-            context.setVariable("year", LocalDate.now().getYear());
-
-            String htmlMessage = templateEngine.process("two-factor-managing-email", context);
-            String subject = "Two factor managing code";
             sendEmail(user.getEmail(), subject, htmlMessage);
         }
     }

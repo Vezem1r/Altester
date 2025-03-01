@@ -31,7 +31,7 @@ public class User implements UserDetails {
     @Column(length = 7, nullable = false, unique = true)
     private String username;
 
-    @Column(length = 127, nullable = false)
+    @Column(length = 127)
     @JsonIgnore
     private String password;
 
@@ -41,12 +41,8 @@ public class User implements UserDetails {
     @Column
     private LocalDateTime lastLogin;
 
-    @Enumerated()
+    @Enumerated(EnumType.STRING)
     private RolesEnum role;
-
-    @Column(name = "two_factor_enabled", nullable = false)
-    private boolean twoFactorEnabled = false;
-
 
     /*-----------------------------------------------------*/
 

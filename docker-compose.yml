@@ -1,6 +1,6 @@
 services:
   auth-service:
-    container_name: auth-service_container
+    container_name: auth-container
     build:
       context: ./auth-service
     env_file:
@@ -11,6 +11,7 @@ services:
       - internal
     volumes:
       - ./logs:/app/logs
+
   core:
     container_name: core_container
     build:

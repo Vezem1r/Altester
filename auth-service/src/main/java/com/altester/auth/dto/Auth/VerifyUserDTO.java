@@ -1,4 +1,4 @@
-package com.altester.auth.dto;
+package com.altester.auth.dto.Auth;
 
 import lombok.Data;
 

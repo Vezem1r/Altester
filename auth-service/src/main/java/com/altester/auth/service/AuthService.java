@@ -1,8 +1,8 @@
 package com.altester.auth.service;
 
-import com.altester.auth.dto.LoginUserDTO;
-import com.altester.auth.dto.RegisterUserDTO;
-import com.altester.auth.dto.VerifyUserDTO;
+import com.altester.auth.dto.Auth.LoginUserDTO;
+import com.altester.auth.dto.Auth.RegisterUserDTO;
+import com.altester.auth.dto.Auth.VerifyUserDTO;
 import com.altester.auth.exception.BadRequest;
 import com.altester.auth.exception.TwoFactorAuth;
 import com.altester.auth.models.Codes;
@@ -16,7 +16,6 @@ import com.altester.auth.utils.EmailUtils;
 import com.altester.auth.utils.UserUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,7 +34,6 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final UserUtils userUtils;
     private final CodeRepository codeRepository;
-    private final TwoFactorService twoFactorService;
     private final EmailUtils emailUtils;
 
     public User signUp(RegisterUserDTO registerUserDTO){
@@ -85,8 +83,6 @@ public class AuthService {
 
     public User signIn(LoginUserDTO loginUserDTO) {
         String usernameOrEmail = loginUserDTO.getUsernameOrEmail();
-        log.info("Attempting to login user with email: {}", usernameOrEmail);
-
         Optional<User> optionalUser;
 
         if (usernameOrEmail.contains("@")) {
@@ -94,7 +90,7 @@ public class AuthService {
             optionalUser = userRepository.findByEmail(usernameOrEmail);
         } else {
             log.info("Attempting to login user with username: {}", usernameOrEmail);
-            optionalUser = userRepository.findByUsername(usernameOrEmail);
+            optionalUser = userRepository.findByUsername(usernameOrEmail.toUpperCase());
         }
 
         if (optionalUser.isEmpty()) {
@@ -109,19 +105,8 @@ public class AuthService {
             throw new RuntimeException("User with email " + usernameOrEmail + " is disabled.");
         }
 
-        if (user.isTwoFactorEnabled()) {
-            String code = generateVerificationCode();
-            Codes twoFactorCode = new Codes();
-            twoFactorCode.setCode(code);
-            twoFactorCode.setExpiration(LocalDateTime.now().plusMinutes(5));
-            twoFactorCode.setUser(user);
-            twoFactorCode.setCodeType(CodeType.TWO_FACTOR);
-            twoFactorCode.setSendAt(LocalDateTime.now());
-
-            codeRepository.save(twoFactorCode);
-            twoFactorService.send2FACode(user);
-            throw new TwoFactorAuth("2FA verification required. Please enter the code sent to your email.");
-        }
+        user.setLastLogin(LocalDateTime.now());
+        userRepository.save(user);
 
         log.info("Logged in user with email: {}", usernameOrEmail);
         return user;

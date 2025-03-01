@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
+import java.util.Random;
 
 @Slf4j
 @Component
@@ -13,21 +13,21 @@ import java.util.List;
 public class UserUtils {
 
     private final UserRepository userRepository;
+    private final Random random = new Random();
 
     public String generateUsername (String surname) {
         String prefix = surname.substring(0,3).toUpperCase();
         log.info("Generating username with prefix {}", prefix);
 
-        List<Integer> usedNumbers = userRepository.findUsedUsernameNumbers(prefix);
+        String username;
+        boolean isUnique;
 
-        int freeNumber = 1;
-        for (int number : usedNumbers) {
-            if (number != freeNumber) {
-                break;
-            }
-            freeNumber++;
-        }
+        do {
+            int randomNumber = 100 + random.nextInt(900);
+            username = String.format("%sR%03d", prefix, randomNumber);
+            isUnique = userRepository.findByUsername(username).isEmpty();
+        } while (!isUnique);
 
-        return String.format("%s%04d", prefix, freeNumber);
+        return username;
     }
 }
