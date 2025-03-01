@@ -22,8 +22,6 @@ import java.util.Optional;
 @Slf4j
 public class UserEmailController {
 
-    private final CodeRepository codeRepository;
-    private final UserRepository userRepository;
     private final UserEmailService userEmailService;
 
     @PostMapping("/request")
@@ -49,25 +47,12 @@ public class UserEmailController {
 
     @PostMapping("/confirm")
     public ResponseEntity<String> confirmPasswordReset(@RequestBody EmailConfirmDTO emailConfirmDTO) {
-        Optional<Codes> optionalCode = codeRepository.findByCodeAndCodeType(emailConfirmDTO.getEmailCode(), CodeType.EMAIL_CHANGE);
-        if (optionalCode.isEmpty()) {
-            log.error("Email change code not found: {}", optionalCode);
-            throw new RuntimeException("Code not found");
+        try{
+            userEmailService.resetEmail(emailConfirmDTO.getUserId(), emailConfirmDTO.getEmailCode(), emailConfirmDTO.getEmail());
+            return ResponseEntity.ok("Email has been reset successfully.");
+        } catch (RuntimeException e){
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
-
-        Codes code = optionalCode.get();
-
-        Optional<User> optionalUser = userRepository.findById(code.getUser().getId());
-        if (optionalUser.isEmpty()) {
-            log.error("User not found during email change confirmation: {}", optionalUser);
-            throw new RuntimeException("User not found");
-        }
-
-        User user = optionalUser.get();
-
-        userEmailService.resetEmail(user.getId(), emailConfirmDTO.getEmailCode(), emailConfirmDTO.getEmail());
-
-        return ResponseEntity.ok("Password has been successfully reset.");
     }
 }
 
