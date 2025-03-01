@@ -4,7 +4,6 @@ import com.altester.auth.dto.Auth.LoginUserDTO;
 import com.altester.auth.dto.Auth.RegisterUserDTO;
 import com.altester.auth.dto.Auth.VerifyUserDTO;
 import com.altester.auth.exception.BadRequest;
-import com.altester.auth.exception.TwoFactorAuth;
 import com.altester.auth.models.Codes;
 import com.altester.auth.models.User;
 import com.altester.auth.models.enums.CodeType;
@@ -64,7 +63,18 @@ public class AuthService {
         user.setLastLogin(LocalDateTime.now());
         user.setEnabled(false);
         user.setRole(RolesEnum.STUDENT);
+        user.setRegistered(true);
         user.setUsername(userUtils.generateUsername(registerUserDTO.getSurname()));
+
+        Optional<Codes> existingCode = codeRepository.findByUserAndCodeType(user, CodeType.VERIFICATION);
+        if (existingCode.isPresent()) {
+            Codes existingVerificationCode = existingCode.get();
+            if (existingVerificationCode.getSendAt().plusSeconds(60).isAfter(LocalDateTime.now())) {
+                log.warn("Verification code was sent less than a minute ago for user: {}", registerUserDTO.getEmail());
+                throw new RuntimeException("Verification code was sent less than a minute ago");
+            }
+            codeRepository.delete(existingVerificationCode);
+        }
 
         code.setCode(generateVerificationCode());
         code.setExpiration(LocalDateTime.now().plusMinutes(15));

@@ -37,6 +37,11 @@ public class UserEmailService {
 
         User user = optionalUser.get();
 
+        if (!user.isRegistered()) {
+            log.error("User was created using ldap: {}", user.getUsername());
+            throw new UsernameNotFoundException("User was created using ldap");
+        }
+
         if (!passwordEncoder.matches(password, user.getPassword())) {
             log.error("Invalid password provided for username: {}", username);
             throw new RuntimeException("Invalid password");
@@ -44,8 +49,14 @@ public class UserEmailService {
 
         Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(user, CodeType.EMAIL_CHANGE);
         if (optionalCode.isPresent()) {
-            log.info("Deleting email change code {}", optionalCode);
             Codes code = optionalCode.get();
+
+            if (code.getSendAt().plusSeconds(60).isAfter(LocalDateTime.now())) {
+                log.warn("Email change code was sent less than a minute ago for user: {}", user.getEmail());
+                throw new RuntimeException("Email change code was sent less than a minute ago");
+            }
+
+            log.info("Deleting previous email change code for user: {}", user.getUsername());
             codeRepository.delete(code);
         }
 
@@ -73,7 +84,7 @@ public class UserEmailService {
 
             Codes code = optionalCode.get();
 
-            if (code.getSendAt().plusSeconds(59).isAfter(LocalDateTime.now())) {
+            if (code.getSendAt().plusSeconds(60).isAfter(LocalDateTime.now())) {
                 log.warn("Email change code was sent less than a minute ago for user: {}", user.getEmail());
                 throw new RuntimeException("Email change code was sent less than a minute ago");
             }
@@ -97,6 +108,11 @@ public class UserEmailService {
                     log.error("User not found: {}", userId);
                     return new RuntimeException("User not found");
                 });
+
+        if (!user.isRegistered()) {
+            log.error("User was created using ldap and not registered: {}", user.getUsername());
+            throw new UsernameNotFoundException("User was created using ldap");
+        }
 
         Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(user, CodeType.EMAIL_CHANGE);
         if (optionalCode.isPresent()) {

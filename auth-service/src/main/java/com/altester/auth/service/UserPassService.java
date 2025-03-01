@@ -9,6 +9,7 @@ import com.altester.auth.repository.UserRepository;
 import com.altester.auth.utils.EmailUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -35,10 +36,21 @@ public class UserPassService {
             return new RuntimeException("User not found");
                 });
 
+        if (!user.isRegistered()) {
+            log.error("User was created using ldap: {}", user.getUsername());
+            throw new UsernameNotFoundException("User was created using ldap");
+        }
+
         Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(user, CodeType.PASSWORD_RESET);
         if (optionalCode.isPresent()) {
-            log.info("Deleting password reset code {}", optionalCode);
             Codes code = optionalCode.get();
+
+            if (code.getSendAt().plusSeconds(60).isAfter(LocalDateTime.now())) {
+                log.warn("Password reset code was sent less than a minute ago for user: {}", email);
+                throw new RuntimeException("Password reset code was sent less than a minute ago");
+            }
+
+            log.info("Deleting previous password reset code for user: {}", user.getUsername());
             codeRepository.delete(code);
         }
 
@@ -60,6 +72,11 @@ public class UserPassService {
                     log.error("User not found: {}", userId);
                     return new RuntimeException("User not found");
                 });
+
+        if (!user.isRegistered()) {
+            log.error("User was created using ldap and not registered: {}", user.getUsername());
+            throw new UsernameNotFoundException("User was created using ldap");
+        }
 
         Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(user, CodeType.PASSWORD_RESET);
         if (optionalCode.isEmpty()) {
@@ -97,7 +114,7 @@ public class UserPassService {
 
             Codes code = optionalCode.get();
 
-            if (code.getSendAt().plusSeconds(59).isAfter(LocalDateTime.now())) {
+            if (code.getSendAt().plusSeconds(60).isAfter(LocalDateTime.now())) {
                 log.warn("Password reset code was sent less than a minute ago for user: {}", email);
                 throw new RuntimeException("Password reset code was sent less than a minute ago");
             }

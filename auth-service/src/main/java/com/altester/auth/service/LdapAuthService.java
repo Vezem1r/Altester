@@ -72,6 +72,9 @@ public class LdapAuthService {
                         user.setRole(RolesEnum.STUDENT);
                     }
 
+                    user.setEnabled(true);
+                    user.setRegistered(false);
+
                     userRepository.save(user);
                     log.info("New user {} added to the database.", username);
                 } else {

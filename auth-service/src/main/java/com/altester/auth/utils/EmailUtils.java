@@ -88,8 +88,8 @@ public class EmailUtils {
             String subject = "Email change code";
 
             sendEmail(email, subject, htmlMessage);
-        } {
-            throw new RuntimeException("Function wait to get email type equals Change Email");
+        } else {
+            throw new RuntimeException("Function expects email type to be 'CHANGE_EMAIL'");
         }
     }
 

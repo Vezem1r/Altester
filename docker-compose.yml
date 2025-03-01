@@ -1,6 +1,6 @@
 services:
   auth-service:
-    container_name: auth-container
+    container_name: auth-service_container
     build:
       context: ./auth-service
     env_file:
@@ -19,7 +19,7 @@ services:
     env_file:
       - .env
     environment:
-      - AUTH_SERVICE_URL=http://auth-service:8080
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
     depends_on:
       - auth-service
     networks:

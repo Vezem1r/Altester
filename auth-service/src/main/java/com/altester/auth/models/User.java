@@ -44,6 +44,9 @@ public class User implements UserDetails {
     @Enumerated(EnumType.STRING)
     private RolesEnum role;
 
+    @Column
+    private boolean isRegistered;
+
     /*-----------------------------------------------------*/
 
     @Override
