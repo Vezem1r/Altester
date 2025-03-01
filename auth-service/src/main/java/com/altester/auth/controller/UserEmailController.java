@@ -3,18 +3,12 @@ package com.altester.auth.controller;
 import com.altester.auth.dto.EmailConfirmDTO;
 import com.altester.auth.dto.EmailInitDTO;
 import com.altester.auth.dto.EmailResendDTO;
-import com.altester.auth.models.Codes;
-import com.altester.auth.models.User;
-import com.altester.auth.models.enums.CodeType;
-import com.altester.auth.repository.CodeRepository;
-import com.altester.auth.repository.UserRepository;
 import com.altester.auth.service.UserEmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Optional;
 
 @RequestMapping("/email")
 @RestController
@@ -22,6 +16,7 @@ import java.util.Optional;
 @Slf4j
 public class UserEmailController {
 
+    //TODO почту отправлять только для конфирма
     private final UserEmailService userEmailService;
 
     @PostMapping("/request")

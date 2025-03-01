@@ -53,37 +53,29 @@ public class AuthService {
             }
         }
 
-        User user = new User();
-        Codes code = new Codes();
-        user.setName(registerUserDTO.getName());
-        user.setSurname(registerUserDTO.getSurname());
-        user.setEmail(registerUserDTO.getEmail());
-        user.setPassword(passwordEncoder.encode(registerUserDTO.getPassword()));
-        user.setCreated(LocalDateTime.now());
-        user.setLastLogin(LocalDateTime.now());
-        user.setEnabled(false);
-        user.setRole(RolesEnum.STUDENT);
-        user.setRegistered(true);
-        user.setUsername(userUtils.generateUsername(registerUserDTO.getSurname()));
+        User user = User.builder()
+                .name(registerUserDTO.getName())
+                .surname(registerUserDTO.getSurname())
+                .email(registerUserDTO.getEmail())
+                .password(passwordEncoder.encode(registerUserDTO.getPassword()))
+                .created(LocalDateTime.now())
+                .lastLogin(LocalDateTime.now())
+                .enabled(false)
+                .role(RolesEnum.STUDENT)
+                .isRegistered(true)
+                .username(userUtils.generateUsername(registerUserDTO.getSurname()))
+                .build();
 
-        Optional<Codes> existingCode = codeRepository.findByUserAndCodeType(user, CodeType.VERIFICATION);
-        if (existingCode.isPresent()) {
-            Codes existingVerificationCode = existingCode.get();
-            if (existingVerificationCode.getSendAt().plusSeconds(60).isAfter(LocalDateTime.now())) {
-                log.warn("Verification code was sent less than a minute ago for user: {}", registerUserDTO.getEmail());
-                throw new RuntimeException("Verification code was sent less than a minute ago");
-            }
-            codeRepository.delete(existingVerificationCode);
-        }
+        Codes code = Codes.builder()
+                .code(generateVerificationCode())
+                .expiration(LocalDateTime.now().plusMinutes(15))
+                .user(user)
+                .codeType(CodeType.VERIFICATION)
+                .sendAt(LocalDateTime.now())
+                .build();
 
-        code.setCode(generateVerificationCode());
-        code.setExpiration(LocalDateTime.now().plusMinutes(15));
-        code.setUser(user);
-        code.setCodeType(CodeType.VERIFICATION);
 
-        code.setSendAt(LocalDateTime.now());
         userRepository.save(user);
-
         codeRepository.save(code);
 
         emailUtils.sendVerificationEmail(user, EmailType.REGISTER);
@@ -113,6 +105,11 @@ public class AuthService {
         if (!user.isEnabled()) {
             log.warn("User with email '{}' is disabled.", usernameOrEmail);
             throw new RuntimeException("User with email " + usernameOrEmail + " is disabled.");
+        }
+
+        if (!passwordEncoder.matches(loginUserDTO.getPassword(), user.getPassword())) {
+            log.error("Invalid password for user '{}'", usernameOrEmail);
+            throw new RuntimeException("Invalid credentials");
         }
 
         user.setLastLogin(LocalDateTime.now());

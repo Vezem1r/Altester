@@ -58,22 +58,17 @@ public class LdapAuthService {
                 user = userRepository.findByUsername(uid).orElse(null);
 
                 if (user == null) {
-
-                    user = new User();
-                    user.setUsername(uid);
-                    user.setEmail(email);
-                    user.setName(givenName);
-                    user.setSurname(surname);
-
-                    user.setCreated(LocalDateTime.now());
-                    user.setLastLogin(LocalDateTime.now());
-
-                    if (user.getRole() == null) {
-                        user.setRole(RolesEnum.STUDENT);
-                    }
-
-                    user.setEnabled(true);
-                    user.setRegistered(false);
+                    user = User.builder()
+                            .username(uid)
+                            .email(email)
+                            .name(givenName)
+                            .surname(surname)
+                            .created(LocalDateTime.now())
+                            .lastLogin(LocalDateTime.now())
+                            .role(RolesEnum.STUDENT)
+                            .enabled(true)
+                            .isRegistered(false)
+                            .build();
 
                     userRepository.save(user);
                     log.info("New user {} added to the database.", username);

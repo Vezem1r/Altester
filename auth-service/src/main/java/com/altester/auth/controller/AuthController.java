@@ -23,35 +23,42 @@ public class AuthController {
 
     private final JwtService jwtService;
     private final AuthService authService;
-    private final UserRepository userRepository;
 
     @PostMapping("/signup")
-    public ResponseEntity<User> signup(@RequestBody RegisterUserDTO registerUserDto){
+    public ResponseEntity<?> signup(@RequestBody RegisterUserDTO registerUserDto){
         log.info("Received register request: {}", registerUserDto);
-
-        User registeredUser = authService.signUp(registerUserDto);
-        return ResponseEntity.ok(registeredUser);
+        try {
+            authService.signUp(registerUserDto);
+            log.info("Signup successful");
+            return ResponseEntity.ok("User has been created. Verification code has been send on your email");
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     @PostMapping("/signin")
-    public ResponseEntity<LoginResponse> signin(@RequestBody LoginUserDTO loginUserDto) {
+    public ResponseEntity<?> signin(@RequestBody LoginUserDTO loginUserDto) {
         log.info("Received login request: {}", loginUserDto);
+        try {
+            User authenticatedUser = authService.signIn(loginUserDto);
+            String jwtToken = jwtService.generateToken(authenticatedUser, authenticatedUser.getRole().name(), loginUserDto.isRememberMe());
 
-        User authenticatedUser = authService.signIn(loginUserDto);
-        String jwtToken = jwtService.generateToken(authenticatedUser, authenticatedUser.getRole().name(), loginUserDto.isRememberMe());
+            long expirationTimeMillis = jwtService.extractExpiration(jwtToken).getTime();
+            long currentTimeMillis = System.currentTimeMillis();
 
-        long expirationTimeMillis = jwtService.extractExpiration(jwtToken).getTime();
-        long currentTimeMillis = System.currentTimeMillis();
+            long expiresIn = expirationTimeMillis - currentTimeMillis;
 
-        long expiresIn = expirationTimeMillis - currentTimeMillis;
+            log.info("Token expires in: {}", expiresIn);
 
-        log.info("Token expires in: {}", expiresIn);
+            LoginResponse loginResponse = new LoginResponse(jwtToken, expiresIn, "Login successful");
 
-        LoginResponse loginResponse = new LoginResponse(jwtToken, expiresIn, "Login successful");
-
-        String role = jwtService.extractRole(jwtToken);
-        log.info("Extracted role: {}", role);
-        return ResponseEntity.ok(loginResponse);
+            String role = jwtService.extractRole(jwtToken);
+            log.info("Extracted role: {}", role);
+            return ResponseEntity.ok(loginResponse);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     @PostMapping("/verify")

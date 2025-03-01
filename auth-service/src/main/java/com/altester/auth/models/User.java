@@ -3,7 +3,10 @@ package com.altester.auth.models;
 import com.altester.auth.models.enums.RolesEnum;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -12,7 +15,10 @@ import java.util.Collection;
 
 @Entity
 @Data
+@Builder
 @Table(name = "users")
+@NoArgsConstructor
+@AllArgsConstructor
 public class User implements UserDetails {
 
     @Id

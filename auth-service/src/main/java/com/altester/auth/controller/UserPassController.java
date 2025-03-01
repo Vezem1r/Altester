@@ -37,25 +37,13 @@ public class UserPassController {
 
     @PostMapping("/confirm")
     public ResponseEntity<String> confirmPasswordReset(@RequestBody ChangePassDTO changePassDTO) {
-        Optional<Codes> optionalCode = codeRepository.findByCodeAndCodeType(changePassDTO.getResetCode(), CodeType.PASSWORD_RESET);
-        if (optionalCode.isEmpty()) {
-            log.error("Password reset code not found: {}", optionalCode);
-            throw new RuntimeException("Code not found");
+        try {
+            userSecService.resetPassword(changePassDTO.getUserId(), changePassDTO.getResetCode(), changePassDTO.getNewPassword());
+            return ResponseEntity.ok("Password has been reset successfully.");
+        } catch (RuntimeException e) {
+            log.error("Error resetting password: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
-
-        Codes code = optionalCode.get();
-
-        Optional<User> optionalUser = userRepository.findById(code.getUser().getId());
-        if (optionalUser.isEmpty()) {
-            log.error("User not found during password reset confirmation: {}", optionalUser);
-            throw new RuntimeException("User not found");
-        }
-
-        User user = optionalUser.get();
-
-        userSecService.resetPassword(user.getId(), changePassDTO.getResetCode(), changePassDTO.getNewPassword());
-
-        return ResponseEntity.ok("Password has been successfully reset.");
     }
 
     @PostMapping("/resend")
