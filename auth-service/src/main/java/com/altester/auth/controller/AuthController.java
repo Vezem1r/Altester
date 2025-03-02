@@ -5,7 +5,6 @@ import com.altester.auth.dto.Auth.LoginUserDTO;
 import com.altester.auth.dto.Auth.RegisterUserDTO;
 import com.altester.auth.dto.Auth.VerifyUserDTO;
 import com.altester.auth.models.User;
-import com.altester.auth.repository.UserRepository;
 import com.altester.auth.service.AuthService;
 import com.altester.auth.service.JwtService;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +27,7 @@ public class AuthController {
     public ResponseEntity<?> signup(@RequestBody RegisterUserDTO registerUserDto){
         log.info("Received register request: {}", registerUserDto);
         try {
-            authService.signUp(registerUserDto);
+            authService.register(registerUserDto);
             log.info("Signup successful");
             return ResponseEntity.ok("User has been created. Verification code has been send on your email");
         } catch (Exception e) {

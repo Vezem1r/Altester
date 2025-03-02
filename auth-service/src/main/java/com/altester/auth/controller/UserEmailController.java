@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 public class UserEmailController {
 
-    //TODO почту отправлять только для конфирма
     private final UserEmailService userEmailService;
 
     @PostMapping("/request")

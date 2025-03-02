@@ -16,8 +16,6 @@ public interface CodeRepository extends JpaRepository<Codes, Long> {
 
     Optional<Codes> findByUserAndCodeType(User user, CodeType codeType);
 
-    Optional<Codes> findByUserEmailAndCodeType(String email, CodeType codeType);
-
     List<Codes> findAllByUser(User user);
 
     @Modifying

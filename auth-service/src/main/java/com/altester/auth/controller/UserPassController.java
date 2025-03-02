@@ -1,18 +1,11 @@
 package com.altester.auth.controller;
 
 import com.altester.auth.dto.ChangePassDTO;
-import com.altester.auth.models.Codes;
-import com.altester.auth.models.User;
-import com.altester.auth.models.enums.CodeType;
-import com.altester.auth.repository.CodeRepository;
-import com.altester.auth.repository.UserRepository;
 import com.altester.auth.service.UserPassService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Optional;
 
 @RequestMapping("/password")
 @RestController
@@ -21,8 +14,6 @@ import java.util.Optional;
 public class UserPassController {
 
     private final UserPassService userSecService;
-    private final CodeRepository codeRepository;
-    private final UserRepository userRepository;
 
     @PostMapping("/request")
     public ResponseEntity<String> requestPasswordReset(@RequestParam("email") String email){

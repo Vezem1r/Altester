@@ -35,7 +35,7 @@ public class AuthService {
     private final CodeRepository codeRepository;
     private final EmailUtils emailUtils;
 
-    public User signUp(RegisterUserDTO registerUserDTO){
+    public void register(RegisterUserDTO registerUserDTO){
         log.info("Attempting to register user with email: {}", registerUserDTO.getEmail());
 
         Optional<User> existingUserByEmail = userRepository.findByEmail(registerUserDTO.getEmail());
@@ -46,6 +46,16 @@ public class AuthService {
                 log.error("User with email '{}' already exists.", registerUserDTO.getEmail());
                 throw new BadRequest("User with this email already exists.");
             } else {
+                Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(userByEmail, CodeType.VERIFICATION);
+
+                if (optionalCode.isPresent()) {
+                    Codes code = optionalCode.get();
+                    if (code.getSendAt().plusMinutes(5).isAfter(LocalDateTime.now())) {
+                        log.warn("User has been created less then 5 minutes ago: {}", userByEmail.getEmail());
+                        throw new RuntimeException("User has been created less then 5 minutes ago");
+                    }
+                }
+
                 List<Codes> codes = codeRepository.findAllByUser(userByEmail);
                 codeRepository.deleteAll(codes);
                 userRepository.delete(userByEmail);
@@ -80,7 +90,6 @@ public class AuthService {
 
         emailUtils.sendVerificationEmail(user, EmailType.REGISTER);
         log.info("Registered user with email: {}", registerUserDTO.getEmail());
-        return user;
     }
 
     public User signIn(LoginUserDTO loginUserDTO) {
