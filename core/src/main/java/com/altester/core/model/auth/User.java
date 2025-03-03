@@ -9,6 +9,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Data
@@ -46,6 +48,17 @@ public class User implements UserDetails {
 
     @Column
     private boolean isRegistered;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_groups",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "group_id")
+    )
+    private Set<Group> groups = new HashSet<>();
+
+    @OneToMany(mappedBy = "teacher", fetch = FetchType.LAZY)
+    private Set<Group> taughtGroups = new HashSet<>();
 
     /*-----------------------------------------------------*/
 

@@ -1,5 +1,6 @@
 package com.altester.core.config;
 
+import com.altester.core.model.auth.enums.RolesEnum;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -38,6 +39,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(WHITE_LIST).permitAll()
+                        .requestMatchers("/admin/**").hasAnyRole(RolesEnum.ADMIN.name())
+                        .requestMatchers("/teacher/**").hasAnyRole(RolesEnum.TEACHER.name())
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))

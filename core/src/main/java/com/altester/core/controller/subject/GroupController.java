@@ -1,0 +1,13 @@
+package com.altester.core.controller.subject;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/teacher/group")
+@Slf4j
+@RequiredArgsConstructor
+public class GroupController {
+}
