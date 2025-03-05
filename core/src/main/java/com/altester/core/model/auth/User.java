@@ -1,6 +1,7 @@
 package com.altester.core.model.auth;
 
 import com.altester.core.model.auth.enums.RolesEnum;
+import com.altester.core.model.subject.Group;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;

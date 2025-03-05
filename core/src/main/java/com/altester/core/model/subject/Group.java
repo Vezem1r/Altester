@@ -1,5 +1,6 @@
-package com.altester.core.model.auth;
+package com.altester.core.model.subject;
 
+import com.altester.core.model.auth.User;
 import jakarta.persistence.*;
 import lombok.Data;
 

@@ -5,5 +5,6 @@ import lombok.Data;
 @Data
 public class CreateSubjectDTO {
     private String name;
+    private String shortName;
     private String description;
 }
