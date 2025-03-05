@@ -1,6 +1,7 @@
 package com.altester.core.service.subject;
 
 import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
+import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
 import com.altester.core.repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -96,6 +98,31 @@ public class SubjectService {
             log.info("Subject with short name {} created", createSubjectDTO.getShortName());
         } catch (Exception e) {
             log.error("Error creating subject {}", createSubjectDTO.getShortName());
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    public void updateGroups(long subjectId, Set<Group> groups) {
+        try{
+            Subject subject = subjectRepository.findById(subjectId).orElseThrow(() -> {
+                log.error("Subject with id {} not found", subjectId);
+                return new RuntimeException("Subject with id " + subjectId + " not found");
+            });
+
+            Set<Group> currentGroups = subject.getGroups();
+
+            for (Group group : groups) {
+                if (!currentGroups.contains(group)) {
+                    currentGroups.add(group);
+                }
+            }
+
+            currentGroups.removeIf(group -> !groups.contains(group));
+
+            subject.setGroups(currentGroups);
+            subjectRepository.save(subject);
+        } catch (Exception e) {
+            log.error("Error updating groups {}", e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
     }

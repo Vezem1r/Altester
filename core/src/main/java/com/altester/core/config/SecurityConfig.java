@@ -40,7 +40,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(WHITE_LIST).permitAll()
                         .requestMatchers("/admin/**").hasAnyRole(RolesEnum.ADMIN.name())
-                        .requestMatchers("/teacher/**").hasAnyRole(RolesEnum.TEACHER.name())
+                        .requestMatchers("/teacher/**").hasAnyRole(RolesEnum.TEACHER.name(), RolesEnum.ADMIN.name())
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))

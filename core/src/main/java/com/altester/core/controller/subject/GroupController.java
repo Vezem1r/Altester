@@ -14,7 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/teacher/group")
+@RequestMapping("/admin/group")
 @Slf4j
 @RequiredArgsConstructor
 public class GroupController {
@@ -28,7 +28,7 @@ public class GroupController {
             return ResponseEntity.status(HttpStatus.CREATED).body("Group created successfully");
         } catch (Exception e) {
             log.error("Group {} creation failed", createGroupDTO.getGroupName());
-            throw new RuntimeException("Group creation failed. " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error during group creation. " + e.getMessage());
         }
     }
 
@@ -40,7 +40,7 @@ public class GroupController {
             return ResponseEntity.status(HttpStatus.OK).body("Group updated successfully");
         } catch (Exception e) {
             log.error("Group {} update failed", createGroupDTO.getGroupName());
-            throw new RuntimeException("Group {} update failed. " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error during group updating. " + e.getMessage());
         }
     }
 
@@ -51,10 +51,10 @@ public class GroupController {
             Pageable pageable = PageRequest.of(page, fixedSize);
             Page<GroupsResponce> groups = groupService.getAllGroups(pageable);
             log.info("Groups fetched successfully");
-            return ResponseEntity.status(HttpStatus.OK).body(groups);
+            return ResponseEntity.ok(groups);
         } catch (Exception e) {
             log.error("Groups fetch failed");
-            throw new RuntimeException("Groups fetch failed. " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
 
     }
@@ -64,10 +64,10 @@ public class GroupController {
         try {
             Group group = groupService.getGroup(id);
             log.info("Group with id {} fetched successfully", id);
-            return ResponseEntity.status(HttpStatus.OK).body(group);
+            return ResponseEntity.ok(group);
         } catch (Exception e) {
             log.error("Group {} get failed", id);
-            throw new RuntimeException("Group get failed. " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
     }
 
@@ -78,7 +78,7 @@ public class GroupController {
             return ResponseEntity.status(HttpStatus.OK).body("Group deleted successfully");
         } catch (Exception e) {
             log.error("Group {} delete failed", id);
-            throw new RuntimeException("Group get failed. " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Error during group deleting. " + e.getMessage());
         }
     }
 }

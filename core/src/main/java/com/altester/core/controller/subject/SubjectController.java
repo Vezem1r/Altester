@@ -1,6 +1,7 @@
 package com.altester.core.controller.subject;
 
 import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
+import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
 import com.altester.core.service.subject.SubjectService;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Set;
 
 @RestController
 @RequestMapping("/admin/subject")
@@ -29,6 +32,18 @@ public class SubjectController {
         } catch (Exception e) {
             log.error("Error creating subject: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Failed to create subject: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/update-groups/{subjectId}")
+    public ResponseEntity<String> assignGroups (@PathVariable long subjectId, @RequestBody Set<Group> groups) {
+        try {
+            subjectService.updateGroups(subjectId, groups);
+            log.info("Subject updated successfully {}", subjectId);
+            return ResponseEntity.status(HttpStatus.OK).body("Subject has been updated successfully");
+        } catch (Exception e) {
+            log.error("Error updating groups: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Failed to update groups in subject: " + e.getMessage());
         }
     }
 
