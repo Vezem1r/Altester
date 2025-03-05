@@ -21,13 +21,13 @@ public class Subject {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @Column(nullable = false)
+    @Column(length = 63, nullable = false)
     private String name;
 
-    @Column(nullable = false, unique = true)
+    @Column(length = 6, nullable = false, unique = true)
     private String shortName;
 
-    @Column()
+    @Column(length = 255)
     private String description;
 
     @OneToMany(mappedBy = "subject")

@@ -2,7 +2,10 @@ package com.altester.core.model.subject;
 
 import com.altester.core.model.auth.User;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -10,6 +13,9 @@ import java.util.Set;
 @Entity
 @Data
 @Table(name = "groups")
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class Group {
 
     @Id
@@ -29,7 +35,7 @@ public class Group {
             joinColumns = @JoinColumn(name = "group_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
-    private Set<User> users = new HashSet<>();
+    private Set<User> students = new HashSet<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "teacher_id")
