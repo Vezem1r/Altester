@@ -1,8 +1,10 @@
 package com.altester.core.service.subject;
 
 import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
+import com.altester.core.dtos.core_service.subject.UpdateGroupsDTO;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
+import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +12,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -19,6 +23,7 @@ import java.util.Set;
 public class SubjectService {
 
     private final SubjectRepository subjectRepository;
+    private final GroupRepository groupRepository;
 
     public Page<Subject> getAllSubjects(Pageable pageable) {
         try {
@@ -37,7 +42,7 @@ public class SubjectService {
                 return new RuntimeException("Subject not found");
             });
         } catch (Exception e) {
-            log.error("Subject with id {} not found", subjectId);
+            log.error("Error fetching subject with id {}, {}", subjectId, e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
     }
@@ -62,7 +67,7 @@ public class SubjectService {
             subjectRepository.save(subject);
 
         } catch (Exception e) {
-            log.error("Subject with id {} not found", subjectId);
+            log.error("Error during subject update: {}", e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
     }
@@ -75,7 +80,7 @@ public class SubjectService {
             });
             subjectRepository.deleteById(subjectId);
         } catch (Exception e) {
-            log.error("Subject with id {} not found", subjectId);
+            log.error("Error during subject delete: {}", e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
     }
@@ -102,27 +107,31 @@ public class SubjectService {
         }
     }
 
-    public void updateGroups(long subjectId, Set<Group> groups) {
-        try{
-            Subject subject = subjectRepository.findById(subjectId).orElseThrow(() -> {
-                log.error("Subject with id {} not found", subjectId);
-                return new RuntimeException("Subject with id " + subjectId + " not found");
-            });
+    public void updateGroups(UpdateGroupsDTO updateGroupsDTO) {
+        try {
+            Subject subject = subjectRepository.findById(updateGroupsDTO.getSubjectId())
+                    .orElseThrow(() -> {
+                        log.error("Subject with id {} not found", updateGroupsDTO.getSubjectId());
+                        return new RuntimeException("Subject with id " + updateGroupsDTO.getSubjectId() + " not found");
+                    });
 
             Set<Group> currentGroups = subject.getGroups();
 
-            for (Group group : groups) {
+            List<Group> groupsList = groupRepository.findAllById(updateGroupsDTO.getGroupIds());
+            Set<Group> groupsToAdd = new HashSet<>(groupsList);
+
+            for (Group group : groupsToAdd) {
                 if (!currentGroups.contains(group)) {
                     currentGroups.add(group);
                 }
             }
 
-            currentGroups.removeIf(group -> !groups.contains(group));
+            currentGroups.removeIf(group -> !groupsToAdd.contains(group));
 
             subject.setGroups(currentGroups);
             subjectRepository.save(subject);
         } catch (Exception e) {
-            log.error("Error updating groups {}", e.getMessage());
+            log.error("Error updating groups in subject {}. {}", updateGroupsDTO.getSubjectId(), e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
     }

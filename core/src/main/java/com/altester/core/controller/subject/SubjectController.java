@@ -1,7 +1,7 @@
 package com.altester.core.controller.subject;
 
 import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
-import com.altester.core.model.subject.Group;
+import com.altester.core.dtos.core_service.subject.UpdateGroupsDTO;
 import com.altester.core.model.subject.Subject;
 import com.altester.core.service.subject.SubjectService;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +13,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Set;
 
 @RestController
 @RequestMapping("/admin/subject")
@@ -35,11 +34,11 @@ public class SubjectController {
         }
     }
 
-    @PostMapping("/update-groups/{subjectId}")
-    public ResponseEntity<String> assignGroups (@PathVariable long subjectId, @RequestBody Set<Group> groups) {
+    @PostMapping("/update-groups")
+    public ResponseEntity<String> assignGroups (@RequestBody UpdateGroupsDTO updateGroupsDTO) {
         try {
-            subjectService.updateGroups(subjectId, groups);
-            log.info("Subject updated successfully {}", subjectId);
+            subjectService.updateGroups(updateGroupsDTO);
+            log.info("Subject updated successfully {}", updateGroupsDTO.getSubjectId());
             return ResponseEntity.status(HttpStatus.OK).body("Subject has been updated successfully");
         } catch (Exception e) {
             log.error("Error updating groups: {}", e.getMessage());

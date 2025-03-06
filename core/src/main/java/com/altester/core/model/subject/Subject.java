@@ -30,6 +30,7 @@ public class Subject {
     @Column(length = 255)
     private String description;
 
-    @OneToMany(mappedBy = "subject")
+    @OneToMany
+    @JoinColumn(name = "subject_id")
     private Set<Group> groups = new HashSet<>();
 }

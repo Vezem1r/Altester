@@ -1,20 +1,15 @@
 package com.altester.core.model.auth;
 
 import com.altester.core.model.auth.enums.RolesEnum;
-import com.altester.core.model.subject.Group;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
+
 
 @Entity
 @Data
@@ -56,21 +51,10 @@ public class User implements UserDetails {
     @Column
     private boolean isRegistered;
 
-    @ManyToMany()
-    @JoinTable(
-            name = "student_groups",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "group_id")
-    )
-    @JsonIgnore
-    private Set<Group> groups = new HashSet<>();
-
-    @OneToMany(mappedBy = "teacher")
-    private Set<Group> taughtGroups = new HashSet<>();
-
     /*-----------------------------------------------------*/
 
     @Override
+    @JsonIgnore
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return role.getAuthorities();
     }

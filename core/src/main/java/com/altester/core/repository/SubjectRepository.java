@@ -10,6 +10,6 @@ import java.util.Optional;
 public interface SubjectRepository extends JpaRepository<Subject, Long> {
 
     Optional<Subject> findByShortName(String shortName);
-
     Page<Subject> findAll(Pageable pageable);
+    Optional<Subject> findByGroupsId(Long groupsId);
 }

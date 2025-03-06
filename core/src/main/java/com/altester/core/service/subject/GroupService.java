@@ -9,6 +9,8 @@ import com.altester.core.model.subject.Subject;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -54,49 +56,65 @@ public class GroupService {
     }
 
     public Page<GroupsResponce> getAllGroups(Pageable pageable) {
-        return groupRepository.findAll(pageable).map(group -> new GroupsResponce(
-                group.getId(),
-                group.getName(),
-                group.getTeacher() != null ? group.getTeacher().getUsername() : "No teacher",
-                group.getStudents().size(),
-                group.getSubject() != null ? group.getSubject().getName() : "No subject"
-        ));
+        return groupRepository.findAll(pageable).map(group -> {
+            Optional<Subject> subject = subjectRepository.findByGroupsId(group.getId());
+            String subjectName;
+            if (subject.isPresent()) {
+                subjectName = subject.get().getName();
+            } else {
+                subjectName = "No subject";
+            }
+            return new GroupsResponce(
+                    group.getId(),
+                    group.getName(),
+                    group.getTeacher() != null ? group.getTeacher().getUsername() : "No teacher",
+                    group.getStudents().size(),
+                    subjectName
+            );
+        });
     }
 
-    public void updateGroup(long id, CreateGroupDTO createGroupDTO) {
-        try {
-            Group group = groupRepository.findById(id)
-                    .orElseThrow(() -> new IllegalArgumentException("Group with ID " + id + " not found"));
+    @Transactional
+    public void updateGroup(Long id, CreateGroupDTO createGroupDTO) {
+        Group group = groupRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Group not found"));
 
-            if (createGroupDTO.getGroupName() != null) {
-                group.setName(createGroupDTO.getGroupName());
-            }
-
-            User teacher = userRepository.findById(createGroupDTO.getTeacherId()).orElse(null);
-            group.setTeacher(teacher);
-
-            Subject subject = subjectRepository.findById(createGroupDTO.getSubjectId()).orElse(null);
-            group.setSubject(subject);
-
-            Set<User> updatedStudents = createGroupDTO.getStudentsIds().stream()
-                    .map(userRepository::findById)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .collect(Collectors.toSet());
-
-            if (updatedStudents.isEmpty()) {
-                log.error("Update failed: Group must have at least one student");
-                throw new IllegalArgumentException("Group must have at least one student");
-            }
-
-            group.setStudents(updatedStudents);
-            groupRepository.save(group);
-            log.info("Group '{}' updated successfully", group.getName());
-
-        } catch (Exception e) {
-            log.error("Error updating group with id {}: {}", id, e.getMessage());
-            throw new RuntimeException("Error updating group: " + e.getMessage());
+        if (createGroupDTO.getStudentsIds() == null || createGroupDTO.getStudentsIds().isEmpty()) {
+            log.error("Group update failed: At least one student is required");
+            throw new IllegalArgumentException("Group must have at least one student");
         }
+
+        if (!group.getName().equals(createGroupDTO.getGroupName()) &&
+                groupRepository.findByName(createGroupDTO.getGroupName()).isPresent()) {
+            log.error("Group with name '{}' already exists", createGroupDTO.getGroupName());
+            throw new IllegalArgumentException("Group with name '" + createGroupDTO.getGroupName() + "' already exists");
+        }
+
+        group.setName(createGroupDTO.getGroupName());
+
+        User teacher = userRepository.findById(createGroupDTO.getTeacherId())
+                .orElseThrow(() -> new EntityNotFoundException("Teacher not found"));
+        if (!teacher.getRole().equals(RolesEnum.TEACHER)) {
+            log.error("User with ID '{}' is not a teacher", createGroupDTO.getTeacherId());
+            throw new IllegalArgumentException("User is not a teacher");
+        }
+        group.setTeacher(teacher);
+
+        Set<User> students = createGroupDTO.getStudentsIds().stream()
+                .map(userRepository::findById)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .filter(user -> user.getRole().equals(RolesEnum.STUDENT))
+                .collect(Collectors.toSet());
+
+        if (students.isEmpty()) {
+            log.error("Group update failed: No valid students found");
+            throw new IllegalArgumentException("Group update failed: No valid students found");
+        }
+        group.setStudents(students);
+
+        groupRepository.save(group);
+        log.info("Group '{}' updated successfully with {} students", group.getName(), students.size());
     }
 
     public void createGroup(CreateGroupDTO createGroupDTO) {
@@ -118,9 +136,6 @@ public class GroupService {
                 throw new IllegalArgumentException("User is not a teacher");
             }
 
-            Subject subject = subjectRepository.findById(createGroupDTO.getSubjectId())
-                    .orElseThrow(() -> new IllegalArgumentException("Subject cannot be null"));
-
             Set<User> students = createGroupDTO.getStudentsIds().stream()
                     .map(userRepository::findById)
                     .filter(Optional::isPresent)
@@ -136,7 +151,6 @@ public class GroupService {
             Group group = Group.builder()
                     .name(createGroupDTO.getGroupName())
                     .teacher(teacher)
-                    .subject(subject)
                     .students(students)
                     .build();
 

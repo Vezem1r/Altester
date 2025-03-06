@@ -1,6 +1,6 @@
 package com.altester.core.config;
 
-import com.altester.core.service.UserService;
+import com.altester.core.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,6 +9,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.client.RestTemplate;
 
@@ -16,11 +17,19 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class AppConfig {
 
-    private final UserService userService;
+    private final UserRepository userRepository;
 
     @Bean
     UserDetailsService userDetailsService() {
-        return userService::loadUserByUsernameOrEmail;
+        return usernameOrEmail -> {
+            if (usernameOrEmail.contains("@")) {
+                return userRepository.findByEmail(usernameOrEmail)
+                        .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + usernameOrEmail));
+            } else {
+                return userRepository.findByUsername(usernameOrEmail)
+                        .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + usernameOrEmail));
+            }
+        };
     }
 
     @Bean

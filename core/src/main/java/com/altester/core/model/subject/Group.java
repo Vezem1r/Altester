@@ -1,11 +1,9 @@
 package com.altester.core.model.subject;
 
 import com.altester.core.model.auth.User;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -16,6 +14,7 @@ import java.util.Set;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
+@EqualsAndHashCode(exclude = {"students"})
 public class Group {
 
     @Id
@@ -25,16 +24,13 @@ public class Group {
     @Column(unique = true, nullable = false)
     private String name;
 
-    @ManyToOne()
-    @JoinColumn(name = "subject_id")
-    private Subject subject;
-
     @ManyToMany()
     @JoinTable(
             name = "student_groups",
             joinColumns = @JoinColumn(name = "group_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
+    @JsonManagedReference
     private Set<User> students = new HashSet<>();
 
     @ManyToOne()
