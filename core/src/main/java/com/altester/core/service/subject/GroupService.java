@@ -65,74 +65,37 @@ public class GroupService {
 
     public void updateGroup(long id, CreateGroupDTO createGroupDTO) {
         try {
-            log.info("Attempting to update group with ID: {}", id);
-
             Group group = groupRepository.findById(id)
-                    .orElseThrow(() -> {
-                        log.error("Group with ID {} not found", id);
-                        return new IllegalArgumentException("Group with ID " + id + " not found");
-                    });
-            log.info("Group with ID {} found: {}", id, group.getName());
+                    .orElseThrow(() -> new IllegalArgumentException("Group with ID " + id + " not found"));
 
             if (createGroupDTO.getGroupName() != null) {
                 group.setName(createGroupDTO.getGroupName());
-                log.info("Group name updated to: {}", createGroupDTO.getGroupName());
             }
 
-            User teacher = userRepository.findById(createGroupDTO.getTeacherId())
-                    .orElseThrow(() -> {
-                        log.error("Teacher with ID {} not found", createGroupDTO.getTeacherId());
-                        return new IllegalArgumentException("Teacher cannot be null");
-                    });
-            if (!teacher.getRole().equals(RolesEnum.TEACHER)) {
-                log.error("User with ID '{}' is not a teacher", createGroupDTO.getTeacherId());
-                throw new IllegalArgumentException("User is not a teacher");
-            }
+            User teacher = userRepository.findById(createGroupDTO.getTeacherId()).orElse(null);
             group.setTeacher(teacher);
-            log.info("Group teacher updated to: {}", teacher.getUsername());
 
-            Subject subject = subjectRepository.findById(createGroupDTO.getSubjectId())
-                    .orElseThrow(() -> {
-                        log.error("Subject with ID {} not found", createGroupDTO.getSubjectId());
-                        return new IllegalArgumentException("Subject cannot be null");
-                    });
+            Subject subject = subjectRepository.findById(createGroupDTO.getSubjectId()).orElse(null);
             group.setSubject(subject);
-            log.info("Group subject updated to: {}", subject.getName());
-
-            log.info("Processing student IDs: {}", createGroupDTO.getStudentsIds());
 
             Set<User> updatedStudents = createGroupDTO.getStudentsIds().stream()
-                    .map(studentId -> {
-                        Optional<User> studentOpt = userRepository.findById(studentId);
-                        if (!studentOpt.isPresent()) {
-                            log.warn("Student with ID {} not found", studentId);
-                        } else {
-                            log.info("Student with ID {} found: {}", studentId, studentOpt.get().getUsername());
-                        }
-                        return studentOpt;
-                    })
+                    .map(userRepository::findById)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .filter(user -> user.getRole().equals(RolesEnum.STUDENT))
                     .collect(Collectors.toSet());
 
-            log.info("Filtered valid students: {}", updatedStudents.size());
-
-            group.getStudents().clear();
-            log.info("Removed all existing students from the group.");
-
             if (updatedStudents.isEmpty()) {
-                log.error("Update failed: Group must have at least one new student with role STUDENT");
-                throw new IllegalArgumentException("Group must have at least one student with role STUDENT");
+                log.error("Update failed: Group must have at least one student");
+                throw new IllegalArgumentException("Group must have at least one student");
             }
 
             group.setStudents(updatedStudents);
             groupRepository.save(group);
-            log.info("Group '{}' updated successfully with {} new students", group.getName(), updatedStudents.size());
+            log.info("Group '{}' updated successfully", group.getName());
 
         } catch (Exception e) {
-            log.error("Error updating group with ID {}: {}", id, e.getMessage());
-            throw new RuntimeException(e.getMessage());
+            log.error("Error updating group with id {}: {}", id, e.getMessage());
+            throw new RuntimeException("Error updating group: " + e.getMessage());
         }
     }
 

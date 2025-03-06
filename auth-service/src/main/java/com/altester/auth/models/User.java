@@ -15,10 +15,10 @@ import java.util.Collection;
 
 @Entity
 @Data
-@Builder
 @Table(name = "users")
-@NoArgsConstructor
+@Builder
 @AllArgsConstructor
+@NoArgsConstructor
 public class User implements UserDetails {
 
     @Id
@@ -87,3 +87,4 @@ public class User implements UserDetails {
         return enabled;
     }
 }
+

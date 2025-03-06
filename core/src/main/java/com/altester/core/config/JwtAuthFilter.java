@@ -56,11 +56,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
                 log.info("Loaded UserDetails: {}", userDetails);
 
-                if (!userDetails.isEnabled()) {
-                    log.warn("User '{}' is disabled. Authentication aborted.", username);
-                    return;
-                }
-
                 if (jwtService.isTokenValid(jwt, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities());

@@ -51,7 +51,7 @@ public class GroupController {
             Pageable pageable = PageRequest.of(page, fixedSize);
             Page<GroupsResponce> groups = groupService.getAllGroups(pageable);
             log.info("Groups fetched successfully");
-            return ResponseEntity.ok(groups);
+            return ResponseEntity.status(HttpStatus.OK).body(groups);
         } catch (Exception e) {
             log.error("Groups fetch failed");
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
@@ -64,7 +64,7 @@ public class GroupController {
         try {
             Group group = groupService.getGroup(id);
             log.info("Group with id {} fetched successfully", id);
-            return ResponseEntity.ok(group);
+            return ResponseEntity.status(HttpStatus.OK).body(group);
         } catch (Exception e) {
             log.error("Group {} get failed", id);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);

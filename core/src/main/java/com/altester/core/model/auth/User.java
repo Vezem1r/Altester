@@ -56,15 +56,16 @@ public class User implements UserDetails {
     @Column
     private boolean isRegistered;
 
-    @ManyToMany(fetch = FetchType.LAZY)
+    @ManyToMany()
     @JoinTable(
             name = "student_groups",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "group_id")
     )
+    @JsonIgnore
     private Set<Group> groups = new HashSet<>();
 
-    @OneToMany(mappedBy = "teacher", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "teacher")
     private Set<Group> taughtGroups = new HashSet<>();
 
     /*-----------------------------------------------------*/
