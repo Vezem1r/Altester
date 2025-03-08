@@ -36,4 +36,8 @@ public class Group {
     @ManyToOne()
     @JoinColumn(name = "teacher_id")
     private User teacher;
+
+    @OneToMany
+    @JoinColumn(name = "group_id")
+    private Set<Test> tests = new HashSet<>();
 }
