@@ -20,9 +20,6 @@ public class CreateTestDTO {
 
     private int duration;
 
-    @Min(value = 0, message = "Score cannot be negative")
-    private int score;
-
     @Min(value = 1, message = "Max attempts must be at least 1")
     private int max_attempts;
 
