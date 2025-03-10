@@ -5,6 +5,6 @@ import lombok.Data;
 @Data
 public class LoginResponseDTO {
     private String token;
-    private long expiredIn;
+    private String userRole;
     private String message;
 }

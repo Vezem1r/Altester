@@ -30,11 +30,8 @@ public class LdapAuthController {
             log.info("User {} authenticated successfully.", request.getLogin());
 
             String token = jwtService.generateToken(authenticatedUser, authenticatedUser.getRole().name(), false);
-            long expirationTimeMillis = jwtService.extractExpiration(token).getTime();
-            long currentTimeMillis = System.currentTimeMillis();
-            long expiresIn = expirationTimeMillis - currentTimeMillis;
 
-            LoginResponse loginResponse = new LoginResponse(token, expiresIn, "Login successful");
+            LoginResponse loginResponse = new LoginResponse(token, authenticatedUser.getRole().toString(), "Login successful");
             return ResponseEntity.ok(loginResponse);
         } else {
             log.warn("Authentication failed for user: {}", request.getLogin());

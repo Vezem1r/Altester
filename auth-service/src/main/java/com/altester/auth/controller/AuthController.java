@@ -43,14 +43,7 @@ public class AuthController {
             User authenticatedUser = authService.signIn(loginUserDto);
             String jwtToken = jwtService.generateToken(authenticatedUser, authenticatedUser.getRole().name(), loginUserDto.isRememberMe());
 
-            long expirationTimeMillis = jwtService.extractExpiration(jwtToken).getTime();
-            long currentTimeMillis = System.currentTimeMillis();
-
-            long expiresIn = expirationTimeMillis - currentTimeMillis;
-
-            log.info("Token expires in: {}", expiresIn);
-
-            LoginResponse loginResponse = new LoginResponse(jwtToken, expiresIn, "Login successful");
+            LoginResponse loginResponse = new LoginResponse(jwtToken, authenticatedUser.getRole().toString(), "Login successful");
 
             String role = jwtService.extractRole(jwtToken);
             log.info("Extracted role: {}", role);

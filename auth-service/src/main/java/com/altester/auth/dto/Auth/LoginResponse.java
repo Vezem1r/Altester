@@ -5,12 +5,12 @@ import lombok.Data;
 @Data
 public class LoginResponse {
     private String token;
-    private long expiredIn;
+    private String userRole;
     private String message;
 
-    public LoginResponse(String token, long expiredIn, String message) {
+    public LoginResponse(String token, String userRole, String message) {
         this.token = token;
-        this.expiredIn = expiredIn;
+        this.userRole = userRole;
         this.message = message;
     }
 }
