@@ -6,6 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
 @Slf4j
@@ -27,27 +30,34 @@ public class AuthController {
         return authServiceUrl + "/ldap";
     }
 
-    private <T> ResponseEntity<T> forwardRequest(String url, HttpMethod method, Object body, Class<T> responseType) {
+    private ResponseEntity<?> forwardRequest(String url, HttpMethod method, Object body, Class<?> responseType) {
         HttpHeaders headers = new HttpHeaders();
         HttpEntity<?> requestEntity = new HttpEntity<>(body, headers);
 
         try {
-            ResponseEntity<T> responseEntity = restTemplate.exchange(url, method, requestEntity, responseType);
-            return ResponseEntity.ok(responseEntity.getBody());
+            ResponseEntity<?> responseEntity = restTemplate.exchange(url, method, requestEntity, responseType);
+            return ResponseEntity.status(responseEntity.getStatusCode()).body(responseEntity.getBody());
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("Request error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
+        } catch (RestClientResponseException e) {
+            log.error("RestClientResponseException: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
         } catch (Exception e) {
-            log.error("Request error: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(null);
+            log.error("Unexpected error: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal server error: " + e.getMessage());
         }
     }
 
+
     @PostMapping("/signin")
-    public ResponseEntity<LoginResponseDTO> login(@RequestBody LoginRequestDTO loginRequest) {
+    public ResponseEntity<?> login(@RequestBody LoginRequestDTO loginRequest) {
         log.info("Forwarding signin request to auth-service for user: {}", loginRequest.getUsernameOrEmail());
         return forwardRequest(getAuthServiceUrl() + "/signin", HttpMethod.POST, loginRequest, LoginResponseDTO.class);
     }
 
     @PostMapping("/ldap/signin")
-    public ResponseEntity<LoginResponseDTO> ldapLogin(@RequestBody LdapLoginDTO ldapLogin) {
+    public ResponseEntity<?> ldapLogin(@RequestBody LdapLoginDTO ldapLogin) {
         log.info("Forwarding LDAP signin request to auth-service for user: {}", ldapLogin.getLogin());
         return forwardRequest(getLdapUrl() + "/login", HttpMethod.POST, ldapLogin, LoginResponseDTO.class);
     }

@@ -65,11 +65,11 @@ public class UserPassService {
         emailUtils.sendVerificationEmail(user, EmailType.CHANGE_PASS);
     }
 
-    public void resetPassword(Long userId, String resetCode, String newPassword){
-        log.info("Resetting password for userId: {}", userId);
-        User user = userRepository.findById(userId)
+    public void resetPassword(String email, String resetCode, String newPassword){
+        log.info("Resetting password for user: {}", email);
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> {
-                    log.error("User not found: {}", userId);
+                    log.error("User not found: {}", email);
                     return new RuntimeException("User not found");
                 });
 
@@ -86,19 +86,19 @@ public class UserPassService {
         Codes code = optionalCode.get();
 
         if (code.getExpiration().isBefore(LocalDateTime.now())) {
-            log.error("Reset code has expired for userId: {}", userId);
+            log.error("Reset code has expired for user: {}", email);
             throw new RuntimeException("Reset code has expired");
         }
 
         if (!code.getCode().equals(resetCode)) {
-            log.error("Invalid reset code for userId: {}. Provided: {}", userId, resetCode);
+            log.error("Invalid reset code for user: {}. Provided: {}", email, resetCode);
             throw new RuntimeException("Invalid reset code");
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));
         codeRepository.delete(code);
         userRepository.save(user);
-        log.info("Password reset successful for userId: {}", userId);
+        log.info("Password reset successful for user: {}", email);
     }
 
     public void resendResetCode(String email) {

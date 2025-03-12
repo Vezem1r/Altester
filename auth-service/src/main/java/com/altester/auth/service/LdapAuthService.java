@@ -48,6 +48,7 @@ public class LdapAuthService {
             // Retrieve attributes
             while (results.hasMore()) {
                 SearchResult result = results.next();
+
                 log.info("Retrieving attributes for user: {}", username);
 
                 String email = result.getAttributes().get("mail").get().toString();

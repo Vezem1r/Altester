@@ -111,6 +111,11 @@ public class AuthService {
 
         User user = optionalUser.get();
 
+        if (!user.isRegistered()) {
+            log.error("User was created via LDAP {}", user.getEmail());
+            throw new RuntimeException("Use LDAP authentication");
+        }
+
         if (!user.isEnabled()) {
             log.warn("User with email '{}' is disabled.", usernameOrEmail);
             throw new RuntimeException("User with email " + usernameOrEmail + " is disabled.");

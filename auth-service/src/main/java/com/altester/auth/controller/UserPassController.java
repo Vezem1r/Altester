@@ -29,7 +29,7 @@ public class UserPassController {
     @PostMapping("/confirm")
     public ResponseEntity<String> confirmPasswordReset(@RequestBody ChangePassDTO changePassDTO) {
         try {
-            userSecService.resetPassword(changePassDTO.getUserId(), changePassDTO.getResetCode(), changePassDTO.getNewPassword());
+            userSecService.resetPassword(changePassDTO.getEmail(), changePassDTO.getVerificationCode(), changePassDTO.getNewPassword());
             return ResponseEntity.ok("Password has been reset successfully.");
         } catch (RuntimeException e) {
             log.error("Error resetting password: {}", e.getMessage());

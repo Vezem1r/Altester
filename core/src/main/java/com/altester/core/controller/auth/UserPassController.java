@@ -45,33 +45,29 @@ public class UserPassController {
     }
 
     @PostMapping("/request")
-    public ResponseEntity<String> requestPasswordReset(Principal principal) {
-        User user = getUserByPrincipal(principal);
-        log.info("Forwarding password reset request for email: {}", user.getEmail());
+    public ResponseEntity<String> requestPasswordReset(@RequestParam String email) {
+        log.info("Forwarding password reset request for email: {}", email);
 
         HttpHeaders headers = new HttpHeaders();
         HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
-        return forwardRequest("/request?email=" + user.getEmail(), HttpMethod.POST, requestEntity);
+        return forwardRequest("/request?email=" + email, HttpMethod.POST, requestEntity);
     }
 
     @PostMapping("/confirm")
-    public ResponseEntity<String> confirmPasswordReset(@RequestBody ChangePassDTO changePassDTO, Principal principal) {
-        User user = getUserByPrincipal(principal);
-        log.info("Forwarding password reset confirmation for email: {}", user.getEmail());
+    public ResponseEntity<String> confirmPasswordReset(@RequestBody ChangePassDTO changePassDTO) {
+        log.info("Forwarding password reset confirmation for email: {}", changePassDTO.getEmail());
 
-        changePassDTO.setUserId(user.getId());
         HttpHeaders headers = new HttpHeaders();
         HttpEntity<ChangePassDTO> requestEntity = new HttpEntity<>(changePassDTO, headers);
         return forwardRequest("/confirm", HttpMethod.POST, requestEntity);
     }
 
     @PostMapping("/resend")
-    public ResponseEntity<String> resendPasswordCode(Principal principal) {
-        User user = getUserByPrincipal(principal);
-        log.info("Forwarding password reset code resend request for email: {}", user.getEmail());
+    public ResponseEntity<String> resendPasswordCode(@RequestParam String email) {
+        log.info("Forwarding password reset code resend request for email: {}", email);
 
         HttpHeaders headers = new HttpHeaders();
         HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
-        return forwardRequest("/resend?email=" + user.getEmail(), HttpMethod.POST, requestEntity);
+        return forwardRequest("/resend?email=" + email, HttpMethod.POST, requestEntity);
     }
 }

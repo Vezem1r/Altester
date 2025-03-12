@@ -29,6 +29,7 @@ public class SecurityConfig {
 
     private final String[] WHITE_LIST = {
             "/auth/**",
+            "/password/**"
     };
 
     private final AuthenticationProvider authenticationProvider;
