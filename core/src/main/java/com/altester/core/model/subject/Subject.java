@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -29,6 +30,9 @@ public class Subject {
 
     @Column(length = 255)
     private String description;
+
+    @Column
+    private LocalDateTime modified;
 
     @OneToMany
     @JoinColumn(name = "subject_id")

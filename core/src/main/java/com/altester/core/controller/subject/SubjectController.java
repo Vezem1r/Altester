@@ -70,18 +70,6 @@ public class SubjectController {
         }
     }
 
-    @GetMapping("/get/{subjectId}")
-    public ResponseEntity<Subject> getSubject(@PathVariable long subjectId) {
-        try {
-            Subject subject = subjectService.getSubject(subjectId);
-            log.info("Subject get successfully with id {}", subjectId);
-            return ResponseEntity.ok(subject);
-        } catch (Exception e) {
-            log.error("Subject not found: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-        }
-    }
-
     @GetMapping("/all")
     public ResponseEntity<Page<Subject>> getAllSubjects(@RequestParam(defaultValue = "0") int page) {
         try {

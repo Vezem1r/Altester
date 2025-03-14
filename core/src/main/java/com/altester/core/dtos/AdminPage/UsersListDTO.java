@@ -11,4 +11,5 @@ public class UsersListDTO {
     private String email;
     private String username;
     private LocalDateTime lastLogin;
+    private boolean isRegistered;
 }

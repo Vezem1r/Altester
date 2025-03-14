@@ -12,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -35,18 +36,6 @@ public class SubjectService {
         }
     }
 
-    public Subject getSubject(long subjectId) {
-        try {
-            return subjectRepository.findById(subjectId).orElseThrow(() -> {
-                log.error("Subject with id {} not found", subjectId);
-                return new RuntimeException("Subject not found");
-            });
-        } catch (Exception e) {
-            log.error("Error fetching subject with id {}, {}", subjectId, e.getMessage());
-            throw new RuntimeException(e.getMessage());
-        }
-    }
-
     public void updateSubject(CreateSubjectDTO createSubjectDTO, long subjectId) {
         try {
             Subject subject = subjectRepository.findById(subjectId).orElseThrow(() -> {
@@ -63,6 +52,7 @@ public class SubjectService {
             subject.setName(createSubjectDTO.getName());
             subject.setShortName(createSubjectDTO.getShortName().toUpperCase());
             subject.setDescription(createSubjectDTO.getDescription());
+            subject.setModified(LocalDateTime.now());
 
             subjectRepository.save(subject);
 
@@ -97,6 +87,7 @@ public class SubjectService {
                     .name(createSubjectDTO.getName())
                     .shortName(createSubjectDTO.getShortName().toUpperCase())
                     .description(createSubjectDTO.getDescription())
+                    .modified(LocalDateTime.now())
                     .build();
 
             subjectRepository.save(subject);
@@ -121,15 +112,20 @@ public class SubjectService {
             Set<Group> groupsToAdd = new HashSet<>(groupsList);
 
             for (Group group : groupsToAdd) {
-                if (!currentGroups.contains(group)) {
-                    currentGroups.add(group);
+                Optional<Subject> existingSubject = subjectRepository.findByGroupsContaining(group);
+                if (existingSubject.isPresent() && existingSubject.get().getId() != subject.getId()) {
+                    throw new RuntimeException("Group " + group.getName() + " is already assigned to another subject.");
                 }
             }
 
+            currentGroups.addAll(groupsToAdd);
+
             currentGroups.removeIf(group -> !groupsToAdd.contains(group));
 
+            subject.setModified(LocalDateTime.now());
             subject.setGroups(currentGroups);
             subjectRepository.save(subject);
+
         } catch (Exception e) {
             log.error("Error updating groups in subject {}. {}", updateGroupsDTO.getSubjectId(), e.getMessage());
             throw new RuntimeException(e.getMessage());
