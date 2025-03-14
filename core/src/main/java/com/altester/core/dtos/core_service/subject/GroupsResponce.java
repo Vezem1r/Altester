@@ -12,5 +12,5 @@ public class GroupsResponce {
     private String name;
     private String teacherUsername;
     private int studentCount;
-    private String subjectName;
+    private String subjectShortName;
 }

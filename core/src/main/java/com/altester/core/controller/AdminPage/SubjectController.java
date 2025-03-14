@@ -1,8 +1,8 @@
-package com.altester.core.controller.subject;
+package com.altester.core.controller.AdminPage;
 
 import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
+import com.altester.core.dtos.core_service.subject.SubjectDTO;
 import com.altester.core.dtos.core_service.subject.UpdateGroupsDTO;
-import com.altester.core.model.subject.Subject;
 import com.altester.core.service.subject.SubjectService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -71,15 +71,13 @@ public class SubjectController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<Page<Subject>> getAllSubjects(@RequestParam(defaultValue = "0") int page) {
+    public ResponseEntity<Page<SubjectDTO>> getAllSubjects(@RequestParam(defaultValue = "0") int page) {
         try {
             int fixedSize = 10;
             Pageable pageable = PageRequest.of(page, fixedSize);
-            Page<Subject> subjects = subjectService.getAllSubjects(pageable);
-            log.info("Subject get successfully with count {}", subjects.getSize());
+            Page<SubjectDTO> subjects = subjectService.getAllSubjects(pageable);
             return ResponseEntity.ok(subjects);
         } catch (Exception e) {
-            log.error("Error fetching subjects: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }

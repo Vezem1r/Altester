@@ -14,4 +14,5 @@ public interface UserRepository extends CrudRepository<User, Long> {
     Optional<User> findByUsername(String username);
     Page<User> findByRole(RolesEnum role, Pageable pageable);
     Long countByRole(RolesEnum role);
+    Page<User> findAllByRole(RolesEnum role, Pageable pageable);
 }

@@ -1,6 +1,8 @@
 package com.altester.core.service.subject;
 
 import com.altester.core.dtos.core_service.subject.CreateGroupDTO;
+import com.altester.core.dtos.core_service.subject.GroupDTO;
+import com.altester.core.dtos.core_service.subject.GroupUserList;
 import com.altester.core.dtos.core_service.subject.GroupsResponce;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
@@ -17,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -43,16 +46,27 @@ public class GroupService {
         }
     }
 
-    public Group getGroup(long id) {
-        try {
-            return groupRepository.findById(id).orElseThrow(() -> {
-                log.error("Group with id: {} not found", id);
-                return new RuntimeException("Group not found");
-            });
-        } catch (Exception e) {
-            log.error("Error retrieving group with id: {}, {}", id, e.getMessage());
-            throw new RuntimeException(e.getMessage());
-        }
+    public GroupDTO getGroup(long id) {
+        Group group = groupRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Group not found"));
+
+        String subjectName = subjectRepository.findByGroupsContaining(group)
+                .map(Subject::getName)
+                .orElse("Unknown Subject");
+
+        List<GroupUserList> students = group.getStudents().stream()
+                .map(student -> new GroupUserList(
+                        student.getId(), student.getName(), student.getSurname(), student.getUsername()))
+                .toList();
+
+        GroupUserList teacher = new GroupUserList(
+                group.getTeacher().getId(),
+                group.getTeacher().getName(),
+                group.getTeacher().getSurname(),
+                group.getTeacher().getUsername()
+        );
+
+        return new GroupDTO(group.getId(), group.getName(), subjectName, students, teacher);
     }
 
     public Page<GroupsResponce> getAllGroups(Pageable pageable) {
@@ -60,7 +74,7 @@ public class GroupService {
             Optional<Subject> subject = subjectRepository.findByGroupsId(group.getId());
             String subjectName;
             if (subject.isPresent()) {
-                subjectName = subject.get().getName();
+                subjectName = subject.get().getShortName();
             } else {
                 subjectName = "No subject";
             }
@@ -161,5 +175,15 @@ public class GroupService {
             log.error("Error creating group: {}", e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
+    }
+
+    public Page<GroupUserList> getAllStudents(Pageable pageable) {
+        return userRepository.findAllByRole(RolesEnum.STUDENT, pageable)
+                .map(user -> new GroupUserList(user.getId(), user.getName(), user.getSurname(), user.getUsername()));
+    }
+
+    public Page<GroupUserList> getAllTeachers(Pageable pageable) {
+        return userRepository.findAllByRole(RolesEnum.TEACHER, pageable)
+                .map(user -> new GroupUserList(user.getId(), user.getName(), user.getSurname(), user.getUsername()));
     }
 }

@@ -1,8 +1,9 @@
-package com.altester.core.controller.subject;
+package com.altester.core.controller.AdminPage;
 
 import com.altester.core.dtos.core_service.subject.CreateGroupDTO;
+import com.altester.core.dtos.core_service.subject.GroupDTO;
+import com.altester.core.dtos.core_service.subject.GroupUserList;
 import com.altester.core.dtos.core_service.subject.GroupsResponce;
-import com.altester.core.model.subject.Group;
 import com.altester.core.service.subject.GroupService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,35 @@ import org.springframework.web.bind.annotation.*;
 public class GroupController {
 
     private final GroupService groupService;
+
+    @GetMapping("/getGroupStudents")
+    public ResponseEntity<Page<GroupUserList>> getGroupStudents(@RequestParam(defaultValue = "0") int page) {
+        try {
+            int fixedSize = 10;
+            Pageable pageable = PageRequest.of(page, fixedSize);
+            Page<GroupUserList> students = groupService.getAllStudents(pageable);
+            log.info("Students fetched successfully");
+            return ResponseEntity.status(HttpStatus.OK).body(students);
+        } catch (Exception e) {
+            log.error("Students fetch failed");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
+    }
+
+    @GetMapping("/getGroupTeachers")
+    public ResponseEntity<Page<GroupUserList>> getGroupTeachers(@RequestParam(defaultValue = "0") int page) {
+        try {
+            int fixedSize = 10;
+            Pageable pageable = PageRequest.of(page, fixedSize);
+            Page<GroupUserList> students = groupService.getAllTeachers(pageable);
+            log.info("Teachers fetched successfully");
+            return ResponseEntity.status(HttpStatus.OK).body(students);
+        } catch (Exception e) {
+            log.error("Teachers fetch failed");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
+    }
+
 
     @PostMapping("/create")
     public ResponseEntity<String> createGroup(@RequestBody CreateGroupDTO createGroupDTO) {
@@ -60,9 +90,9 @@ public class GroupController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Group> getGroup(@PathVariable long id) {
+    public ResponseEntity<GroupDTO> getGroup(@PathVariable long id) {
         try {
-            Group group = groupService.getGroup(id);
+            GroupDTO group = groupService.getGroup(id);
             log.info("Group with id {} fetched successfully", id);
             return ResponseEntity.status(HttpStatus.OK).body(group);
         } catch (Exception e) {

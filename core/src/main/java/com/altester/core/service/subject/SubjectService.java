@@ -1,6 +1,8 @@
 package com.altester.core.service.subject;
 
 import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
+import com.altester.core.dtos.core_service.subject.SubjectDTO;
+import com.altester.core.dtos.core_service.subject.SubjectGroupDTO;
 import com.altester.core.dtos.core_service.subject.UpdateGroupsDTO;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
@@ -26,14 +28,22 @@ public class SubjectService {
     private final SubjectRepository subjectRepository;
     private final GroupRepository groupRepository;
 
-    public Page<Subject> getAllSubjects(Pageable pageable) {
-        try {
-            log.info("Getting subjects with pagination: page={}, size={}", pageable.getPageNumber(), pageable.getPageSize());
-            return subjectRepository.findAll(pageable);
-        } catch (Exception e) {
-            log.error("Error fetching subjects: {}", e.getMessage());
-            return Page.empty();
-        }
+    public Page<SubjectDTO> getAllSubjects(Pageable pageable) {
+        return subjectRepository.findAll(pageable).map(subject -> {
+
+            List<SubjectGroupDTO> groups = subject.getGroups().stream()
+                    .map(group -> new SubjectGroupDTO(group.getId(), group.getName()))
+                    .toList();
+
+            return new SubjectDTO(
+                    subject.getId(),
+                    subject.getName(),
+                    subject.getShortName(),
+                    subject.getDescription(),
+                    subject.getModified(),
+                    groups
+            );
+        });
     }
 
     public void updateSubject(CreateSubjectDTO createSubjectDTO, long subjectId) {

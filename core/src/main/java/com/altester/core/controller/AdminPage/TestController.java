@@ -1,9 +1,7 @@
-package com.altester.core.controller.subject;
+package com.altester.core.controller.AdminPage;
 
 import com.altester.core.dtos.core_service.subject.CreateTestDTO;
-import com.altester.core.dtos.core_service.subject.GroupsResponce;
 import com.altester.core.dtos.core_service.subject.TestsListDTO;
-import com.altester.core.model.subject.Test;
 import com.altester.core.service.subject.TestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/teacher/test")
