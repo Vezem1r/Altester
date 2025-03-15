@@ -60,14 +60,17 @@ public class AdminPageService {
         return dto;
     }
 
-    public AdminPageDTO getPage() {
+    public AdminPageDTO getPage(String username) {
         try {
+            userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("Teacher not found"));
+
             AdminPageDTO dto = new AdminPageDTO();
             dto.setStudentsCount(userRepository.countByRole(RolesEnum.STUDENT));
             dto.setTeachersCount(userRepository.countByRole(RolesEnum.TEACHER));
             dto.setGroupsCount(groupRepository.count());
             dto.setSubjectsCount(subjectRepository.count());
             dto.setTestsCount(testRepository.count());
+            dto.setUsername(username);
             return dto;
         } catch (Exception e) {
             log.error("Error fetching admin page stats: {}", e.getMessage());

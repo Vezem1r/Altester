@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
+
 @Slf4j
 @RestController
 @RequestMapping("/admin")
@@ -64,10 +66,11 @@ public class AdminPageController {
     }
 
     @GetMapping()
-    public ResponseEntity<AdminPageDTO> getAdminPage() {
+    public ResponseEntity<AdminPageDTO> getAdminPage(Principal principal) {
         try {
+            String username = principal.getName();
             log.debug("Fetching admin page statistics");
-            AdminPageDTO stats = adminPageService.getPage();
+            AdminPageDTO stats = adminPageService.getPage(username);
             log.debug("Admin stats fetched successfully: {}", stats);
             return ResponseEntity.ok(stats);
         } catch (Exception e) {

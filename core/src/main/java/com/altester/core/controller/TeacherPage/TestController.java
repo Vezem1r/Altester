@@ -1,4 +1,4 @@
-package com.altester.core.controller.AdminPage;
+package com.altester.core.controller.TeacherPage;
 
 import com.altester.core.dtos.core_service.subject.CreateTestDTO;
 import com.altester.core.dtos.core_service.subject.TestsListDTO;
