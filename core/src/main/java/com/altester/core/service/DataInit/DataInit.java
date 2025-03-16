@@ -174,7 +174,7 @@ public class DataInit {
         for (int i = 0; i < amount; i++) {
             String subjectName = subjects.get(i);
             String shortName = shortNames.get(i);
-            String description = "This is subject with name " + (subjectName) + "and its shortname is " + shortName;
+            String description = "This is subject with name " + (subjectName) + " and its shortname is " + shortName;
 
             if (subjectRepository.findByShortName(shortName).isPresent()) {
                 log.info("Skipping existing subject: {}", shortName);
