@@ -1,9 +1,6 @@
 package com.altester.core.service.subject;
 
-import com.altester.core.dtos.core_service.subject.CreateGroupDTO;
-import com.altester.core.dtos.core_service.subject.GroupDTO;
-import com.altester.core.dtos.core_service.subject.GroupUserList;
-import com.altester.core.dtos.core_service.subject.GroupsResponce;
+import com.altester.core.dtos.core_service.subject.*;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
@@ -16,9 +13,11 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -51,7 +50,7 @@ public class GroupService {
                 .orElseThrow(() -> new RuntimeException("Group not found"));
 
         String subjectName = subjectRepository.findByGroupsContaining(group)
-                .map(Subject::getName)
+                .map(subject -> subject.getShortName() + " " + subject.getName())
                 .orElse("Unknown Subject");
 
         List<GroupUserList> students = group.getStudents().stream()
@@ -131,13 +130,8 @@ public class GroupService {
         log.info("Group '{}' updated successfully with {} students", group.getName(), students.size());
     }
 
-    public void createGroup(CreateGroupDTO createGroupDTO) {
+    public Long createGroup(CreateGroupDTO createGroupDTO) {
         try {
-            if (createGroupDTO.getStudentsIds() == null || createGroupDTO.getStudentsIds().isEmpty()) {
-                log.error("Group creation failed: At least one student is required");
-                throw new IllegalArgumentException("Group must have at least one student");
-            }
-
             if (groupRepository.findByName(createGroupDTO.getGroupName()).isPresent()) {
                 log.error("Group with name '{}' already exists", createGroupDTO.getGroupName());
                 throw new IllegalArgumentException("Group with name '" + createGroupDTO.getGroupName() + "' already exists");
@@ -150,16 +144,14 @@ public class GroupService {
                 throw new IllegalArgumentException("User is not a teacher");
             }
 
-            Set<User> students = createGroupDTO.getStudentsIds().stream()
-                    .map(userRepository::findById)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .filter(user -> user.getRole().equals(RolesEnum.STUDENT))
-                    .collect(Collectors.toSet());
-
-            if (students.isEmpty()) {
-                log.error("Group creation failed: No valid students found");
-                throw new IllegalArgumentException("Group creation failed: No valid students found");
+            Set<User> students = new HashSet<>();
+            if (createGroupDTO.getStudentsIds() != null && !createGroupDTO.getStudentsIds().isEmpty()) {
+                students = createGroupDTO.getStudentsIds().stream()
+                        .map(userRepository::findById)
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .filter(user -> user.getRole().equals(RolesEnum.STUDENT))
+                        .collect(Collectors.toSet());
             }
 
             Group group = Group.builder()
@@ -171,15 +163,38 @@ public class GroupService {
             groupRepository.save(group);
             log.info("Group '{}' created successfully with {} students", group.getName(), students.size());
 
+            return group.getId();
         } catch (Exception e) {
-            log.error("Error creating group: {}", e.getMessage());
-            throw new RuntimeException(e.getMessage());
+            log.error("Error creating group: {}", e.getMessage(), e);
+            throw new RuntimeException("Error creating group: " + e.getMessage());
         }
     }
 
-    public Page<GroupUserList> getAllStudents(Pageable pageable) {
-        return userRepository.findAllByRole(RolesEnum.STUDENT, pageable)
-                .map(user -> new GroupUserList(user.getId(), user.getName(), user.getSurname(), user.getUsername()));
+
+    public Page<CreateGroupUserListDTO> getAllStudents(Pageable pageable) {
+        Page<User> studentsPage = userRepository.findAllByRole(RolesEnum.STUDENT, pageable);
+
+        List<CreateGroupUserListDTO> students = studentsPage.getContent().stream()
+                .map(student -> {
+                    List<String> subjectNames = groupRepository.findAll().stream()
+                            .filter(group -> group.getStudents().contains(student))
+                            .map(group -> subjectRepository.findByGroupsContaining(group)
+                                    .map(Subject::getShortName)
+                                    .orElse("Group has no subject"))
+                            .distinct()
+                            .toList();
+
+                    return new CreateGroupUserListDTO(
+                            student.getId(),
+                            student.getName(),
+                            student.getSurname(),
+                            student.getUsername(),
+                            subjectNames
+                    );
+                })
+                .toList();
+
+        return new PageImpl<>(students, pageable, studentsPage.getTotalElements());
     }
 
     public Page<GroupUserList> getAllTeachers(Pageable pageable) {

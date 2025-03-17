@@ -1,9 +1,6 @@
 package com.altester.core.controller.AdminPage;
 
-import com.altester.core.dtos.core_service.subject.CreateGroupDTO;
-import com.altester.core.dtos.core_service.subject.GroupDTO;
-import com.altester.core.dtos.core_service.subject.GroupUserList;
-import com.altester.core.dtos.core_service.subject.GroupsResponce;
+import com.altester.core.dtos.core_service.subject.*;
 import com.altester.core.service.subject.GroupService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,11 +20,11 @@ public class GroupController {
     private final GroupService groupService;
 
     @GetMapping("/getGroupStudents")
-    public ResponseEntity<Page<GroupUserList>> getGroupStudents(@RequestParam(defaultValue = "0") int page) {
+    public ResponseEntity<Page<CreateGroupUserListDTO>> getGroupStudents(@RequestParam(defaultValue = "0") int page) {
         try {
             int fixedSize = 10;
             Pageable pageable = PageRequest.of(page, fixedSize);
-            Page<GroupUserList> students = groupService.getAllStudents(pageable);
+            Page<CreateGroupUserListDTO> students = groupService.getAllStudents(pageable);
             log.info("Students fetched successfully");
             return ResponseEntity.status(HttpStatus.OK).body(students);
         } catch (Exception e) {
@@ -52,13 +49,13 @@ public class GroupController {
 
 
     @PostMapping("/create")
-    public ResponseEntity<String> createGroup(@RequestBody CreateGroupDTO createGroupDTO) {
+    public ResponseEntity<Long> createGroup(@RequestBody CreateGroupDTO createGroupDTO) {
         try {
-            groupService.createGroup(createGroupDTO);
-            return ResponseEntity.status(HttpStatus.CREATED).body("Group created successfully");
+            Long id = groupService.createGroup(createGroupDTO);
+            return ResponseEntity.status(HttpStatus.CREATED).body(id);
         } catch (Exception e) {
             log.error("Group {} creation failed", createGroupDTO.getGroupName());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error during group creation. " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
     }
 

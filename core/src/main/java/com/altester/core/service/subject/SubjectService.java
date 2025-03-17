@@ -141,4 +141,40 @@ public class SubjectService {
             throw new RuntimeException(e.getMessage());
         }
     }
+
+
+    public void updateGroup(long subjectId, long groupId) {
+        try {
+            Subject subject = subjectRepository.findById(subjectId)
+                    .orElseThrow(() -> {
+                        log.error("Subject with id {} not found", subjectId);
+                        return new RuntimeException("Subject with id " + subjectId + " not found");
+                    });
+
+            Group group = groupRepository.findById(groupId)
+                    .orElseThrow(() -> {
+                        log.error("Group with id {} not found", groupId);
+                        return new RuntimeException("Group with id " + groupId + " not found");
+                    });
+
+            Optional<Subject> existingSubject = subjectRepository.findByGroupsContaining(group);
+            if (existingSubject.isPresent() && existingSubject.get().getId() != subject.getId()) {
+                log.error("Group {} is already assigned to another subject", group.getName());
+                throw new RuntimeException("Group " + group.getName() + " is already assigned to another subject.");
+            }
+
+            if (!subject.getGroups().contains(group)) {
+                subject.getGroups().add(group);
+                subject.setModified(LocalDateTime.now());
+                subjectRepository.save(subject);
+                log.info("Group {} added to subject {}", group.getName(), subject.getName());
+            } else {
+                log.warn("Group {} is already assigned to subject {}", group.getName(), subject.getName());
+            }
+
+        } catch (Exception e) {
+            log.error("Error updating subject {}: {}", subjectId, e.getMessage());
+            throw new RuntimeException(e.getMessage());
+        }
+    }
 }

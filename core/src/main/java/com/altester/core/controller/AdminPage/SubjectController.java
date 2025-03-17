@@ -46,6 +46,18 @@ public class SubjectController {
         }
     }
 
+    @PostMapping("/add-group")
+    public ResponseEntity<String> addGroup (@RequestParam long subjectId, @RequestParam long groupId) {
+        try {
+            subjectService.updateGroup(subjectId, groupId);
+            log.info("Subject updated successfully {}", subjectId);
+            return ResponseEntity.status(HttpStatus.OK).body("Subject has been updated successfully");
+        } catch (Exception e) {
+            log.error("Error updating groups: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Failed to update group in subject: " + e.getMessage());
+        }
+    }
+
     @DeleteMapping("/delete/{subjectId}")
     public ResponseEntity<String> deleteSubject(@PathVariable long subjectId) {
         try {
