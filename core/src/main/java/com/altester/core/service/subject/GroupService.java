@@ -58,12 +58,13 @@ public class GroupService {
                         student.getId(), student.getName(), student.getSurname(), student.getUsername()))
                 .toList();
 
-        GroupUserList teacher = new GroupUserList(
+        GroupUserList teacher = (group.getTeacher() != null)
+                ? new GroupUserList(
                 group.getTeacher().getId(),
                 group.getTeacher().getName(),
                 group.getTeacher().getSurname(),
-                group.getTeacher().getUsername()
-        );
+                group.getTeacher().getUsername())
+                : null;
 
         return new GroupDTO(group.getId(), group.getName(), subjectName, students, teacher);
     }

@@ -41,7 +41,7 @@ public class AdminPageController {
     public ResponseEntity<String> promoteTeacher(@RequestParam String username) {
         try {
             log.debug("Promoting user {} to TEACHER role", username);
-            adminPageService.promoteTeacher(username);
+            adminPageService.promoteToTeacher(username);
             log.info("User {} successfully promoted to TEACHER role", username);
             return ResponseEntity.ok("User successfully promoted to TEACHER");
         } catch (Exception e) {
@@ -55,7 +55,7 @@ public class AdminPageController {
     public ResponseEntity<String> promoteStudent(@RequestParam String username) {
         try {
             log.debug("Demoting user {} to STUDENT role", username);
-            adminPageService.promoteStudent(username);
+            adminPageService.demoteToStudent(username);
             log.info("User {} successfully demoted to STUDENT role", username);
             return ResponseEntity.ok("User successfully promoted to STUDENT");
         } catch (Exception e) {

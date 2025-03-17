@@ -5,6 +5,8 @@ import com.altester.core.dtos.AdminPage.UpdateUser;
 import com.altester.core.dtos.AdminPage.UsersListDTO;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
+import com.altester.core.model.subject.Group;
+import com.altester.core.model.subject.Subject;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.TestRepository;
@@ -16,6 +18,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -57,6 +60,28 @@ public class AdminPageService {
         dto.setUsername(user.getUsername());
         dto.setLastLogin(user.getLastLogin());
         dto.setRegistered(user.isRegistered());
+
+        List<Group> userGroups;
+        if (user.getRole() == RolesEnum.STUDENT) {
+            userGroups = groupRepository.findAllByStudentsContaining(user);
+        } else if (user.getRole() == RolesEnum.TEACHER) {
+            userGroups = groupRepository.findAllByTeacher(user);
+        } else {
+            userGroups = List.of();
+        }
+
+        dto.setGroupNames(userGroups.stream().map(Group::getName).toList());
+
+        List<String> subjectNames = userGroups.stream()
+                .map(group -> subjectRepository.findByGroupsId(group.getId()))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(Subject::getShortName)
+                .distinct()
+                .toList();
+
+        dto.setSubjectShortNames(subjectNames);
+
         return dto;
     }
 
@@ -78,7 +103,7 @@ public class AdminPageService {
         }
     }
 
-    public void promoteStudent(String username) {
+    public void demoteToStudent(String username) {
         try {
             User user = userRepository.findByUsername(username).orElseThrow(() -> {
                 log.error("Username {} not found", username);
@@ -90,6 +115,13 @@ public class AdminPageService {
                 throw new RuntimeException("User is already a student");
             }
 
+            groupRepository.findAll().forEach(group -> {
+                if (group.getTeacher() != null && group.getTeacher().equals(user)) {
+                    group.setTeacher(null);
+                    groupRepository.save(group);
+                }
+            });
+
             user.setRole(RolesEnum.STUDENT);
             userRepository.save(user);
 
@@ -100,7 +132,7 @@ public class AdminPageService {
         }
     }
 
-    public void promoteTeacher(String username) {
+    public void promoteToTeacher(String username) {
         try {
             User user = userRepository.findByUsername(username).orElseThrow(() -> {
                 log.error("Username {} not found", username);
@@ -111,6 +143,13 @@ public class AdminPageService {
                 log.warn("User {} is already a teacher", user.getUsername());
                 throw new RuntimeException("User is already a teacher");
             }
+
+            groupRepository.findAll().forEach(group -> {
+                if (group.getStudents().contains(user)) {
+                    group.getStudents().remove(user);
+                    groupRepository.save(group);
+                }
+            });
 
             user.setRole(RolesEnum.TEACHER);
             userRepository.save(user);
