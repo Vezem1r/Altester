@@ -1,10 +1,13 @@
 package com.altester.core.service.subject;
 
+import com.altester.core.config.SemesterConfig;
 import com.altester.core.dtos.core_service.subject.*;
+import com.altester.core.exception.GroupInactiveException;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
+import com.altester.core.model.subject.enums.Semester;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.UserRepository;
@@ -31,6 +34,7 @@ public class GroupService {
     private final GroupRepository groupRepository;
     private final UserRepository userRepository;
     private final SubjectRepository subjectRepository;
+    private final SemesterConfig semesterConfig;
 
     public void deleteGroup(long id) {
         try {
@@ -66,7 +70,14 @@ public class GroupService {
                 group.getTeacher().getUsername())
                 : null;
 
-        return new GroupDTO(group.getId(), group.getName(), subjectName, students, teacher);
+        return new GroupDTO(group.getId(),
+                group.getName(),
+                subjectName,
+                students,
+                teacher,
+                group.getSemester(),
+                group.getAcademicYear(),
+                group.isActive());
     }
 
     public Page<GroupsResponce> getAllGroups(Pageable pageable) {
@@ -83,7 +94,10 @@ public class GroupService {
                     group.getName(),
                     group.getTeacher() != null ? group.getTeacher().getUsername() : "No teacher",
                     group.getStudents().size(),
-                    subjectName
+                    subjectName,
+                    group.getSemester(),
+                    group.getAcademicYear(),
+                    group.isActive()
             );
         });
     }
@@ -92,6 +106,10 @@ public class GroupService {
     public void updateGroup(Long id, CreateGroupDTO createGroupDTO) {
         Group group = groupRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Group not found"));
+
+        if (!group.isActive()) {
+            throw new GroupInactiveException("Cannot update inactive group " + group.getName());
+        }
 
         if (createGroupDTO.getStudentsIds() == null || createGroupDTO.getStudentsIds().isEmpty()) {
             log.error("Group update failed: At least one student is required");
@@ -127,6 +145,14 @@ public class GroupService {
         }
         group.setStudents(students);
 
+        if (createGroupDTO.getSemester() != null) {
+            group.setSemester(createGroupDTO.getSemester());
+        }
+
+        if (createGroupDTO.getAcademicYear() != null) {
+            group.setAcademicYear(createGroupDTO.getAcademicYear());
+        }
+
         groupRepository.save(group);
         log.info("Group '{}' updated successfully with {} students", group.getName(), students.size());
     }
@@ -145,6 +171,18 @@ public class GroupService {
                 throw new IllegalArgumentException("User is not a teacher");
             }
 
+            if (createGroupDTO.getSemester() == null) {
+                createGroupDTO.setSemester(Semester.valueOf(semesterConfig.getCurrentSemester()));
+            }
+
+            if (createGroupDTO.getAcademicYear() == null) {
+                createGroupDTO.setAcademicYear(semesterConfig.getCurrentAcademicYear());
+            }
+
+            boolean isActive = (createGroupDTO.getActive() != null)
+                    ? createGroupDTO.getActive()
+                    : semesterConfig.isSemesterActive(createGroupDTO.getSemester().name(), createGroupDTO.getAcademicYear());
+
             Set<User> students = new HashSet<>();
             if (createGroupDTO.getStudentsIds() != null && !createGroupDTO.getStudentsIds().isEmpty()) {
                 students = createGroupDTO.getStudentsIds().stream()
@@ -159,10 +197,14 @@ public class GroupService {
                     .name(createGroupDTO.getGroupName())
                     .teacher(teacher)
                     .students(students)
+                    .semester(createGroupDTO.getSemester())
+                    .academicYear(createGroupDTO.getAcademicYear())
+                    .active(isActive)
                     .build();
 
             groupRepository.save(group);
-            log.info("Group '{}' created successfully with {} students", group.getName(), students.size());
+            log.info("Group '{}' created successfully with {} students, active status: {}",
+                    group.getName(), students.size(), group.isActive());
 
             return group.getId();
         } catch (Exception e) {
@@ -170,7 +212,6 @@ public class GroupService {
             throw new RuntimeException("Error creating group: " + e.getMessage());
         }
     }
-
 
     public Page<CreateGroupUserListDTO> getAllStudents(Pageable pageable) {
         Page<User> studentsPage = userRepository.findAllByRole(RolesEnum.STUDENT, pageable);

@@ -1,6 +1,7 @@
 package com.altester.core.model.subject;
 
 import com.altester.core.model.auth.User;
+import com.altester.core.model.subject.enums.Semester;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
@@ -23,6 +24,16 @@ public class Group {
 
     @Column(unique = true, nullable = false)
     private String name;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Semester semester;
+
+    @Column(nullable = false)
+    private Integer academicYear;
+
+    @Column(nullable = false)
+    private boolean active = true;
 
     @ManyToMany()
     @JoinTable(

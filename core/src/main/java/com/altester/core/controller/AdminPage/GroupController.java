@@ -1,6 +1,7 @@
 package com.altester.core.controller.AdminPage;
 
 import com.altester.core.dtos.core_service.subject.*;
+import com.altester.core.exception.GroupInactiveException;
 import com.altester.core.service.subject.GroupService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,14 +48,17 @@ public class GroupController {
         }
     }
 
-
     @PostMapping("/create")
     public ResponseEntity<Long> createGroup(@RequestBody CreateGroupDTO createGroupDTO) {
         try {
             Long id = groupService.createGroup(createGroupDTO);
+            log.info("Group {} created successfully with ID {}", createGroupDTO.getGroupName(), id);
             return ResponseEntity.status(HttpStatus.CREATED).body(id);
+        } catch (GroupInactiveException e) {
+            log.error("Cannot create group: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         } catch (Exception e) {
-            log.error("Group {} creation failed", createGroupDTO.getGroupName());
+            log.error("Group {} creation failed: {}", createGroupDTO.getGroupName(), e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
     }
@@ -83,7 +87,6 @@ public class GroupController {
             log.error("Groups fetch failed");
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
-
     }
 
     @GetMapping("/{id}")
