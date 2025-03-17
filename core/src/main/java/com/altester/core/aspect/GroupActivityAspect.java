@@ -11,6 +11,7 @@ import org.aspectj.lang.annotation.Before;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 @Aspect
@@ -39,6 +40,33 @@ public class GroupActivityAspect {
                     "Group " + group.getName() + " is inactive. Only read operations are allowed."
             );
         }
+    }
+
+    @Before("execution(* com.altester.core.service.*Service.*(..)) && args(groups,..)")
+    public void checkGroupsActivityBeforeOperation(JoinPoint joinPoint, Collection<Group> groups) {
+        String methodName = joinPoint.getSignature().getName();
+        log.debug("Checking activity for multiple groups before operation {}", methodName);
+
+        if (isReadOperation(methodName)) {
+            return;
+        }
+
+        for (Group group : groups) {
+            boolean isActive = groupActivityService.checkAndUpdateGroupActivity(group);
+            if (!isActive) {
+                throw new GroupInactiveException(
+                        "Group " + group.getName() + " is inactive. Operation not allowed."
+                );
+            }
+        }
+    }
+
+    @Before("execution(* com.altester.core.service.subject.SubjectService.updateGroup(..)) || " +
+            "execution(* com.altester.core.service.subject.SubjectService.updateGroups(..))")
+    public void checkGroupActivityBeforeAddingToSubject(JoinPoint joinPoint) {
+        log.debug("Intercepting subject group update: {}", joinPoint.getSignature().getName());
+
+        Object[] args = joinPoint.getArgs();
     }
 
     private boolean isReadOperation(String methodName) {

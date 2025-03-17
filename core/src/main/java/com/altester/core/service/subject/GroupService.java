@@ -179,9 +179,13 @@ public class GroupService {
                 createGroupDTO.setAcademicYear(semesterConfig.getCurrentAcademicYear());
             }
 
+            log.info("Group semester is: {}", createGroupDTO.getSemester().name());
+
             boolean isActive = (createGroupDTO.getActive() != null)
                     ? createGroupDTO.getActive()
                     : semesterConfig.isSemesterActive(createGroupDTO.getSemester().name(), createGroupDTO.getAcademicYear());
+
+            log.info("Semester is active: {}", isActive);
 
             Set<User> students = new HashSet<>();
             if (createGroupDTO.getStudentsIds() != null && !createGroupDTO.getStudentsIds().isEmpty()) {
@@ -218,8 +222,9 @@ public class GroupService {
 
         List<CreateGroupUserListDTO> students = studentsPage.getContent().stream()
                 .map(student -> {
-                    List<String> subjectNames = groupRepository.findAll().stream()
-                            .filter(group -> group.getStudents().contains(student))
+                    List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
+
+                    List<String> subjectNames = studentActiveGroups.stream()
                             .map(group -> subjectRepository.findByGroupsContaining(group)
                                     .map(Subject::getShortName)
                                     .orElse("Group has no subject"))

@@ -17,6 +17,11 @@ public class GroupActivityService {
     private final SemesterConfig semesterConfig;
 
     public boolean checkAndUpdateGroupActivity(Group group) {
+        if (group == null) {
+            log.warn("Attempted to check activity for null group");
+            return false;
+        }
+
         if (!group.isActive()) {
             log.debug("Group {} is already inactive", group.getName());
             return false;

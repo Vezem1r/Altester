@@ -2,18 +2,21 @@ package com.altester.core.service.TeacherPage;
 
 import com.altester.core.dtos.TeacherPage.*;
 import com.altester.core.dtos.core_service.subject.SubjectGroupDTO;
+import com.altester.core.exception.GroupInactiveException;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.UserRepository;
+import com.altester.core.service.subject.GroupActivityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
@@ -29,10 +32,11 @@ public class TeacherPageService {
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
     private final SubjectRepository subjectRepository;
+    private final GroupActivityService groupActivityService;
 
     public TeacherPageDTO getPage(String username) {
-            User teacher = userRepository.findByUsername(username).orElseThrow(()
-                    -> new RuntimeException("Teacher not found" + username));
+        User teacher = userRepository.findByUsername(username).orElseThrow(()
+                -> new RuntimeException("Teacher not found" + username));
 
         List<Group> teacherGroups = groupRepository.findByTeacher(teacher);
 
@@ -55,7 +59,8 @@ public class TeacherPageService {
                                 .map(group -> new TeacherGroupDTO(
                                         group.getName(),
                                         group.getStudents().size(),
-                                        group.getTests().size()))
+                                        group.getTests().size(),
+                                        group.isActive()))
                                 .collect(Collectors.toList())))
                 .collect(Collectors.toList());
 
@@ -66,7 +71,11 @@ public class TeacherPageService {
         User teacher = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Teacher not found: " + username));
 
-        List<TeacherStudentsDTO> students = groupRepository.findByTeacher(teacher).stream()
+        List<Group> activeGroups = groupRepository.findByTeacher(teacher).stream()
+                .filter(Group::isActive)
+                .toList();
+
+        List<TeacherStudentsDTO> students = activeGroups.stream()
                 .flatMap(group -> group.getStudents().stream()
                         .collect(Collectors.toMap(
                                 student -> student,
@@ -75,7 +84,7 @@ public class TeacherPageService {
                         ))
                         .keySet().stream()
                         .map(student -> {
-                            List<SubjectGroupDTO> subjectGroups = groupRepository.findByTeacher(teacher).stream()
+                            List<SubjectGroupDTO> subjectGroups = activeGroups.stream()
                                     .filter(g -> g.getStudents().contains(student))
                                     .map(g -> new SubjectGroupDTO(g.getId(), g.getName()))
                                     .toList();
@@ -121,7 +130,8 @@ public class TeacherPageService {
                             group.getId(),
                             group.getName(),
                             subjectName,
-                            students);
+                            students,
+                            group.isActive());
                 })
                 .toList();
 
@@ -132,6 +142,7 @@ public class TeacherPageService {
         return new PageImpl<>(pageContent, pageable, groups.size());
     }
 
+    @Transactional
     public void moveStudentBetweenGroups(String username, String studentUsername, Long fromGroupId, Long toGroupId) {
         User teacher = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Teacher not found: " + username));
@@ -140,6 +151,18 @@ public class TeacherPageService {
                 .orElseThrow(() -> new RuntimeException("Source group not found"));
         Group toGroup = groupRepository.findById(toGroupId)
                 .orElseThrow(() -> new RuntimeException("Target group not found"));
+
+        // Check if both groups are active
+        boolean isFromGroupActive = groupActivityService.checkAndUpdateGroupActivity(fromGroup);
+        boolean isToGroupActive = groupActivityService.checkAndUpdateGroupActivity(toGroup);
+
+        if (!isFromGroupActive) {
+            throw new GroupInactiveException("Cannot move students from inactive group: " + fromGroup.getName());
+        }
+
+        if (!isToGroupActive) {
+            throw new GroupInactiveException("Cannot move students to inactive group: " + toGroup.getName());
+        }
 
         if (!fromGroup.getTeacher().equals(teacher) || !toGroup.getTeacher().equals(teacher)) {
             throw new RuntimeException("You can only move students within your own groups");
@@ -157,6 +180,16 @@ public class TeacherPageService {
 
         if (!fromGroup.getStudents().contains(student)) {
             throw new RuntimeException("Student is not in the source group");
+        }
+
+        List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student)
+                .stream()
+                .filter(g -> fromSubject.get().getGroups().contains(g))
+                .toList();
+
+        if (studentActiveGroups.size() > 1 &&
+                studentActiveGroups.stream().anyMatch(g -> g.getId() != fromGroupId)) {
+            throw new RuntimeException("Student is already in multiple active groups of this subject");
         }
 
         fromGroup.getStudents().remove(student);

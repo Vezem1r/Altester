@@ -35,6 +35,8 @@ public class SemesterConfig {
         String currentSemester = getCurrentSemester();
         int currentAcademicYear = getCurrentAcademicYear();
 
+        log.info("Current semester is {}", semester.equals(currentSemester) ? "ACTIVE" : "INACTIVE");
+
         return semester.equals(currentSemester) && academicYear.equals(currentAcademicYear);
     }
 
@@ -49,14 +51,18 @@ public class SemesterConfig {
 
             if ((now.isEqual(summerStart) || now.isAfter(summerStart)) &&
                     (now.isEqual(summerEnd) || now.isBefore(summerEnd))) {
+                log.info("Current semester is SUMMER");
                 return "SUMMER";
             } else if ((now.isEqual(winterStart) || now.isAfter(winterStart)) &&
                     (now.isEqual(winterEnd) || now.isBefore(winterEnd))) {
+                log.info("Current semester is WINTER");
                 return "WINTER";
             } else {
                 if (now.isBefore(summerStart)) {
+                    log.info("Current semester is SUMMER");
                     return "SUMMER";
                 } else {
+                    log.info("Current semester is WINTER");
                     return "WINTER";
                 }
             }
@@ -71,11 +77,11 @@ public class SemesterConfig {
         int month = now.getMonthValue();
         int day = now.getDayOfMonth();
 
-        if ((month == 2 && day >= 17) ||
-                (month > 2 && month <= 6) ||
-                (month == 7 && day <= 31)) {
+        if (month == 2 && day >= 17 || month > 2 && month <= 6 || month == 7) {
+            log.info("Current semester is SUMMER");
             return "SUMMER";
         } else {
+            log.info("Current semester is WINTER");
             return "WINTER";
         }
     }
@@ -88,8 +94,10 @@ public class SemesterConfig {
             int winterStartYear = winterStart.getYear();
 
             if (now.isEqual(winterStart) || now.isAfter(winterStart)) {
+                log.info("Current academic year is {}", winterStartYear);
                 return winterStartYear;
             } else {
+                log.info("Current academic year is {}", winterStartYear - 1);
                 return winterStartYear - 1;
             }
         } catch (Exception e) {

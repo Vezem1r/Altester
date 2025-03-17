@@ -70,9 +70,15 @@ public class AdminPageService {
             userGroups = List.of();
         }
 
-        dto.setGroupNames(userGroups.stream().map(Group::getName).toList());
+        List<Group> activeUserGroups = userGroups.stream()
+                .filter(Group::isActive)
+                .toList();
 
-        List<String> subjectNames = userGroups.stream()
+        dto.setGroupNames(activeUserGroups.stream()
+                .map(Group::getName)
+                .toList());
+
+        List<String> subjectNames = activeUserGroups.stream()
                 .map(group -> subjectRepository.findByGroupsId(group.getId()))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
