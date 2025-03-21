@@ -48,12 +48,4 @@ public class Attempt {
 
     @OneToMany(mappedBy = "attempt", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Submission> submissions = new ArrayList<>();
-
-    @Transient
-    public int calculateScore() {
-        return submissions.stream()
-                .filter(s -> s.getScore() != null)
-                .mapToInt(Submission::getScore)
-                .sum();
-    }
 }

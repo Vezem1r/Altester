@@ -1,6 +1,7 @@
 package com.altester.core.model.subject;
 
 import com.altester.core.model.subject.enums.QuestionType;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,11 +23,11 @@ public class Question {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @Column(name = "question_text")
+    @Column(name = "question_text", nullable = false)
     private String questionText;
 
-    @Column(name = "image_url")
-    private String imageUrl;
+    @Column(name = "image_path")
+    private String imagePath;
 
     @Column(nullable = false)
     private int score;
@@ -37,12 +38,13 @@ public class Question {
 
     @ManyToOne
     @JoinColumn(name = "test_id", nullable = false)
+    @JsonBackReference
     private Test test;
 
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Option> options = new ArrayList<>();
 
     @OneToMany(mappedBy = "question")
+    @JsonBackReference
     private List<Submission> submissions = new ArrayList<>();
-
 }

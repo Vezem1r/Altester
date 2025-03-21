@@ -1,5 +1,6 @@
 package com.altester.core.model.subject;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -8,7 +9,9 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "tests")
@@ -34,19 +37,24 @@ public class Test {
     @Column(nullable = false)
     private boolean isOpen;
 
-    @Column(nullable = false)
-    private Integer max_attempts;
+    @Column
+    private Integer maxAttempts;
 
-    @Column()
+    @Column
     private LocalDateTime startTime;
 
-    @Column()
+    @Column
     private LocalDateTime endTime;
 
-    @OneToMany(mappedBy = "test", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Question> questions = new ArrayList<>();
+    @Column(nullable = false)
+    private boolean isCreatedByAdmin = false;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "test_id")
+    private Set<Question> questions = new HashSet<>();
 
     @OneToMany(mappedBy = "test", cascade = CascadeType.ALL)
+    @JsonBackReference
     private List<Attempt> attempts = new ArrayList<>();
 
     @Transient

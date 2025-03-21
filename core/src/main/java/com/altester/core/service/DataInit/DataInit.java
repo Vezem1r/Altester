@@ -1,13 +1,18 @@
 package com.altester.core.service.DataInit;
 
+import com.altester.core.config.SemesterConfig;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
+import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
+import com.altester.core.model.subject.enums.Semester;
+import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +27,8 @@ public class DataInit {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final SubjectRepository subjectRepository;
+    private final GroupRepository groupRepository;
+    private final SemesterConfig semesterConfig;
 
     @Value("${admin.password}")
     private String password;
@@ -74,7 +81,7 @@ public class DataInit {
             amount = 100;
         }
 
-        log.info("Creating {} students",amount);
+        log.info("Creating {} students", amount);
 
         for (int i = 0; i < amount; i++) {
             String firstname = firstnames.get(i);
@@ -104,6 +111,61 @@ public class DataInit {
 
             userRepository.save(user);
             log.info("Created student: {} {}", firstname, lastname);
+        }
+
+        createDefaultUsers();
+    }
+
+    private void createDefaultUsers() {
+        if (userRepository.findByUsername("STUDENT").isEmpty()) {
+            String pass = passwordEncoder.encode("1234");
+            User student = User.builder()
+                    .name("Student")
+                    .surname("Super")
+                    .email("student@vsb.cz")
+                    .username("STUDENT")
+                    .created(LocalDateTime.now())
+                    .lastLogin(LocalDateTime.now())
+                    .password(pass)
+                    .enabled(true)
+                    .isRegistered(true)
+                    .role(RolesEnum.STUDENT)
+                    .build();
+            userRepository.save(student);
+        }
+
+        if (userRepository.findByUsername("TEACHER").isEmpty()) {
+            String pass = passwordEncoder.encode("1234");
+            User teacher = User.builder()
+                    .name("teacher")
+                    .surname("Super")
+                    .email("teacher@vsb.cz")
+                    .username("TEACHER")
+                    .created(LocalDateTime.now())
+                    .lastLogin(LocalDateTime.now())
+                    .password(pass)
+                    .enabled(true)
+                    .isRegistered(true)
+                    .role(RolesEnum.TEACHER)
+                    .build();
+            userRepository.save(teacher);
+        }
+
+        if (userRepository.findByUsername("ADMIN").isEmpty()) {
+            String pass = passwordEncoder.encode("1234");
+            User admin = User.builder()
+                    .name("admin")
+                    .surname("Super")
+                    .email("admin@vsb.cz")
+                    .username("ADMIN")
+                    .created(LocalDateTime.now())
+                    .lastLogin(LocalDateTime.now())
+                    .password(pass)
+                    .enabled(true)
+                    .isRegistered(true)
+                    .role(RolesEnum.ADMIN)
+                    .build();
+            userRepository.save(admin);
         }
     }
 
@@ -189,6 +251,52 @@ public class DataInit {
 
             subjectRepository.save(subject);
             log.info("Created subject: {} {}", subjectName, shortName);
+        }
+    }
+
+    public void createStudentGroups() {
+        List<User> students = userRepository.findByRole(RolesEnum.STUDENT, Pageable.unpaged()).getContent();
+
+        if (students.isEmpty()) {
+            log.warn("No students available to create groups.");
+            return;
+        }
+
+        User teacher = userRepository.findByUsername("TEACHER")
+                .orElseThrow(() -> new IllegalArgumentException("Teacher cannot be null"));
+
+        int totalGroups = (int) Math.ceil((double) students.size() / 10);
+
+        for (int i = 0; i < totalGroups; i++) {
+            int startIndex = i * 10;
+            int endIndex = Math.min((i + 1) * 10, students.size());
+            List<User> groupStudents = students.subList(startIndex, endIndex);
+
+            Set<User> studentSet = new HashSet<>(groupStudents);
+
+            String groupName = "Group_" + (i + 1);
+
+            Optional<Group> optionalGroup = groupRepository.findByName(groupName);
+            if (optionalGroup.isPresent()) {
+                log.info("Skipping existing group: {}", groupName);
+                continue;
+            }
+
+            Semester semester = Semester.valueOf(semesterConfig.getCurrentSemester());
+            int academicYear = semesterConfig.getCurrentAcademicYear();
+            boolean isActive = semesterConfig.isSemesterActive(semester.name(), academicYear);
+
+            Group group = Group.builder()
+                    .name(groupName)
+                    .teacher(teacher)
+                    .students(studentSet)
+                    .semester(semester)
+                    .academicYear(academicYear)
+                    .active(isActive)
+                    .build();
+
+            groupRepository.save(group);
+            log.info("Created group: {} with {} students", groupName, studentSet.size());
         }
     }
 }

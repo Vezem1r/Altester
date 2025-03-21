@@ -15,14 +15,17 @@ public class DataInitializer implements CommandLineRunner {
 
 
     @Override
-    public void run(String... args) throws Exception {
+    public void run(String... args) {
 
         //Creating Students and Teachers
-        dataInit.createStudents(50);
-        dataInit.createTeachers(10);
+        dataInit.createStudents(100);
+        dataInit.createTeachers(20);
 
         //Creating Subjects
-        dataInit.createSubject(10);
+        dataInit.createSubject(20);
+
+        //Create groups with student/10
+        dataInit.createStudentGroups();
     }
 
 }

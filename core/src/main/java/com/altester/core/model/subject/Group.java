@@ -2,6 +2,7 @@ package com.altester.core.model.subject;
 
 import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.enums.Semester;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
@@ -15,7 +16,7 @@ import java.util.Set;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@EqualsAndHashCode(exclude = {"students"})
+@EqualsAndHashCode(exclude = {"students", "tests"})
 public class Group {
 
     @Id
@@ -35,20 +36,26 @@ public class Group {
     @Column(nullable = false)
     private boolean active = true;
 
-    @ManyToMany()
+    @ManyToMany
     @JoinTable(
             name = "student_groups",
             joinColumns = @JoinColumn(name = "group_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
-    @JsonManagedReference
+    @JsonBackReference
     private Set<User> students = new HashSet<>();
 
-    @ManyToOne()
+    @ManyToOne
     @JoinColumn(name = "teacher_id")
+    @JsonBackReference
     private User teacher;
 
-    @OneToMany
-    @JoinColumn(name = "group_id")
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "group_tests",
+            joinColumns = @JoinColumn(name = "group_id"),
+            inverseJoinColumns = @JoinColumn(name = "test_id")
+    )
+    @JsonManagedReference
     private Set<Test> tests = new HashSet<>();
 }
