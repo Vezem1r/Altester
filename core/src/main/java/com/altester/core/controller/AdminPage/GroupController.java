@@ -90,11 +90,11 @@ public class GroupController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<Page<GroupsResponce>> getAllGroups(@RequestParam(defaultValue = "0") int page) {
+    public ResponseEntity<Page<GroupsResponse>> getAllGroups(@RequestParam(defaultValue = "0") int page) {
         try {
             int fixedSize = 10;
             Pageable pageable = PageRequest.of(page, fixedSize);
-            Page<GroupsResponce> groups = groupService.getAllGroups(pageable);
+            Page<GroupsResponse> groups = groupService.getAllGroups(pageable);
             log.info("Groups fetched successfully");
             return ResponseEntity.status(HttpStatus.OK).body(groups);
         } catch (Exception e) {

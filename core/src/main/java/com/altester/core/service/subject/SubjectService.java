@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -121,41 +122,51 @@ public class SubjectService {
                     });
 
             List<Group> groupsList = groupRepository.findAllById(updateGroupsDTO.getGroupIds());
-
-            // Check if any group is inactive
-            for (Group group : groupsList) {
-                boolean isActive = groupActivityService.checkAndUpdateGroupActivity(group);
-                if (!isActive) {
-                    throw new GroupInactiveException("Cannot add inactive group " + group.getName() + " to subject");
-                }
-            }
-
             Set<Group> currentGroups = subject.getGroups();
             Set<Group> groupsToAdd = new HashSet<>(groupsList);
 
-            for (Group group : groupsToAdd) {
+            for (Group group : groupsList) {
+                groupActivityService.checkAndUpdateGroupActivity(group);
+
+                if (!group.isActive() && !groupActivityService.isGroupInFuture(group)) {
+                    throw new GroupInactiveException("Cannot add group " + group.getName() + " from past semester to subject");
+                }
+
                 Optional<Subject> existingSubject = subjectRepository.findByGroupsContaining(group);
                 if (existingSubject.isPresent() && existingSubject.get().getId() != subject.getId()) {
                     throw new RuntimeException("Group " + group.getName() + " is already assigned to another subject.");
                 }
             }
 
+            Set<Group> groupsToRemove = currentGroups.stream()
+                    .filter(group -> !groupsToAdd.contains(group))
+                    .collect(Collectors.toSet());
+
+            for (Group group : groupsToRemove) {
+                groupActivityService.checkAndUpdateGroupActivity(group);
+
+                if (!group.isActive() && !groupActivityService.isGroupInFuture(group)) {
+                    throw new GroupInactiveException("Cannot remove group " + group.getName() + " from past semester from subject");
+                }
+            }
+
+            currentGroups.removeAll(groupsToRemove);
             currentGroups.addAll(groupsToAdd);
-            currentGroups.removeIf(group -> !groupsToAdd.contains(group));
 
             subject.setModified(LocalDateTime.now());
             subject.setGroups(currentGroups);
             subjectRepository.save(subject);
 
+            log.info("Subject {} groups updated successfully", subject.getName());
+
         } catch (GroupInactiveException e) {
-            log.error("Cannot add inactive group to subject: {}", e.getMessage());
+            log.error("Group operation error: {}", e.getMessage());
             throw e;
         } catch (Exception e) {
             log.error("Error updating groups in subject {}. {}", updateGroupsDTO.getSubjectId(), e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
     }
-
 
     @Transactional
     public void updateGroup(long subjectId, long groupId) {
@@ -172,10 +183,10 @@ public class SubjectService {
                         return new RuntimeException("Group with id " + groupId + " not found");
                     });
 
-            // Check if group is active
-            boolean isActive = groupActivityService.checkAndUpdateGroupActivity(group);
-            if (!isActive) {
-                throw new GroupInactiveException("Cannot add inactive group " + group.getName() + " to subject");
+            groupActivityService.checkAndUpdateGroupActivity(group);
+
+            if (!group.isActive() && !groupActivityService.isGroupInFuture(group)) {
+                throw new GroupInactiveException("Cannot add group " + group.getName() + " from past semester to subject");
             }
 
             Optional<Subject> existingSubject = subjectRepository.findByGroupsContaining(group);
@@ -194,7 +205,7 @@ public class SubjectService {
             }
 
         } catch (GroupInactiveException e) {
-            log.error("Cannot add inactive group to subject: {}", e.getMessage());
+            log.error("Cannot add group to subject: {}", e.getMessage());
             throw e;
         } catch (Exception e) {
             log.error("Error updating subject {}: {}", subjectId, e.getMessage());

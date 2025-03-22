@@ -4,6 +4,7 @@ import com.altester.auth.models.Codes;
 import com.altester.auth.models.User;
 import com.altester.auth.models.enums.CodeType;
 import com.altester.auth.models.enums.EmailType;
+import com.altester.auth.models.enums.RolesEnum;
 import com.altester.auth.repository.CodeRepository;
 import com.altester.auth.repository.UserRepository;
 import com.altester.auth.utils.EmailUtils;
@@ -36,6 +37,11 @@ public class UserEmailService {
         }
 
         User user = optionalUser.get();
+
+        if (user.getRole().equals(RolesEnum.ADMIN)) {
+            log.error("Admin user cannot reset email");
+            throw new UsernameNotFoundException("Admin user cannot reset email");
+        }
 
         if (!user.isRegistered()) {
             log.error("User was created using ldap: {}", user.getUsername());

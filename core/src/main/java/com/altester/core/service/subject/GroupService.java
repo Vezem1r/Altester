@@ -32,14 +32,22 @@ public class GroupService {
     private final UserRepository userRepository;
     private final SubjectRepository subjectRepository;
     private final SemesterConfig semesterConfig;
+    private final GroupActivityService groupActivityService;
 
     public void deleteGroup(long id) {
         try {
-            groupRepository.findById(id).orElseThrow(() -> {
+            Group group = groupRepository.findById(id).orElseThrow(() -> {
                 log.error("Group with id: {} not found", id);
                 return new RuntimeException("Group not found");
             });
+
+            if (!groupActivityService.canModifyGroup(group)) {
+                throw new GroupInactiveException("Cannot delete inactive group " + group.getName() + " from past semester");
+            }
+
             groupRepository.deleteById(id);
+        } catch (GroupInactiveException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error deleting group with id: {}, {}", id, e.getMessage());
             throw new RuntimeException(e.getMessage());
@@ -77,7 +85,7 @@ public class GroupService {
                 group.isActive());
     }
 
-    public Page<GroupsResponce> getAllGroups(Pageable pageable) {
+    public Page<GroupsResponse> getAllGroups(Pageable pageable) {
         return groupRepository.findAll(pageable).map(group -> {
             Optional<Subject> subject = subjectRepository.findByGroupsId(group.getId());
             String subjectName;
@@ -86,7 +94,8 @@ public class GroupService {
             } else {
                 subjectName = "No subject";
             }
-            return new GroupsResponce(
+
+            GroupsResponse response = new GroupsResponse(
                     group.getId(),
                     group.getName(),
                     group.getTeacher() != null ? group.getTeacher().getUsername() : "No teacher",
@@ -96,6 +105,10 @@ public class GroupService {
                     group.getAcademicYear(),
                     group.isActive()
             );
+
+            boolean isInFuture = groupActivityService.isGroupInFuture(group);
+            response.setInFuture(isInFuture);
+            return response;
         });
     }
 
@@ -104,8 +117,8 @@ public class GroupService {
         Group group = groupRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Group not found"));
 
-        if (!group.isActive()) {
-            throw new GroupInactiveException("Cannot update inactive group " + group.getName());
+        if (!groupActivityService.canModifyGroup(group)) {
+            throw new GroupInactiveException("Cannot update inactive group " + group.getName() + " from past semester");
         }
 
         if (createGroupDTO.getStudentsIds() == null || createGroupDTO.getStudentsIds().isEmpty()) {
@@ -142,13 +155,19 @@ public class GroupService {
         }
         group.setStudents(students);
 
-        if (createGroupDTO.getSemester() != null) {
-            group.setSemester(createGroupDTO.getSemester());
+        if (createGroupDTO.getSemester() == null) {
+            createGroupDTO.setSemester(Semester.valueOf(semesterConfig.getCurrentSemester()));
         }
 
-        if (createGroupDTO.getAcademicYear() != null) {
-            group.setAcademicYear(createGroupDTO.getAcademicYear());
+        if (createGroupDTO.getAcademicYear() == null) {
+            createGroupDTO.setAcademicYear(semesterConfig.getCurrentAcademicYear());
         }
+
+        boolean isActive = semesterConfig.isSemesterActive(createGroupDTO.getSemester().name(), createGroupDTO.getAcademicYear());
+
+        group.setSemester(createGroupDTO.getSemester());
+        group.setAcademicYear(createGroupDTO.getAcademicYear());
+        group.setActive(isActive);
 
         groupRepository.save(group);
         log.info("Group '{}' updated successfully with {} students", group.getName(), students.size());
