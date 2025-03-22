@@ -75,14 +75,20 @@ public class GroupService {
                 group.getTeacher().getUsername())
                 : null;
 
-        return new GroupDTO(group.getId(),
-                group.getName(),
-                subjectName,
-                students,
-                teacher,
-                group.getSemester(),
-                group.getAcademicYear(),
-                group.isActive());
+        boolean isInFuture = groupActivityService.isGroupInFuture(group);
+
+        return GroupDTO.builder()
+                .id(group.getId())
+                .name(group.getName())
+                .subject(subjectName)
+                .students(students)
+                .teacher(teacher)
+                .semester(group.getSemester())
+                .academicYear(group.getAcademicYear())
+                .active(group.isActive())
+                .isInFuture(isInFuture)
+                .build();
+
     }
 
     public Page<GroupsResponse> getAllGroups(Pageable pageable) {

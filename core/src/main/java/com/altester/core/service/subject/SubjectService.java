@@ -4,7 +4,6 @@ import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
 import com.altester.core.dtos.core_service.subject.SubjectDTO;
 import com.altester.core.dtos.core_service.subject.SubjectGroupDTO;
 import com.altester.core.dtos.core_service.subject.UpdateGroupsDTO;
-import com.altester.core.exception.GroupInactiveException;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
 import com.altester.core.repository.GroupRepository;
@@ -17,10 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -121,34 +117,41 @@ public class SubjectService {
                         return new RuntimeException("Subject with id " + updateGroupsDTO.getSubjectId() + " not found");
                     });
 
-            List<Group> groupsList = groupRepository.findAllById(updateGroupsDTO.getGroupIds());
-            Set<Group> currentGroups = subject.getGroups();
-            Set<Group> groupsToAdd = new HashSet<>(groupsList);
+            List<Group> validGroupsList = new ArrayList<>();
 
-            for (Group group : groupsList) {
+            for (Long groupId : updateGroupsDTO.getGroupIds()) {
+                Group group = groupRepository.findById(groupId).orElse(null);
+                if (group == null) {
+                    continue;
+                }
+
                 groupActivityService.checkAndUpdateGroupActivity(group);
 
-                if (!group.isActive() && !groupActivityService.isGroupInFuture(group)) {
-                    throw new GroupInactiveException("Cannot add group " + group.getName() + " from past semester to subject");
-                }
-
-                Optional<Subject> existingSubject = subjectRepository.findByGroupsContaining(group);
-                if (existingSubject.isPresent() && existingSubject.get().getId() != subject.getId()) {
-                    throw new RuntimeException("Group " + group.getName() + " is already assigned to another subject.");
+                if (group.isActive() || groupActivityService.isGroupInFuture(group)) {
+                    Optional<Subject> existingSubject = subjectRepository.findByGroupsContaining(group);
+                    if (existingSubject.isPresent() && existingSubject.get().getId() != subject.getId()) {
+                        throw new RuntimeException("Group " + group.getName() + " is already assigned to another subject.");
+                    }
+                    validGroupsList.add(group);
+                } else {
+                    log.info("Skipping inactive past group: {}", group.getName());
                 }
             }
+
+            Set<Group> groupsToAdd = new HashSet<>(validGroupsList);
+            Set<Group> currentGroups = subject.getGroups();
 
             Set<Group> groupsToRemove = currentGroups.stream()
-                    .filter(group -> !groupsToAdd.contains(group))
+                    .filter(group -> {
+                        groupActivityService.checkAndUpdateGroupActivity(group);
+                        return (group.isActive() || groupActivityService.isGroupInFuture(group)) &&
+                                !groupsToAdd.contains(group);
+                    })
                     .collect(Collectors.toSet());
 
-            for (Group group : groupsToRemove) {
-                groupActivityService.checkAndUpdateGroupActivity(group);
-
-                if (!group.isActive() && !groupActivityService.isGroupInFuture(group)) {
-                    throw new GroupInactiveException("Cannot remove group " + group.getName() + " from past semester from subject");
-                }
-            }
+            Set<Group> pastInactiveGroups = currentGroups.stream()
+                    .filter(group -> !group.isActive() && !groupActivityService.isGroupInFuture(group))
+                    .collect(Collectors.toSet());
 
             currentGroups.removeAll(groupsToRemove);
             currentGroups.addAll(groupsToAdd);
@@ -157,11 +160,13 @@ public class SubjectService {
             subject.setGroups(currentGroups);
             subjectRepository.save(subject);
 
-            log.info("Subject {} groups updated successfully", subject.getName());
+            if (!pastInactiveGroups.isEmpty()) {
+                log.info("Subject {} groups updated successfully. Kept {} past inactive groups.",
+                        subject.getName(), pastInactiveGroups.size());
+            } else {
+                log.info("Subject {} groups updated successfully", subject.getName());
+            }
 
-        } catch (GroupInactiveException e) {
-            log.error("Group operation error: {}", e.getMessage());
-            throw e;
         } catch (Exception e) {
             log.error("Error updating groups in subject {}. {}", updateGroupsDTO.getSubjectId(), e.getMessage());
             throw new RuntimeException(e.getMessage());
@@ -186,7 +191,8 @@ public class SubjectService {
             groupActivityService.checkAndUpdateGroupActivity(group);
 
             if (!group.isActive() && !groupActivityService.isGroupInFuture(group)) {
-                throw new GroupInactiveException("Cannot add group " + group.getName() + " from past semester to subject");
+                log.info("Skipping inactive past group: {}", group.getName());
+                return;
             }
 
             Optional<Subject> existingSubject = subjectRepository.findByGroupsContaining(group);
@@ -204,9 +210,6 @@ public class SubjectService {
                 log.warn("Group {} is already assigned to subject {}", group.getName(), subject.getName());
             }
 
-        } catch (GroupInactiveException e) {
-            log.error("Cannot add group to subject: {}", e.getMessage());
-            throw e;
         } catch (Exception e) {
             log.error("Error updating subject {}: {}", subjectId, e.getMessage());
             throw new RuntimeException(e.getMessage());
