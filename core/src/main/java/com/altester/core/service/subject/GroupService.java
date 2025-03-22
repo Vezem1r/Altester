@@ -20,10 +20,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -244,8 +241,118 @@ public class GroupService {
         return new PageImpl<>(students, pageable, studentsPage.getTotalElements());
     }
 
+    public Page<CreateGroupUserListDTO> getAllStudentsSortedBySubject(Pageable pageable, Long subjectId) {
+        Subject subject = subjectRepository.findById(subjectId)
+                .orElseThrow(() -> new EntityNotFoundException("Subject with id " + subjectId + " not found"));
+
+        Set<Long> studentsInSubjectIds = new HashSet<>();
+
+        Set<Group> activeSubjectGroups = subject.getGroups().stream()
+                .filter(Group::isActive)
+                .collect(Collectors.toSet());
+
+        activeSubjectGroups.forEach(group -> group.getStudents().forEach(student -> studentsInSubjectIds.add(student.getId())));
+
+        Page<User> studentsPage = userRepository.findAllByRoleOrderBySubjectMembership(
+                RolesEnum.STUDENT.name(),
+                studentsInSubjectIds,
+                pageable
+        );
+
+        List<CreateGroupUserListDTO> resultList = studentsPage.getContent().stream()
+                .map(student -> {
+                    List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
+
+                    List<String> subjectNames = studentActiveGroups.stream()
+                            .map(group -> subjectRepository.findByGroupsContaining(group)
+                                    .map(Subject::getShortName)
+                                    .orElse("Group has no subject"))
+                            .distinct()
+                            .toList();
+
+                    return new CreateGroupUserListDTO(
+                            student.getId(),
+                            student.getName(),
+                            student.getSurname(),
+                            student.getUsername(),
+                            subjectNames
+                    );
+                })
+                .toList();
+
+        return new PageImpl<>(resultList, pageable, studentsPage.getTotalElements());
+    }
+
     public Page<GroupUserList> getAllTeachers(Pageable pageable) {
         return userRepository.findAllByRole(RolesEnum.TEACHER, pageable)
                 .map(user -> new GroupUserList(user.getId(), user.getName(), user.getSurname(), user.getUsername()));
+    }
+
+    public Page<CreateGroupUserListDTO> getAllStudentsNotInGroup(Pageable pageable, Long groupId) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new EntityNotFoundException("Group with id " + groupId + " not found"));
+
+        Set<Long> studentsInGroupIds = group.getStudents().stream()
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
+        Subject subject;
+        Set<Long> studentsInSubjectIds = new HashSet<>();
+
+        Optional<Subject> subjectOptional = subjectRepository.findByGroupsContaining(group);
+        if (subjectOptional.isPresent()) {
+            subject = subjectOptional.get();
+
+            studentsInSubjectIds = subject.getGroups().stream()
+                    .filter(g -> g.getId() != group.getId())
+                    .flatMap(g -> g.getStudents().stream())
+                    .map(User::getId)
+                    .collect(Collectors.toSet());
+        } else {
+            subject = null;
+        }
+
+        if (studentsInGroupIds.isEmpty() && studentsInSubjectIds.isEmpty()) {
+            return getAllStudents(pageable);
+        }
+
+        Page<User> studentsPage = userRepository.findAllByRoleExcludeGroupStudentsOrderBySubjectMembership(
+                RolesEnum.STUDENT.name(),
+                studentsInGroupIds,
+                studentsInSubjectIds,
+                pageable
+        );
+
+        Set<Long> finalStudentsInSubjectIds = studentsInSubjectIds;
+        List<CreateGroupUserListDTO> resultList = studentsPage.getContent().stream()
+                .map(student -> {
+                    List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
+
+                    List<String> subjectNames = studentActiveGroups.stream()
+                            .map(g -> subjectRepository.findByGroupsContaining(g)
+                                    .map(Subject::getShortName)
+                                    .orElse("Group has no subject"))
+                            .distinct()
+                            .toList();
+
+                    CreateGroupUserListDTO dto = new CreateGroupUserListDTO(
+                            student.getId(),
+                            student.getName(),
+                            student.getSurname(),
+                            student.getUsername(),
+                            subjectNames
+                    );
+
+                    if (subject != null && finalStudentsInSubjectIds.contains(student.getId())) {
+                        dto.setInSameSubject(true);
+                        dto.setSubjectName(subject.getName());
+                        dto.setSubjectShortName(subject.getShortName());
+                    }
+
+                    return dto;
+                })
+                .toList();
+
+        return new PageImpl<>(resultList, pageable, studentsPage.getTotalElements());
     }
 }

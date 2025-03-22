@@ -21,15 +21,29 @@ public class GroupController {
     private final GroupService groupService;
 
     @GetMapping("/getGroupStudents")
-    public ResponseEntity<Page<CreateGroupUserListDTO>> getGroupStudents(@RequestParam(defaultValue = "0") int page) {
+    public ResponseEntity<Page<CreateGroupUserListDTO>> getGroupStudents(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) Long subjectId,
+            @RequestParam(required = false) Long groupId){
         try {
             int fixedSize = 10;
             Pageable pageable = PageRequest.of(page, fixedSize);
-            Page<CreateGroupUserListDTO> students = groupService.getAllStudents(pageable);
-            log.info("Students fetched successfully");
+            Page<CreateGroupUserListDTO> students;
+
+            if (groupId != null) {
+                students = groupService.getAllStudentsNotInGroup(pageable, groupId);
+                log.info("Students fetched successfully - excluding students from groupId: {}", groupId);
+            } else if (subjectId != null) {
+                students = groupService.getAllStudentsSortedBySubject(pageable, subjectId);
+                log.info("Students fetched successfully with subject sorting for subjectId: {}", subjectId);
+            } else {
+                students = groupService.getAllStudents(pageable);
+                log.info("Students fetched successfully without sorting");
+            }
+
             return ResponseEntity.status(HttpStatus.OK).body(students);
         } catch (Exception e) {
-            log.error("Students fetch failed");
+            log.error("Students fetch failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
     }
