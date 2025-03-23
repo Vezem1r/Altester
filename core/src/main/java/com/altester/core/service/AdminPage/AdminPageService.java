@@ -16,8 +16,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,26 +34,74 @@ public class AdminPageService {
     private final GroupRepository groupRepository;
     private final SubjectRepository subjectRepository;
 
-    public Page<UsersListDTO> getStudents(int page) {
+    public Page<UsersListDTO> getStudents(int page, String searchQuery, String searchField, String registrationFilter) {
         try {
-            return userRepository.findByRole(RolesEnum.STUDENT, PageRequest.of(page, 20,
-                            Sort.by(Sort.Direction.ASC, "isRegistered")))
-                    .map(this::convertToUsersListDTO);
+            Specification<User> spec = createUserSpecification(RolesEnum.STUDENT, searchQuery, searchField, registrationFilter);
+
+            PageRequest pageRequest = PageRequest.of(page, 20, Sort.by(Sort.Direction.ASC, "isRegistered")
+                    .and(Sort.by(Sort.Direction.ASC, "name")));
+
+            return userRepository.findAll(spec, pageRequest).map(this::convertToUsersListDTO);
         } catch (Exception e) {
-            log.error("Error fetching students: {}", e.getMessage());
+            log.error("Error fetching students with search params: {}", e.getMessage());
             throw new RuntimeException("Failed to fetch students. " + e.getMessage());
         }
     }
 
-    public Page<UsersListDTO> getTeachers(int page) {
+    public Page<UsersListDTO> getTeachers(int page, String searchQuery, String searchField, String registrationFilter) {
         try {
-            return userRepository.findByRole(RolesEnum.TEACHER, PageRequest.of(page, 20,
-                            Sort.by(Sort.Direction.ASC, "isRegistered")))
-                    .map(this::convertToUsersListDTO);
+            Specification<User> spec = createUserSpecification(RolesEnum.TEACHER, searchQuery, searchField, registrationFilter);
+
+            PageRequest pageRequest = PageRequest.of(page, 20, Sort.by(Sort.Direction.ASC, "isRegistered")
+                    .and(Sort.by(Sort.Direction.ASC, "name")));
+
+            return userRepository.findAll(spec, pageRequest).map(this::convertToUsersListDTO);
         } catch (Exception e) {
-            log.error("Error fetching teachers: {}", e.getMessage());
+            log.error("Error fetching teachers with search params: {}", e.getMessage());
             throw new RuntimeException("Failed to fetch teachers. " + e.getMessage());
         }
+    }
+
+    private Specification<User> createUserSpecification(RolesEnum role, String searchQuery, String searchField, String registrationFilter) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            predicates.add(criteriaBuilder.equal(root.get("role"), role));
+
+            if ("lpad".equals(registrationFilter)) {
+                predicates.add(criteriaBuilder.equal(root.get("isRegistered"), false));
+            } else if ("registered".equals(registrationFilter)) {
+                predicates.add(criteriaBuilder.equal(root.get("isRegistered"), true));
+            }
+
+            if (StringUtils.hasText(searchQuery)) {
+                String likePattern = "%" + searchQuery.toLowerCase() + "%";
+
+                if ("all".equals(searchField)) {
+                    predicates.add(criteriaBuilder.or(
+                            criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), likePattern),
+                            criteriaBuilder.like(criteriaBuilder.lower(root.get("surname")), likePattern),
+                            criteriaBuilder.like(criteriaBuilder.lower(root.get("email")), likePattern),
+                            criteriaBuilder.like(criteriaBuilder.lower(root.get("username")), likePattern)
+                    ));
+                } else if ("name".equals(searchField)) {
+                    predicates.add(criteriaBuilder.or(
+                            criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), likePattern),
+                            criteriaBuilder.like(criteriaBuilder.lower(root.get("surname")), likePattern)
+                    ));
+                } else if ("firstName".equals(searchField)) {
+                    predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), likePattern));
+                } else if ("lastName".equals(searchField)) {
+                    predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("surname")), likePattern));
+                } else if ("email".equals(searchField)) {
+                    predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("email")), likePattern));
+                } else if ("username".equals(searchField)) {
+                    predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("username")), likePattern));
+                }
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
     private UsersListDTO convertToUsersListDTO(User user) {

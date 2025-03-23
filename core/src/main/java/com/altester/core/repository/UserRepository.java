@@ -4,6 +4,7 @@ import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
@@ -11,7 +12,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 import java.util.Set;
 
-public interface UserRepository extends CrudRepository<User, Long> {
+public interface UserRepository extends CrudRepository<User, Long>, JpaSpecificationExecutor<User> {
 
     Optional<User> findByEmail(String email);
     Optional<User> findByUsername(String username);

@@ -80,29 +80,39 @@ public class AdminPageController {
     }
 
     @GetMapping("/getStudents")
-    public ResponseEntity<Page<UsersListDTO>> getStudents(@RequestParam(defaultValue = "0") int page) {
+    public ResponseEntity<Page<UsersListDTO>> getStudents(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) String searchQuery,
+            @RequestParam(defaultValue = "all") String searchField,
+            @RequestParam(defaultValue = "all") String registrationFilter) {
         try {
-            log.debug("Fetching students list for page {}", page);
-            Page<UsersListDTO> students = adminPageService.getStudents(page);
+            log.debug("Fetching students list for page {} with search: {}, field: {}, registrationFilter: {}",
+                    page, searchQuery, searchField, registrationFilter);
+            Page<UsersListDTO> students = adminPageService.getStudents(page, searchQuery, searchField, registrationFilter);
             log.debug("Successfully fetched {} students from page {}/{}",
                     students.getNumberOfElements(), page, students.getTotalPages() - 1);
             return ResponseEntity.ok(students);
         } catch (Exception e) {
-            log.error("Error fetching students list for page {}: {}", page, e.getMessage());
+            log.error("Error fetching students list: {}", e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }
 
     @GetMapping("/getTeachers")
-    public ResponseEntity<Page<UsersListDTO>> getTeachers(@RequestParam(defaultValue = "0") int page) {
+    public ResponseEntity<Page<UsersListDTO>> getTeachers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) String searchQuery,
+            @RequestParam(defaultValue = "all") String searchField,
+            @RequestParam(defaultValue = "all") String registrationFilter) {
         try {
-            log.debug("Fetching teachers list for page {}", page);
-            Page<UsersListDTO> teachers = adminPageService.getTeachers(page);
+            log.debug("Fetching teachers list for page {} with search: {}, field: {}, registrationFilter: {}",
+                    page, searchQuery, searchField, registrationFilter);
+            Page<UsersListDTO> teachers = adminPageService.getTeachers(page, searchQuery, searchField, registrationFilter);
             log.debug("Successfully fetched {} teachers from page {}/{}",
                     teachers.getNumberOfElements(), page, teachers.getTotalPages() - 1);
             return ResponseEntity.ok(teachers);
         } catch (Exception e) {
-            log.error("Error fetching teachers list for page {}: {}", page, e.getMessage());
+            log.error("Error fetching teachers list: {}", e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }
