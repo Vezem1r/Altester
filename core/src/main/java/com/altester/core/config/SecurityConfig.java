@@ -30,7 +30,8 @@ public class SecurityConfig {
 
     private final String[] BASE_WHITE_LIST = {
             "/password/**",
-            "/auth/config"
+            "/auth/config",
+            "/auth/validate-token"
     };
 
     private final AuthenticationProvider authenticationProvider;

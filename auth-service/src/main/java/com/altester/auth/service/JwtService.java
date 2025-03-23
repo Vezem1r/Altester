@@ -29,16 +29,6 @@ public class JwtService {
         return claimsResolver.apply(claims);
     }
 
-    public Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
-    }
-
-    public String generateToken(UserDetails userDetails, String role) {
-        Map<String, Object> extraClaims = new HashMap<>();
-        extraClaims.put("role", role);
-        return generateToken(extraClaims, userDetails, jwtExpiration);
-    }
-
     public String generateToken(UserDetails userDetails, String role, boolean rememberMe) {
         Map<String, Object> extraClaims = new HashMap<>();
         extraClaims.put("role", role);

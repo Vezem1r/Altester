@@ -25,9 +25,7 @@ import java.io.IOException;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final HandlerExceptionResolver handlerExceptionResolver;
-
     private final JwtService jwtService;
-
     private final UserDetailsService userDetailsService;
 
     @Override
@@ -36,43 +34,45 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
+        final String requestPath = request.getServletPath();
+
+        if (requestPath.equals("/auth/validate-token")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
         final String username;
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            log.warn("Authorization header is missing or invalid.");
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
             jwt = authHeader.substring(7);
-            log.info("Extracted JWT: {}", jwt);
             username = jwtService.extractUsername(jwt);
-            log.info("Extracted user: {}", username);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
-                log.info("Loaded UserDetails: {}", userDetails);
 
                 if (jwtService.isTokenValid(jwt, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                    log.info("Authentication set in SecurityContext.");
-                } else {
-                    log.warn("JWT is invalid.");
                 }
-            } else {
-                log.error("User not found or already authenticated.");
             }
 
             filterChain.doFilter(request, response);
         } catch (Exception exception){
-            log.error("Exception occurred during JWT authentication: {}", exception.getMessage());
             handlerExceptionResolver.resolveException(request, response, null, exception);
         }
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return request.getServletPath().equals("/auth/validate-token");
     }
 }

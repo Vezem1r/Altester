@@ -1,12 +1,13 @@
 package com.altester.core.service;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-import io.jsonwebtoken.Claims;
 
 import java.security.Key;
 import java.util.Date;
@@ -17,9 +18,6 @@ public class JwtService {
 
     @Value("${security.jwt.secret-key}")
     private String secretKey;
-
-    @Value("${security.jwt.expiration-time}")
-    private long jwtExpiration;
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -40,8 +38,12 @@ public class JwtService {
         return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
 
-    private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+    public boolean isTokenExpired(String token) {
+        try {
+            return extractExpiration(token).before(new Date());
+        } catch (ExpiredJwtException e) {
+            return true;
+        }
     }
 
     private Date extractExpiration(String token) {
@@ -61,8 +63,8 @@ public class JwtService {
         return extractClaim(token, claims -> claims.get("role", String.class));
     }
 
-    public long getExpirationTime() {
-        return jwtExpiration;
+    public long getExpirationTimeFromNow(String token) {
+        Date expirationDate = extractExpiration(token);
+        return expirationDate.getTime() - new Date().getTime();
     }
 }
-
