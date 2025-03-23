@@ -20,16 +20,12 @@ public class LdapConfig {
     @Value("${spring.ldap.username}")
     private String ldapUsername;
 
-    @Value("${spring.ldap.password}")
-    private String ldapPassword;
-
     @Bean
     public LdapContextSource contextSource() {
         LdapContextSource contextSource = new LdapContextSource();
         contextSource.setUrl(ldapUrl);
         contextSource.setBase(ldapBase);
         contextSource.setUserDn(ldapUsername);
-        contextSource.setPassword(ldapPassword);
         contextSource.afterPropertiesSet();
         return contextSource;
     }

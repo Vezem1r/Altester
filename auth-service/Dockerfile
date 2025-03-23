@@ -2,10 +2,16 @@ FROM openjdk:21-jdk AS build
 
 WORKDIR /app
 
-COPY . .
+COPY mvnw .
+COPY .mvn .mvn
+COPY pom.xml .
 
 RUN chmod +x mvnw && \
-    ./mvnw clean package -DskipTests
+    ./mvnw dependency:go-offline
+
+COPY src src
+
+RUN ./mvnw package -DskipTests
 
 FROM openjdk:21-jdk
 

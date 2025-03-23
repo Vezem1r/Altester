@@ -16,6 +16,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -27,19 +28,23 @@ public class SecurityConfig {
     @Value("${cors.allowed.origins}")
     private String allowedOrigins;
 
-    private final String[] WHITE_LIST = {
-            "/auth/**",
-            "/password/**"
+    private final String[] BASE_WHITE_LIST = {
+            "/password/**",
+            "/auth/config"
     };
 
     private final AuthenticationProvider authenticationProvider;
     private final JwtAuthFilter jwtAuthFilter;
+    private final AuthConfigProperties authConfigProperties;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        String[] whiteList = getWhiteListBasedOnAuthMode();
+
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(WHITE_LIST).permitAll()
+                        .requestMatchers(whiteList).permitAll()
                         .requestMatchers("/admin/**").hasAnyRole(RolesEnum.ADMIN.name())
                         .requestMatchers("/teacher/**").hasAnyRole(RolesEnum.TEACHER.name(), RolesEnum.ADMIN.name())
                         .anyRequest().authenticated())
@@ -49,6 +54,23 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()));
         return http.build();
+    }
+
+    private String[] getWhiteListBasedOnAuthMode() {
+        List<String> whitelist = new java.util.ArrayList<>(Arrays.asList(BASE_WHITE_LIST));
+
+        if (authConfigProperties.isStandardAuthEnabled()) {
+            whitelist.add("/auth/signin");
+            whitelist.add("/auth/signup");
+            whitelist.add("/auth/verify");
+            whitelist.add("/auth/resend");
+        }
+
+        if (authConfigProperties.isLdapAuthEnabled()) {
+            whitelist.add("/auth/ldap/signin");
+        }
+
+        return whitelist.toArray(new String[0]);
     }
 
     @Bean
