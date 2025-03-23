@@ -59,6 +59,39 @@ public class TestAccessValidator {
     }
 
     /**
+     * Check if a teacher can edit a test.
+     * Teachers can edit a test if:
+     * 1. It's their own test, OR
+     * 2. It's an admin-created test with allowTeacherEdit=true, and they have access to it
+     * @return true if the teacher can edit the test
+     */
+    public boolean canTeacherEditTest(User teacher, Test test, List<Group> teacherGroups) {
+        if (teacherGroups == null) {
+            teacherGroups = groupRepository.findByTeacher(teacher);
+        }
+
+        List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
+
+        boolean isTeacherAssociated = false;
+        for (Group group : testGroups) {
+            if (teacherGroups.contains(group)) {
+                isTeacherAssociated = true;
+                break;
+            }
+        }
+
+        if (!isTeacherAssociated) {
+            return false;
+        }
+
+        if (test.isCreatedByAdmin()) {
+            return test.isAllowTeacherEdit();
+        }
+
+        return true;
+    }
+
+    /**
      * Check if a teacher is associated with a test through any of their groups
      * @return true if the teacher is associated with the test
      */

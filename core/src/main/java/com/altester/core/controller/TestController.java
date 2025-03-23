@@ -141,4 +141,16 @@ public class TestController {
             return ResponseEntity.badRequest().build();
         }
     }
+
+    @PutMapping("/admin/tests/{testId}/teacher-edit")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> toggleTeacherEditPermission(@PathVariable Long testId, Principal principal) {
+        try {
+            testService.toggleTeacherEditPermission(testId, principal);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("Error toggling teacher edit permission: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
 }

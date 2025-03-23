@@ -10,6 +10,7 @@ import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.TestRepository;
 import com.altester.core.repository.UserRepository;
+import com.altester.core.service.subject.GroupActivityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -32,6 +33,35 @@ public class TestService {
     private final SubjectRepository subjectRepository;
     private final TestDTOMapper testDTOMapper;
     private final TestAccessValidator testAccessValidator;
+    private final GroupActivityService groupActivityService;
+
+    @Transactional
+    public void toggleTeacherEditPermission(Long testId, Principal principal) {
+        log.info("User {} is attempting to toggle teacher edit permission for test with ID {}", principal.getName(), testId);
+
+        User currentUser = userRepository.findByUsername(principal.getName())
+                .orElseThrow(() -> {
+                    log.error("User {} not found", principal.getName());
+                    return new RuntimeException("User not found");
+                });
+
+        if (currentUser.getRole() != RolesEnum.ADMIN) {
+            log.warn("User {} is not an admin, access denied", currentUser.getUsername());
+            throw new RuntimeException("Only admins can modify teacher edit permissions");
+        }
+
+        Test test = testRepository.findById(testId)
+                .orElseThrow(() -> {
+                    log.error("Test with ID {} not found", testId);
+                    return new RuntimeException("Test not found");
+                });
+
+        boolean newState = !test.isAllowTeacherEdit();
+        test.setAllowTeacherEdit(newState);
+        testRepository.save(test);
+
+        log.info("Teacher edit permission for test ID {} toggled to {} by admin {}", testId, newState, currentUser.getUsername());
+    }
 
     @Transactional(readOnly = true)
     public Page<TestSummaryDTO> getAllTestsForAdmin(Pageable pageable, Principal principal) {
@@ -128,6 +158,7 @@ public class TestService {
         test.setEndTime(createTestDTO.getEndTime());
 
         List<Group> selectedGroups = new ArrayList<>();
+        List<Group> invalidGroups = new ArrayList<>();
 
         if (currentUser.getRole() == RolesEnum.ADMIN) {
             test.setCreatedByAdmin(true);
@@ -137,13 +168,24 @@ public class TestService {
                         .orElseThrow(() -> new RuntimeException("Subject not found"));
 
                 if (subject.getGroups() != null && !subject.getGroups().isEmpty()) {
-                    selectedGroups.addAll(subject.getGroups());
+                    for (Group group : subject.getGroups()) {
+                        if (groupActivityService.canModifyGroup(group)) {
+                            selectedGroups.add(group);
+                        } else {
+                            invalidGroups.add(group);
+                        }
+                    }
                 }
             } else if (createTestDTO.getGroupIds() != null && !createTestDTO.getGroupIds().isEmpty()) {
                 for (Long groupId : createTestDTO.getGroupIds()) {
                     Group group = groupRepository.findById(groupId)
                             .orElseThrow(() -> new RuntimeException("Group not found"));
-                    selectedGroups.add(group);
+
+                    if (groupActivityService.canModifyGroup(group)) {
+                        selectedGroups.add(group);
+                    } else {
+                        invalidGroups.add(group);
+                    }
                 }
             }
         } else if (currentUser.getRole() == RolesEnum.TEACHER) {
@@ -157,14 +199,25 @@ public class TestService {
                             .orElseThrow(() -> new RuntimeException("Group not found"));
 
                     if (teacherGroups.contains(group)) {
-                        selectedGroups.add(group);
+                        if (groupActivityService.canModifyGroup(group)) {
+                            selectedGroups.add(group);
+                        } else {
+                            invalidGroups.add(group);
+                        }
                     }
                 }
-
-                if (selectedGroups.isEmpty()) {
-                    throw new RuntimeException("No valid groups selected");
-                }
             }
+        }
+
+        if (!invalidGroups.isEmpty()) {
+            String invalidGroupNames = invalidGroups.stream()
+                    .map(Group::getName)
+                    .collect(Collectors.joining(", "));
+            throw new RuntimeException("Cannot add test to past semester groups: " + invalidGroupNames);
+        }
+
+        if (selectedGroups.isEmpty()) {
+            throw new RuntimeException("No valid groups selected");
         }
 
         Test savedTest = testRepository.save(test);
@@ -185,15 +238,11 @@ public class TestService {
         Test existingTest = testRepository.findById(testId)
                 .orElseThrow(() -> new RuntimeException("Test not found"));
 
-        if (existingTest.isCreatedByAdmin() && currentUser.getRole() != RolesEnum.ADMIN) {
-            throw new RuntimeException("Cannot modify admin-created tests");
-        }
-
         if (currentUser.getRole() == RolesEnum.TEACHER) {
             List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
-            boolean isTeacherTest = testAccessValidator.isTeacherTestCreator(currentUser, existingTest, teacherGroups);
 
-            if (!isTeacherTest) {
+            boolean canEdit = testAccessValidator.canTeacherEditTest(currentUser, existingTest, teacherGroups);
+            if (!canEdit) {
                 throw new RuntimeException("Not authorized to update this test");
             }
         }
@@ -228,23 +277,32 @@ public class TestService {
                 (updateTestDTO.getGroupIds() != null && !updateTestDTO.getGroupIds().isEmpty())) {
 
             List<Group> newSelectedGroups = new ArrayList<>();
+            List<Group> invalidGroups = new ArrayList<>();
 
             if (currentUser.getRole() == RolesEnum.ADMIN) {
                 if (updateTestDTO.getSubjectId() != null) {
-
                     Subject subject = subjectRepository.findById(updateTestDTO.getSubjectId())
                             .orElseThrow(() -> new RuntimeException("Subject not found"));
-                    newSelectedGroups.addAll(subject.getGroups());
 
+                    for (Group group : subject.getGroups()) {
+                        if (groupActivityService.canModifyGroup(group)) {
+                            newSelectedGroups.add(group);
+                        } else {
+                            invalidGroups.add(group);
+                        }
+                    }
                 } else if (updateTestDTO.getGroupIds() != null && !updateTestDTO.getGroupIds().isEmpty()) {
-
                     for (Long groupId : updateTestDTO.getGroupIds()) {
                         Group group = groupRepository.findById(groupId)
                                 .orElseThrow(() -> new RuntimeException("Group not found"));
-                        newSelectedGroups.add(group);
+
+                        if (groupActivityService.canModifyGroup(group)) {
+                            newSelectedGroups.add(group);
+                        } else {
+                            invalidGroups.add(group);
+                        }
                     }
                 }
-
             } else if (currentUser.getRole() == RolesEnum.TEACHER) {
                 if (updateTestDTO.getGroupIds() != null && !updateTestDTO.getGroupIds().isEmpty()) {
                     List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
@@ -254,14 +312,25 @@ public class TestService {
                                 .orElseThrow(() -> new RuntimeException("Group not found"));
 
                         if (teacherGroups.contains(group)) {
-                            newSelectedGroups.add(group);
+                            if (groupActivityService.canModifyGroup(group)) {
+                                newSelectedGroups.add(group);
+                            } else {
+                                invalidGroups.add(group);
+                            }
                         }
                     }
-
-                    if (newSelectedGroups.isEmpty()) {
-                        throw new RuntimeException("No valid groups selected");
-                    }
                 }
+            }
+
+            if (!invalidGroups.isEmpty()) {
+                String invalidGroupNames = invalidGroups.stream()
+                        .map(Group::getName)
+                        .collect(Collectors.joining(", "));
+                throw new RuntimeException("Cannot add test to past semester groups: " + invalidGroupNames);
+            }
+
+            if (newSelectedGroups.isEmpty()) {
+                throw new RuntimeException("No valid groups selected");
             }
 
             List<Group> currentGroups = testDTOMapper.findGroupsByTest(existingTest);
@@ -462,16 +531,11 @@ public class TestService {
             log.info("User {} is not an admin, checking permissions...", currentUser.getUsername());
 
             List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
-            boolean isTeacherTest = testAccessValidator.isTeacherTestCreator(currentUser, test, teacherGroups);
 
-            if (!isTeacherTest) {
+            boolean canEdit = testAccessValidator.canTeacherEditTest(currentUser, test, teacherGroups);
+            if (!canEdit) {
                 log.warn("User {} is not authorized to change test activity for test {}", currentUser.getUsername(), testId);
                 throw new RuntimeException("Not authorized to change test activity");
-            }
-
-            if (test.isCreatedByAdmin()) {
-                log.warn("User {} attempted to modify an admin-created test {}", currentUser.getUsername(), testId);
-                throw new RuntimeException("Cannot modify admin-created tests");
             }
         }
 

@@ -49,6 +49,9 @@ public class Test {
     @Column(nullable = false)
     private boolean isCreatedByAdmin = false;
 
+    @Column(nullable = false)
+    private boolean allowTeacherEdit = false;
+
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "test_id")
     private Set<Question> questions = new HashSet<>();

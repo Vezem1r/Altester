@@ -62,7 +62,7 @@ public class TestDTOMapper {
                 .map(this::convertToQuestionDTO)
                 .collect(Collectors.toList());
 
-        return TestPreviewDTO.builder()
+        TestPreviewDTO.TestPreviewDTOBuilder builder = TestPreviewDTO.builder()
                 .id(test.getId())
                 .title(test.getTitle())
                 .description(test.getDescription())
@@ -75,8 +75,13 @@ public class TestDTOMapper {
                 .totalQuestions(test.getQuestions().size())
                 .totalScore(test.getTotalScore())
                 .associatedGroups(associatedGroups)
-                .questions(questions)
-                .build();
+                .questions(questions);
+
+        if (currentUser.getRole() == RolesEnum.ADMIN) {
+            builder.allowTeacherEdit(test.isAllowTeacherEdit());
+        }
+
+        return builder.build();
     }
 
     /**

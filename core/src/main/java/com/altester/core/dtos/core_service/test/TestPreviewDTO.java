@@ -22,6 +22,7 @@ public class TestPreviewDTO {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private boolean isCreatedByAdmin;
+    private Boolean allowTeacherEdit;
     private int totalQuestions;
     private int totalScore;
     private List<GroupSummaryDTO> associatedGroups;
