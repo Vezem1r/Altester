@@ -85,10 +85,10 @@ public class SubjectController {
     @GetMapping("/all")
     public ResponseEntity<Page<SubjectDTO>> getAllSubjects(
             @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String searchQuery) {
         try {
-            int fixedSize = 10;
-            Pageable pageable = PageRequest.of(page, fixedSize);
+            Pageable pageable = PageRequest.of(page, size);
             Page<SubjectDTO> subjects = subjectService.getAllSubjects(pageable, searchQuery);
             log.debug("Retrieved {} subjects with search query: {}", subjects.getTotalElements(), searchQuery);
             return ResponseEntity.ok(subjects);

@@ -58,10 +58,10 @@ public class GroupController {
     @GetMapping("/getGroupTeachers")
     public ResponseEntity<Page<GroupUserList>> getGroupTeachers(
             @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String searchQuery) {
         try {
-            int fixedSize = 10;
-            Pageable pageable = PageRequest.of(page, fixedSize);
+            Pageable pageable = PageRequest.of(page, size);
             Page<GroupUserList> teachers = groupService.getAllTeachers(pageable, searchQuery);
             log.info("Teachers fetched successfully with search: {}", searchQuery);
             return ResponseEntity.status(HttpStatus.OK).body(teachers);
@@ -102,10 +102,10 @@ public class GroupController {
     public ResponseEntity<Page<GroupsResponse>> getAllGroups(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(required = false) String searchQuery,
+            @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String activityFilter) {
         try {
-            int fixedSize = 10;
-            Pageable pageable = PageRequest.of(page, fixedSize);
+            Pageable pageable = PageRequest.of(page, size);
             Page<GroupsResponse> groups = groupService.getAllGroups(pageable, searchQuery, activityFilter);
             log.info("Groups fetched successfully with search: {}, filter: {}", searchQuery, activityFilter);
             return ResponseEntity.status(HttpStatus.OK).body(groups);
