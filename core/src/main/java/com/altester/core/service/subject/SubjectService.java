@@ -11,9 +11,11 @@ import com.altester.core.repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -28,22 +30,51 @@ public class SubjectService {
     private final GroupRepository groupRepository;
     private final GroupActivityService groupActivityService;
 
-    public Page<SubjectDTO> getAllSubjects(Pageable pageable) {
-        return subjectRepository.findAll(pageable).map(subject -> {
+    public Page<SubjectDTO> getAllSubjects(Pageable pageable, String searchQuery) {
+        if (!StringUtils.hasText(searchQuery)) {
+            return subjectRepository.findAll(pageable).map(this::convertToSubjectDTO);
+        } else {
+            String searchLower = searchQuery.toLowerCase();
 
-            List<SubjectGroupDTO> groups = subject.getGroups().stream()
-                    .map(group -> new SubjectGroupDTO(group.getId(), group.getName()))
-                    .toList();
+            List<Subject> allSubjects = subjectRepository.findAll();
 
-            return new SubjectDTO(
-                    subject.getId(),
-                    subject.getName(),
-                    subject.getShortName(),
-                    subject.getDescription(),
-                    subject.getModified(),
-                    groups
-            );
-        });
+            List<Subject> filteredSubjects = allSubjects.stream()
+                    .filter(subject ->
+                            subject.getName().toLowerCase().contains(searchLower) ||
+                                    subject.getShortName().toLowerCase().contains(searchLower)
+                    )
+                    .collect(Collectors.toList());
+
+            int start = (int) pageable.getOffset();
+            int end = Math.min((start + pageable.getPageSize()), filteredSubjects.size());
+
+            if (start > filteredSubjects.size()) {
+                return new PageImpl<>(Collections.emptyList(), pageable, filteredSubjects.size());
+            }
+
+            List<Subject> pagedSubjects = filteredSubjects.subList(start, end);
+
+            List<SubjectDTO> subjectDTOs = pagedSubjects.stream()
+                    .map(this::convertToSubjectDTO)
+                    .collect(Collectors.toList());
+
+            return new PageImpl<>(subjectDTOs, pageable, filteredSubjects.size());
+        }
+    }
+
+    private SubjectDTO convertToSubjectDTO(Subject subject) {
+        List<SubjectGroupDTO> groups = subject.getGroups().stream()
+                .map(group -> new SubjectGroupDTO(group.getId(), group.getName()))
+                .toList();
+
+        return new SubjectDTO(
+                subject.getId(),
+                subject.getName(),
+                subject.getShortName(),
+                subject.getDescription(),
+                subject.getModified(),
+                groups
+        );
     }
 
     public void updateSubject(CreateSubjectDTO createSubjectDTO, long subjectId) {

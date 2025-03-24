@@ -83,13 +83,17 @@ public class SubjectController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<Page<SubjectDTO>> getAllSubjects(@RequestParam(defaultValue = "0") int page) {
+    public ResponseEntity<Page<SubjectDTO>> getAllSubjects(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) String searchQuery) {
         try {
             int fixedSize = 10;
             Pageable pageable = PageRequest.of(page, fixedSize);
-            Page<SubjectDTO> subjects = subjectService.getAllSubjects(pageable);
+            Page<SubjectDTO> subjects = subjectService.getAllSubjects(pageable, searchQuery);
+            log.debug("Retrieved {} subjects with search query: {}", subjects.getTotalElements(), searchQuery);
             return ResponseEntity.ok(subjects);
         } catch (Exception e) {
+            log.error("Error retrieving subjects: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }

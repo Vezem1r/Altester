@@ -13,6 +13,4 @@ public interface GroupRepository extends JpaRepository<Group, Long> {
     List<Group> findAllByStudentsContaining(User student);
     List<Group> findAllByTeacher(User teacher);
     List<Group> findByStudentsContainingAndActiveTrue(User student);
-
-    List<Group> findByActiveTrue();
 }

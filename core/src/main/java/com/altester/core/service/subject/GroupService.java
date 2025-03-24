@@ -19,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -88,34 +89,70 @@ public class GroupService {
                 .active(group.isActive())
                 .isInFuture(isInFuture)
                 .build();
-
     }
 
-    public Page<GroupsResponse> getAllGroups(Pageable pageable) {
-        return groupRepository.findAll(pageable).map(group -> {
-            Optional<Subject> subject = subjectRepository.findByGroupsId(group.getId());
-            String subjectName;
-            if (subject.isPresent()) {
-                subjectName = subject.get().getShortName();
-            } else {
-                subjectName = "No subject";
-            }
+    public Page<GroupsResponse> getAllGroups(Pageable pageable, String searchQuery, String activityFilter) {
+        List<Group> groups = groupRepository.findAll();
 
-            GroupsResponse response = new GroupsResponse(
-                    group.getId(),
-                    group.getName(),
-                    group.getTeacher() != null ? group.getTeacher().getUsername() : "No teacher",
-                    group.getStudents().size(),
-                    subjectName,
-                    group.getSemester(),
-                    group.getAcademicYear(),
-                    group.isActive()
-            );
+        if (StringUtils.hasText(searchQuery)) {
+            String searchLower = searchQuery.toLowerCase();
+            groups = groups.stream()
+                    .filter(group ->
+                            (group.getName() != null && group.getName().toLowerCase().contains(searchLower)) ||
+                                    (group.getTeacher() != null && group.getTeacher().getUsername() != null &&
+                                            group.getTeacher().getUsername().toLowerCase().contains(searchLower)) ||
+                                    (group.getSemester() != null && group.getSemester().toString().toLowerCase().contains(searchLower))
+                    )
+                    .collect(Collectors.toList());
+        }
 
-            boolean isInFuture = groupActivityService.isGroupInFuture(group);
-            response.setInFuture(isInFuture);
-            return response;
-        });
+        if (StringUtils.hasText(activityFilter)) {
+            groups = groups.stream()
+                    .filter(group -> {
+                        boolean isInFuture = groupActivityService.isGroupInFuture(group);
+
+                        return switch (activityFilter) {
+                            case "active" -> group.isActive() && !isInFuture;
+                            case "inactive" -> !group.isActive() && !isInFuture;
+                            case "future" -> isInFuture;
+                            default -> true;
+                        };
+                    })
+                    .collect(Collectors.toList());
+        }
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), groups.size());
+
+        if (start > groups.size()) {
+            return new PageImpl<>(Collections.emptyList(), pageable, groups.size());
+        }
+
+        List<Group> pagedGroups = groups.subList(start, end);
+
+        List<GroupsResponse> groupResponses = pagedGroups.stream()
+                .map(group -> {
+                    Optional<Subject> subject = subjectRepository.findByGroupsId(group.getId());
+                    String subjectName = subject.isPresent() ? subject.get().getShortName() : "No subject";
+
+                    GroupsResponse response = new GroupsResponse(
+                            group.getId(),
+                            group.getName(),
+                            group.getTeacher() != null ? group.getTeacher().getUsername() : "No teacher",
+                            group.getStudents().size(),
+                            subjectName,
+                            group.getSemester(),
+                            group.getAcademicYear(),
+                            group.isActive()
+                    );
+
+                    boolean isInFuture = groupActivityService.isGroupInFuture(group);
+                    response.setInFuture(isInFuture);
+                    return response;
+                })
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(groupResponses, pageable, groups.size());
     }
 
     @Transactional
@@ -239,8 +276,35 @@ public class GroupService {
         }
     }
 
-    public Page<CreateGroupUserListDTO> getAllStudents(Pageable pageable) {
-        Page<User> studentsPage = userRepository.findAllByRole(RolesEnum.STUDENT, pageable);
+    public Page<CreateGroupUserListDTO> getAllStudents(Pageable pageable, String searchQuery) {
+        Page<User> studentsPage;
+
+        if (StringUtils.hasText(searchQuery)) {
+            String searchLower = searchQuery.toLowerCase();
+
+            List<User> allStudents = userRepository.findAllByRole(RolesEnum.STUDENT);
+
+            List<User> filteredStudents = allStudents.stream()
+                    .filter(student ->
+                            (student.getName() != null && student.getName().toLowerCase().contains(searchLower)) ||
+                                    (student.getSurname() != null && student.getSurname().toLowerCase().contains(searchLower)) ||
+                                    (student.getUsername() != null && student.getUsername().toLowerCase().contains(searchLower)) ||
+                                    (student.getEmail() != null && student.getEmail().toLowerCase().contains(searchLower))
+                    )
+                    .collect(Collectors.toList());
+
+            int start = (int) pageable.getOffset();
+            int end = Math.min((start + pageable.getPageSize()), filteredStudents.size());
+
+            if (start > filteredStudents.size()) {
+                return new PageImpl<>(Collections.emptyList(), pageable, filteredStudents.size());
+            }
+
+            List<User> pagedStudents = filteredStudents.subList(start, end);
+            studentsPage = new PageImpl<>(pagedStudents, pageable, filteredStudents.size());
+        } else {
+            studentsPage = userRepository.findByRole(RolesEnum.STUDENT, pageable);
+        }
 
         List<CreateGroupUserListDTO> students = studentsPage.getContent().stream()
                 .map(student -> {
@@ -266,35 +330,55 @@ public class GroupService {
         return new PageImpl<>(students, pageable, studentsPage.getTotalElements());
     }
 
-    public Page<CreateGroupUserListDTO> getAllStudentsSortedBySubject(Pageable pageable, Long subjectId) {
-        Subject subject = subjectRepository.findById(subjectId)
-                .orElseThrow(() -> new EntityNotFoundException("Subject with id " + subjectId + " not found"));
+    public Page<CreateGroupUserListDTO> getAllStudents(Pageable pageable) {
+        return getAllStudents(pageable, null);
+    }
 
-        Set<Long> studentsInSubjectIds = new HashSet<>();
+    public Page<GroupUserList> getAllTeachers(Pageable pageable, String searchQuery) {
+        Page<User> teachersPage;
 
-        Set<Group> activeSubjectGroups = subject.getGroups().stream()
-                .filter(Group::isActive)
-                .collect(Collectors.toSet());
+        if (StringUtils.hasText(searchQuery)) {
+            List<User> allTeachers = userRepository.findAllByRole(RolesEnum.TEACHER);
 
-        activeSubjectGroups.forEach(group -> group.getStudents().forEach(student -> studentsInSubjectIds.add(student.getId())));
+            String searchLower = searchQuery.toLowerCase();
+            List<User> filteredTeachers = allTeachers.stream()
+                    .filter(teacher ->
+                            (teacher.getName() != null && teacher.getName().toLowerCase().contains(searchLower)) ||
+                                    (teacher.getSurname() != null && teacher.getSurname().toLowerCase().contains(searchLower)) ||
+                                    (teacher.getUsername() != null && teacher.getUsername().toLowerCase().contains(searchLower)) ||
+                                    (teacher.getEmail() != null && teacher.getEmail().toLowerCase().contains(searchLower))
+                    )
+                    .collect(Collectors.toList());
 
-        Page<User> studentsPage = userRepository.findAllByRoleOrderBySubjectMembership(
-                RolesEnum.STUDENT.name(),
-                studentsInSubjectIds,
-                pageable
-        );
+            int start = (int) pageable.getOffset();
+            int end = Math.min((start + pageable.getPageSize()), filteredTeachers.size());
 
-        List<CreateGroupUserListDTO> resultList = studentsPage.getContent().stream()
+            if (start > filteredTeachers.size()) {
+                return new PageImpl<>(Collections.emptyList(), pageable, filteredTeachers.size());
+            }
+
+            List<User> pagedTeachers = filteredTeachers.subList(start, end);
+            teachersPage = new PageImpl<>(pagedTeachers, pageable, filteredTeachers.size());
+        } else {
+            teachersPage = userRepository.findByRole(RolesEnum.TEACHER, pageable);
+        }
+
+        return teachersPage.map(user -> new GroupUserList(user.getId(), user.getName(), user.getSurname(), user.getUsername()));
+    }
+
+    public GroupStudentsResponseDTO getGroupStudentsWithCategories(
+            Pageable pageable, Long groupId, String searchQuery, boolean includeCurrentMembers, boolean hideStudentsInSameSubject) {
+
+        if (groupId == null) {
+            throw new IllegalArgumentException("Group ID is required");
+        }
+
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new EntityNotFoundException("Group with id " + groupId + " not found"));
+
+        List<CreateGroupUserListDTO> currentMembers = group.getStudents().stream()
                 .map(student -> {
-                    List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
-
-                    List<String> subjectNames = studentActiveGroups.stream()
-                            .map(group -> subjectRepository.findByGroupsContaining(group)
-                                    .map(Subject::getShortName)
-                                    .orElse("Group has no subject"))
-                            .distinct()
-                            .toList();
-
+                    List<String> subjectNames = getStudentSubjects(student);
                     return new CreateGroupUserListDTO(
                             student.getId(),
                             student.getName(),
@@ -303,17 +387,22 @@ public class GroupService {
                             subjectNames
                     );
                 })
-                .toList();
+                .sorted(Comparator.comparing(dto -> dto.getName() + " " + dto.getSurname()))
+                .collect(Collectors.toList());
 
-        return new PageImpl<>(resultList, pageable, studentsPage.getTotalElements());
+        Page<CreateGroupUserListDTO> availableStudents =
+                includeCurrentMembers ? getAllStudents(pageable, searchQuery) :
+                        getAllStudentsNotInGroup(pageable, groupId, searchQuery, hideStudentsInSameSubject);
+
+        return GroupStudentsResponseDTO.builder()
+                .currentMembers(currentMembers)
+                .availableStudents(availableStudents)
+                .build();
     }
 
-    public Page<GroupUserList> getAllTeachers(Pageable pageable) {
-        return userRepository.findAllByRole(RolesEnum.TEACHER, pageable)
-                .map(user -> new GroupUserList(user.getId(), user.getName(), user.getSurname(), user.getUsername()));
-    }
+    public Page<CreateGroupUserListDTO> getAllStudentsNotInGroup(
+            Pageable pageable, Long groupId, String searchQuery, boolean hideStudentsInSameSubject) {
 
-    public Page<CreateGroupUserListDTO> getAllStudentsNotInGroup(Pageable pageable, Long groupId) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new EntityNotFoundException("Group with id " + groupId + " not found"));
 
@@ -337,16 +426,63 @@ public class GroupService {
             subject = null;
         }
 
-        if (studentsInGroupIds.isEmpty() && studentsInSubjectIds.isEmpty()) {
+        if (studentsInGroupIds.isEmpty() && studentsInSubjectIds.isEmpty() && !StringUtils.hasText(searchQuery)) {
             return getAllStudents(pageable);
         }
 
-        Page<User> studentsPage = userRepository.findAllByRoleExcludeGroupStudentsOrderBySubjectMembership(
-                RolesEnum.STUDENT.name(),
-                studentsInGroupIds,
-                studentsInSubjectIds,
-                pageable
-        );
+        Page<User> studentsPage;
+
+        if (StringUtils.hasText(searchQuery)) {
+            List<User> allStudents = userRepository.findAllByRole(RolesEnum.STUDENT);
+
+            String searchLower = searchQuery.toLowerCase();
+            Set<Long> finalStudentsInSubjectIds2 = studentsInSubjectIds;
+            List<User> filteredStudents = allStudents.stream()
+                    .filter(student -> !studentsInGroupIds.contains(student.getId()))
+                    .filter(student -> !hideStudentsInSameSubject || !finalStudentsInSubjectIds2.contains(student.getId()))
+                    .filter(student ->
+                            (student.getName() != null && student.getName().toLowerCase().contains(searchLower)) ||
+                                    (student.getSurname() != null && student.getSurname().toLowerCase().contains(searchLower)) ||
+                                    (student.getUsername() != null && student.getUsername().toLowerCase().contains(searchLower)) ||
+                                    (student.getEmail() != null && student.getEmail().toLowerCase().contains(searchLower))
+                    )
+                    .collect(Collectors.toList());
+
+            if (!studentsInSubjectIds.isEmpty() && !hideStudentsInSameSubject) {
+                Set<Long> finalStudentsInSubjectIds1 = studentsInSubjectIds;
+                filteredStudents.sort((a, b) -> {
+                    boolean aInSubject = finalStudentsInSubjectIds1.contains(a.getId());
+                    boolean bInSubject = finalStudentsInSubjectIds1.contains(b.getId());
+                    return Boolean.compare(bInSubject, aInSubject);
+                });
+            }
+
+            int start = (int) pageable.getOffset();
+            int end = Math.min((start + pageable.getPageSize()), filteredStudents.size());
+
+            if (start > filteredStudents.size()) {
+                return new PageImpl<>(Collections.emptyList(), pageable, filteredStudents.size());
+            }
+
+            List<User> pagedStudents = filteredStudents.subList(start, end);
+            studentsPage = new PageImpl<>(pagedStudents, pageable, filteredStudents.size());
+        } else {
+            if (hideStudentsInSameSubject) {
+                studentsPage = userRepository.findAllByRoleExcludeGroupAndSubjectStudents(
+                        RolesEnum.STUDENT.name(),
+                        studentsInGroupIds,
+                        studentsInSubjectIds,
+                        pageable
+                );
+            } else {
+                studentsPage = userRepository.findAllByRoleExcludeGroupStudentsOrderBySubjectMembership(
+                        RolesEnum.STUDENT.name(),
+                        studentsInGroupIds,
+                        studentsInSubjectIds,
+                        pageable
+                );
+            }
+        }
 
         Set<Long> finalStudentsInSubjectIds = studentsInSubjectIds;
         List<CreateGroupUserListDTO> resultList = studentsPage.getContent().stream()
@@ -379,5 +515,16 @@ public class GroupService {
                 .toList();
 
         return new PageImpl<>(resultList, pageable, studentsPage.getTotalElements());
+    }
+
+    private List<String> getStudentSubjects(User student) {
+        List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
+
+        return studentActiveGroups.stream()
+                .map(group -> subjectRepository.findByGroupsContaining(group)
+                        .map(Subject::getShortName)
+                        .orElse("Group has no subject"))
+                .distinct()
+                .collect(Collectors.toList());
     }
 }

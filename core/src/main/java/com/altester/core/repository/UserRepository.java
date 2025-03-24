@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -18,14 +19,17 @@ public interface UserRepository extends CrudRepository<User, Long>, JpaSpecifica
     Optional<User> findByUsername(String username);
     Page<User> findByRole(RolesEnum role, Pageable pageable);
     Long countByRole(RolesEnum role);
-    Page<User> findAllByRole(RolesEnum role, Pageable pageable);
+    @Query("SELECT u FROM User u WHERE u.role = :role")
+    List<User> findAllByRole(@Param("role") RolesEnum role);
 
-    @Query(nativeQuery = true, value =
-            "SELECT * FROM users u WHERE u.role = :role " +
-                    "ORDER BY CASE WHEN u.id IN :studentsInSubject THEN 1 ELSE 0 END, u.surname, u.name")
-    Page<User> findAllByRoleOrderBySubjectMembership(
+    @Query(value = "SELECT u FROM User u WHERE u.role = :role " +
+            "AND u.id NOT IN :groupStudentsIds " +
+            "AND u.id NOT IN :subjectStudentsIds " +
+            "ORDER BY u.name, u.surname")
+    Page<User> findAllByRoleExcludeGroupAndSubjectStudents(
             @Param("role") String role,
-            @Param("studentsInSubject") Set<Long> studentsInSubject,
+            @Param("groupStudentsIds") Set<Long> groupStudentsIds,
+            @Param("subjectStudentsIds") Set<Long> subjectStudentsIds,
             Pageable pageable);
 
     @Query(nativeQuery = true, value =

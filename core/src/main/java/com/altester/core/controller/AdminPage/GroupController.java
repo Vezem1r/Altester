@@ -12,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/admin/group")
 @Slf4j
@@ -21,27 +23,32 @@ public class GroupController {
     private final GroupService groupService;
 
     @GetMapping("/getGroupStudents")
-    public ResponseEntity<Page<CreateGroupUserListDTO>> getGroupStudents(
+    public ResponseEntity<GroupStudentsResponseDTO> getGroupStudents(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(required = false) Long subjectId,
-            @RequestParam(required = false) Long groupId){
+            @RequestParam(required = false) Long groupId,
+            @RequestParam(required = false) String searchQuery,
+            @RequestParam(required = false, defaultValue = "false") boolean includeCurrentMembers,
+            @RequestParam(required = false, defaultValue = "false") boolean hideStudentsInSameSubject) {
         try {
             int fixedSize = 10;
             Pageable pageable = PageRequest.of(page, fixedSize);
-            Page<CreateGroupUserListDTO> students;
 
-            if (groupId != null) {
-                students = groupService.getAllStudentsNotInGroup(pageable, groupId);
-                log.info("Students fetched successfully - excluding students from groupId: {}", groupId);
-            } else if (subjectId != null) {
-                students = groupService.getAllStudentsSortedBySubject(pageable, subjectId);
-                log.info("Students fetched successfully with subject sorting for subjectId: {}", subjectId);
-            } else {
-                students = groupService.getAllStudents(pageable);
-                log.info("Students fetched successfully without sorting");
+            if (groupId == null) {
+                log.info("Request for students without groupId. Returning all students.");
+                Page<CreateGroupUserListDTO> allStudents = groupService.getAllStudents(pageable, searchQuery);
+
+                GroupStudentsResponseDTO result = GroupStudentsResponseDTO.builder()
+                        .currentMembers(List.of())
+                        .availableStudents(allStudents)
+                        .build();
+
+                return ResponseEntity.status(HttpStatus.OK).body(result);
             }
 
-            return ResponseEntity.status(HttpStatus.OK).body(students);
+            GroupStudentsResponseDTO result = groupService.getGroupStudentsWithCategories(
+                    pageable, groupId, searchQuery, includeCurrentMembers, hideStudentsInSameSubject);
+
+            return ResponseEntity.status(HttpStatus.OK).body(result);
         } catch (Exception e) {
             log.error("Students fetch failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
@@ -49,15 +56,17 @@ public class GroupController {
     }
 
     @GetMapping("/getGroupTeachers")
-    public ResponseEntity<Page<GroupUserList>> getGroupTeachers(@RequestParam(defaultValue = "0") int page) {
+    public ResponseEntity<Page<GroupUserList>> getGroupTeachers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) String searchQuery) {
         try {
             int fixedSize = 10;
             Pageable pageable = PageRequest.of(page, fixedSize);
-            Page<GroupUserList> students = groupService.getAllTeachers(pageable);
-            log.info("Teachers fetched successfully");
-            return ResponseEntity.status(HttpStatus.OK).body(students);
+            Page<GroupUserList> teachers = groupService.getAllTeachers(pageable, searchQuery);
+            log.info("Teachers fetched successfully with search: {}", searchQuery);
+            return ResponseEntity.status(HttpStatus.OK).body(teachers);
         } catch (Exception e) {
-            log.error("Teachers fetch failed");
+            log.error("Teachers fetch failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
     }
@@ -90,15 +99,18 @@ public class GroupController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<Page<GroupsResponse>> getAllGroups(@RequestParam(defaultValue = "0") int page) {
+    public ResponseEntity<Page<GroupsResponse>> getAllGroups(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) String searchQuery,
+            @RequestParam(required = false) String activityFilter) {
         try {
             int fixedSize = 10;
             Pageable pageable = PageRequest.of(page, fixedSize);
-            Page<GroupsResponse> groups = groupService.getAllGroups(pageable);
-            log.info("Groups fetched successfully");
+            Page<GroupsResponse> groups = groupService.getAllGroups(pageable, searchQuery, activityFilter);
+            log.info("Groups fetched successfully with search: {}, filter: {}", searchQuery, activityFilter);
             return ResponseEntity.status(HttpStatus.OK).body(groups);
         } catch (Exception e) {
-            log.error("Groups fetch failed");
+            log.error("Groups fetch failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
     }
