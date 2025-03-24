@@ -14,7 +14,6 @@ import com.altester.core.service.subject.GroupActivityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,7 +63,7 @@ public class TestService {
     }
 
     @Transactional(readOnly = true)
-    public Page<TestSummaryDTO> getAllTestsForAdmin(Pageable pageable, Principal principal) {
+    public Page<TestSummaryDTO> getAllTestsForAdmin(Pageable pageable, Principal principal, String searchQuery, Boolean isActive) {
         User currentUser = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -72,31 +71,27 @@ public class TestService {
             throw new RuntimeException("Only admin can access all tests");
         }
 
-        Page<Test> testsPage = testRepository.findAll(pageable);
+        Page<Test> testsPage = testRepository.findAllWithFilters(searchQuery, isActive, pageable);
 
-        List<TestSummaryDTO> testSummaries = testsPage.getContent().stream()
-                .map(test -> {
-                    TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
+        return testsPage.map(test -> {
+            TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
 
-                    List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
+            List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
 
-                    List<GroupSummaryDTO> groupDTOs = testGroups.stream()
-                            .map(group -> GroupSummaryDTO.builder()
-                                    .id(group.getId())
-                                    .name(group.getName())
-                                    .build())
-                            .collect(Collectors.toList());
+            List<GroupSummaryDTO> groupDTOs = testGroups.stream()
+                    .map(group -> GroupSummaryDTO.builder()
+                            .id(group.getId())
+                            .name(group.getName())
+                            .build())
+                    .collect(Collectors.toList());
 
-                    dto.setAssociatedGroups(groupDTOs);
-                    return dto;
-                })
-                .collect(Collectors.toList());
-
-        return new PageImpl<>(testSummaries, pageable, testsPage.getTotalElements());
+            dto.setAssociatedGroups(groupDTOs);
+            return dto;
+        });
     }
 
     @Transactional(readOnly = true)
-    public Page<TestSummaryDTO> getTeacherTests(Pageable pageable, Principal principal) {
+    public Page<TestSummaryDTO> getTeacherTests(Pageable pageable, Principal principal, String searchQuery, Boolean isActive) {
         User currentUser = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -104,43 +99,27 @@ public class TestService {
             throw new RuntimeException("Only teachers can access this endpoint");
         }
 
-        List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
-        Set<Test> teacherTests = new HashSet<>();
+        Page<Test> testsPage = testRepository.findByTeacherWithFilters(
+                currentUser.getId(), searchQuery, isActive, pageable);
 
-        for (Group group : teacherGroups) {
-            teacherTests.addAll(group.getTests());
-        }
+        return testsPage.map(test -> {
+            TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
 
-        List<Test> testsList = new ArrayList<>(teacherTests);
+            List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
+            List<Group> testGroups = testDTOMapper.findGroupsByTest(test).stream()
+                    .filter(teacherGroups::contains)
+                    .toList();
 
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), testsList.size());
+            List<GroupSummaryDTO> groupDTOs = testGroups.stream()
+                    .map(group -> GroupSummaryDTO.builder()
+                            .id(group.getId())
+                            .name(group.getName())
+                            .build())
+                    .collect(Collectors.toList());
 
-        if (start >= testsList.size()) {
-            return new PageImpl<>(Collections.emptyList(), pageable, testsList.size());
-        }
-
-        List<TestSummaryDTO> resultList = testsList.subList(start, end).stream()
-                .map(test -> {
-                    TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
-
-                    List<Group> testGroups = testDTOMapper.findGroupsByTest(test).stream()
-                            .filter(teacherGroups::contains)
-                            .toList();
-
-                    List<GroupSummaryDTO> groupDTOs = testGroups.stream()
-                            .map(group -> GroupSummaryDTO.builder()
-                                    .id(group.getId())
-                                    .name(group.getName())
-                                    .build())
-                            .collect(Collectors.toList());
-
-                    dto.setAssociatedGroups(groupDTOs);
-                    return dto;
-                })
-                .collect(Collectors.toList());
-
-        return new PageImpl<>(resultList, pageable, testsList.size());
+            dto.setAssociatedGroups(groupDTOs);
+            return dto;
+        });
     }
 
     @Transactional
@@ -441,52 +420,45 @@ public class TestService {
     }
 
     @Transactional(readOnly = true)
-    public List<TestSummaryDTO> getTestsBySubject(Long subjectId, Principal principal) {
+    public Page<TestSummaryDTO> getTestsBySubject(Long subjectId, Principal principal, String searchQuery,
+                                                  Boolean isActive, Pageable pageable) {
         User currentUser = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() -> new RuntimeException("Subject not found"));
 
-        List<Test> tests = new ArrayList<>();
+        Page<Test> testsPage = testRepository.findBySubjectWithFilters(
+                subjectId, searchQuery, isActive, pageable);
+
         List<Group> teacherGroups = currentUser.getRole() == RolesEnum.TEACHER
                 ? groupRepository.findByTeacher(currentUser)
                 : Collections.emptyList();
 
-        for (Group group : subject.getGroups()) {
-            if (currentUser.getRole() == RolesEnum.ADMIN) {
-                tests.addAll(group.getTests());
-            } else if (currentUser.getRole() == RolesEnum.TEACHER && teacherGroups.contains(group)) {
-                tests.addAll(group.getTests());
-            }
-        }
+        return testsPage.map(test -> {
+            TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
 
-        return tests.stream()
-                .distinct()
-                .map(test -> {
-                    TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
+            List<Group> testGroups = testDTOMapper.findGroupsByTest(test).stream()
+                    .filter(group -> subject.getGroups().contains(group))
+                    .filter(group -> currentUser.getRole() == RolesEnum.ADMIN ||
+                            (currentUser.getRole() == RolesEnum.TEACHER && teacherGroups.contains(group)))
+                    .toList();
 
-                    List<Group> testGroups = testDTOMapper.findGroupsByTest(test).stream()
-                            .filter(group -> subject.getGroups().contains(group))
-                            .toList();
+            List<GroupSummaryDTO> groupDTOs = testGroups.stream()
+                    .map(group -> GroupSummaryDTO.builder()
+                            .id(group.getId())
+                            .name(group.getName())
+                            .build())
+                    .collect(Collectors.toList());
 
-                    List<GroupSummaryDTO> groupDTOs = testGroups.stream()
-                            .filter(group -> currentUser.getRole() == RolesEnum.ADMIN ||
-                                    (currentUser.getRole() == RolesEnum.TEACHER && teacherGroups.contains(group)))
-                            .map(group -> GroupSummaryDTO.builder()
-                                    .id(group.getId())
-                                    .name(group.getName())
-                                    .build())
-                            .collect(Collectors.toList());
-
-                    dto.setAssociatedGroups(groupDTOs);
-                    return dto;
-                })
-                .collect(Collectors.toList());
+            dto.setAssociatedGroups(groupDTOs);
+            return dto;
+        });
     }
 
     @Transactional(readOnly = true)
-    public List<TestSummaryDTO> getTestsByGroup(Long groupId, Principal principal) {
+    public Page<TestSummaryDTO> getTestsByGroup(Long groupId, Principal principal, String searchQuery,
+                                                Boolean isActive, Pageable pageable) {
         User currentUser = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -495,20 +467,21 @@ public class TestService {
 
         testAccessValidator.validateGroupAccess(currentUser, group);
 
-        return group.getTests().stream()
-                .map(test -> {
-                    TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
+        Page<Test> testsPage = testRepository.findByGroupWithFilters(
+                groupId, searchQuery, isActive, pageable);
 
-                    List<GroupSummaryDTO> groupDTOs = new ArrayList<>();
-                    groupDTOs.add(GroupSummaryDTO.builder()
-                            .id(group.getId())
-                            .name(group.getName())
-                            .build());
+        return testsPage.map(test -> {
+            TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
 
-                    dto.setAssociatedGroups(groupDTOs);
-                    return dto;
-                })
-                .collect(Collectors.toList());
+            List<GroupSummaryDTO> groupDTOs = new ArrayList<>();
+            groupDTOs.add(GroupSummaryDTO.builder()
+                    .id(group.getId())
+                    .name(group.getName())
+                    .build());
+
+            dto.setAssociatedGroups(groupDTOs);
+            return dto;
+        });
     }
 
     @Transactional

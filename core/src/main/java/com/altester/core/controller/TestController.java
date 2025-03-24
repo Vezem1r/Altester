@@ -11,7 +11,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -21,9 +20,14 @@ public class TestController {
 
     @GetMapping("/admin/tests")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Page<TestSummaryDTO>> getAllTestsForAdmin(Pageable pageable, Principal principal) {
+    public ResponseEntity<Page<TestSummaryDTO>> getAllTestsForAdmin(
+            Pageable pageable,
+            Principal principal,
+            @RequestParam(required = false) String searchQuery,
+            @RequestParam(required = false) Boolean isActive) {
         try {
-            Page<TestSummaryDTO> tests = testService.getAllTestsForAdmin(pageable, principal);
+            log.info("Fetching admin tests with searchQuery: '{}', isActive: {}", searchQuery, isActive);
+            Page<TestSummaryDTO> tests = testService.getAllTestsForAdmin(pageable, principal, searchQuery, isActive);
             return ResponseEntity.ok(tests);
         } catch (Exception e) {
             log.error("Error retrieving all tests for admin: {}", e.getMessage());
@@ -33,9 +37,14 @@ public class TestController {
 
     @GetMapping("/teacher/tests/my")
     @PreAuthorize("hasRole('TEACHER')")
-    public ResponseEntity<Page<TestSummaryDTO>> getTeacherTests(Pageable pageable, Principal principal) {
+    public ResponseEntity<Page<TestSummaryDTO>> getTeacherTests(
+            Pageable pageable,
+            Principal principal,
+            @RequestParam(required = false) String searchQuery,
+            @RequestParam(required = false) Boolean isActive) {
         try {
-            Page<TestSummaryDTO> tests = testService.getTeacherTests(pageable, principal);
+            log.info("Fetching teacher tests with searchQuery: '{}', isActive: {}", searchQuery, isActive);
+            Page<TestSummaryDTO> tests = testService.getTeacherTests(pageable, principal, searchQuery, isActive);
             return ResponseEntity.ok(tests);
         } catch (Exception e) {
             log.error("Error retrieving teacher tests: {}", e.getMessage());
@@ -108,9 +117,17 @@ public class TestController {
 
     @GetMapping("/teacher/tests/subject/{subjectId}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
-    public ResponseEntity<List<TestSummaryDTO>> getTestsBySubject(@PathVariable Long subjectId, Principal principal) {
+    public ResponseEntity<Page<TestSummaryDTO>> getTestsBySubject(
+            @PathVariable Long subjectId,
+            Principal principal,
+            Pageable pageable,
+            @RequestParam(required = false) String searchQuery,
+            @RequestParam(required = false) Boolean isActive) {
         try {
-            List<TestSummaryDTO> tests = testService.getTestsBySubject(subjectId, principal);
+            log.info("Fetching tests for subject {} with searchQuery: '{}', isActive: {}",
+                    subjectId, searchQuery, isActive);
+            Page<TestSummaryDTO> tests = testService.getTestsBySubject(
+                    subjectId, principal, searchQuery, isActive, pageable);
             return ResponseEntity.ok(tests);
         } catch (Exception e) {
             log.error("Error retrieving tests by subject: {}", e.getMessage());
@@ -120,9 +137,17 @@ public class TestController {
 
     @GetMapping("/teacher/tests/group/{groupId}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
-    public ResponseEntity<List<TestSummaryDTO>> getTestsByGroup(@PathVariable Long groupId, Principal principal) {
+    public ResponseEntity<Page<TestSummaryDTO>> getTestsByGroup(
+            @PathVariable Long groupId,
+            Principal principal,
+            Pageable pageable,
+            @RequestParam(required = false) String searchQuery,
+            @RequestParam(required = false) Boolean isActive) {
         try {
-            List<TestSummaryDTO> tests = testService.getTestsByGroup(groupId, principal);
+            log.info("Fetching tests for group {} with searchQuery: '{}', isActive: {}",
+                    groupId, searchQuery, isActive);
+            Page<TestSummaryDTO> tests = testService.getTestsByGroup(
+                    groupId, principal, searchQuery, isActive, pageable);
             return ResponseEntity.ok(tests);
         } catch (Exception e) {
             log.error("Error retrieving tests by group: {}", e.getMessage());
