@@ -281,16 +281,15 @@ public class GroupService {
 
         if (StringUtils.hasText(searchQuery)) {
             String searchLower = searchQuery.toLowerCase();
-
             List<User> allStudents = userRepository.findAllByRole(RolesEnum.STUDENT);
 
             List<User> filteredStudents = allStudents.stream()
-                    .filter(student ->
-                            (student.getName() != null && student.getName().toLowerCase().contains(searchLower)) ||
-                                    (student.getSurname() != null && student.getSurname().toLowerCase().contains(searchLower)) ||
-                                    (student.getUsername() != null && student.getUsername().toLowerCase().contains(searchLower)) ||
-                                    (student.getEmail() != null && student.getEmail().toLowerCase().contains(searchLower))
-                    )
+                    .filter(student -> {
+                        String fullName = (student.getName() + " " + student.getSurname()).toLowerCase();
+                        String username = student.getUsername() != null ? student.getUsername().toLowerCase() : "";
+
+                        return fullName.contains(searchLower) || username.contains(searchLower);
+                    })
                     .collect(Collectors.toList());
 
             int start = (int) pageable.getOffset();
@@ -328,10 +327,6 @@ public class GroupService {
                 .toList();
 
         return new PageImpl<>(students, pageable, studentsPage.getTotalElements());
-    }
-
-    public Page<CreateGroupUserListDTO> getAllStudents(Pageable pageable) {
-        return getAllStudents(pageable, null);
     }
 
     public Page<GroupUserList> getAllTeachers(Pageable pageable, String searchQuery) {
@@ -426,65 +421,53 @@ public class GroupService {
             subject = null;
         }
 
-        if (studentsInGroupIds.isEmpty() && studentsInSubjectIds.isEmpty() && !StringUtils.hasText(searchQuery)) {
-            return getAllStudents(pageable);
-        }
-
-        Page<User> studentsPage;
+        List<User> allStudents = userRepository.findAllByRole(RolesEnum.STUDENT);
+        List<User> filteredStudents;
 
         if (StringUtils.hasText(searchQuery)) {
-            List<User> allStudents = userRepository.findAllByRole(RolesEnum.STUDENT);
-
             String searchLower = searchQuery.toLowerCase();
-            Set<Long> finalStudentsInSubjectIds2 = studentsInSubjectIds;
-            List<User> filteredStudents = allStudents.stream()
+
+            Set<Long> finalStudentsInSubjectIds1 = studentsInSubjectIds;
+            filteredStudents = allStudents.stream()
                     .filter(student -> !studentsInGroupIds.contains(student.getId()))
-                    .filter(student -> !hideStudentsInSameSubject || !finalStudentsInSubjectIds2.contains(student.getId()))
-                    .filter(student ->
-                            (student.getName() != null && student.getName().toLowerCase().contains(searchLower)) ||
-                                    (student.getSurname() != null && student.getSurname().toLowerCase().contains(searchLower)) ||
-                                    (student.getUsername() != null && student.getUsername().toLowerCase().contains(searchLower)) ||
-                                    (student.getEmail() != null && student.getEmail().toLowerCase().contains(searchLower))
-                    )
+                    .filter(student -> !hideStudentsInSameSubject || !finalStudentsInSubjectIds1.contains(student.getId()))
+                    .filter(student -> {
+                        String fullName = (student.getName() + " " + student.getSurname()).toLowerCase();
+                        String username = student.getUsername() != null ? student.getUsername().toLowerCase() : "";
+
+                        return fullName.contains(searchLower) || username.contains(searchLower);
+                    })
                     .collect(Collectors.toList());
+        } else {
+            Set<Long> finalStudentsInSubjectIds3 = studentsInSubjectIds;
+            filteredStudents = allStudents.stream()
+                    .filter(student -> !studentsInGroupIds.contains(student.getId()))
+                    .filter(student -> !hideStudentsInSameSubject || !finalStudentsInSubjectIds3.contains(student.getId()))
+                    .collect(Collectors.toList());
+        }
 
-            if (!studentsInSubjectIds.isEmpty() && !hideStudentsInSameSubject) {
-                Set<Long> finalStudentsInSubjectIds1 = studentsInSubjectIds;
-                filteredStudents.sort((a, b) -> {
-                    boolean aInSubject = finalStudentsInSubjectIds1.contains(a.getId());
-                    boolean bInSubject = finalStudentsInSubjectIds1.contains(b.getId());
-                    return Boolean.compare(bInSubject, aInSubject);
-                });
-            }
+        if (!studentsInSubjectIds.isEmpty() && !hideStudentsInSameSubject) {
+            Set<Long> finalStudentsInSubjectIds2 = studentsInSubjectIds;
+            filteredStudents.sort((a, b) -> {
+                boolean aInSubject = finalStudentsInSubjectIds2.contains(a.getId());
+                boolean bInSubject = finalStudentsInSubjectIds2.contains(b.getId());
+                return Boolean.compare(bInSubject, aInSubject);
+            });
+        }
 
-            int start = (int) pageable.getOffset();
-            int end = Math.min((start + pageable.getPageSize()), filteredStudents.size());
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), filteredStudents.size());
 
-            if (start > filteredStudents.size()) {
-                return new PageImpl<>(Collections.emptyList(), pageable, filteredStudents.size());
-            }
-
+        Page<User> studentsPage;
+        if (start >= filteredStudents.size()) {
+            studentsPage = new PageImpl<>(Collections.emptyList(), pageable, filteredStudents.size());
+        } else {
             List<User> pagedStudents = filteredStudents.subList(start, end);
             studentsPage = new PageImpl<>(pagedStudents, pageable, filteredStudents.size());
-        } else {
-            if (hideStudentsInSameSubject) {
-                studentsPage = userRepository.findAllByRoleExcludeGroupAndSubjectStudents(
-                        RolesEnum.STUDENT.name(),
-                        studentsInGroupIds,
-                        studentsInSubjectIds,
-                        pageable
-                );
-            } else {
-                studentsPage = userRepository.findAllByRoleExcludeGroupStudentsOrderBySubjectMembership(
-                        RolesEnum.STUDENT.name(),
-                        studentsInGroupIds,
-                        studentsInSubjectIds,
-                        pageable
-                );
-            }
         }
 
         Set<Long> finalStudentsInSubjectIds = studentsInSubjectIds;
+        Subject finalSubject = subject;
         List<CreateGroupUserListDTO> resultList = studentsPage.getContent().stream()
                 .map(student -> {
                     List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
@@ -504,17 +487,17 @@ public class GroupService {
                             subjectNames
                     );
 
-                    if (subject != null && finalStudentsInSubjectIds.contains(student.getId())) {
+                    if (finalSubject != null && finalStudentsInSubjectIds.contains(student.getId())) {
                         dto.setInSameSubject(true);
-                        dto.setSubjectName(subject.getName());
-                        dto.setSubjectShortName(subject.getShortName());
+                        dto.setSubjectName(finalSubject.getName());
+                        dto.setSubjectShortName(finalSubject.getShortName());
                     }
 
                     return dto;
                 })
                 .toList();
 
-        return new PageImpl<>(resultList, pageable, studentsPage.getTotalElements());
+        return new PageImpl<>(resultList, pageable, filteredStudents.size());
     }
 
     private List<String> getStudentSubjects(User student) {
