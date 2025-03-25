@@ -2,10 +2,7 @@ package com.altester.core.model.subject;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -19,6 +16,7 @@ import java.util.Set;
 @NoArgsConstructor
 @Builder
 @Data
+@EqualsAndHashCode(exclude = {"questions", "attempts"})
 public class Test {
 
     @Id
@@ -52,8 +50,7 @@ public class Test {
     @Column(nullable = false)
     private boolean allowTeacherEdit = false;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "test_id")
+    @OneToMany(mappedBy = "test", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Question> questions = new HashSet<>();
 
     @OneToMany(mappedBy = "test", cascade = CascadeType.ALL)

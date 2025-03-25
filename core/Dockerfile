@@ -17,8 +17,13 @@ FROM openjdk:21-jdk
 
 WORKDIR /app
 
+RUN mkdir -p /app/question-images && \
+    chmod 777 /app/question-images
+
 COPY --from=build /app/target/*.jar /app/app.jar
 
 EXPOSE 8080
+
+VOLUME /app/question-images
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

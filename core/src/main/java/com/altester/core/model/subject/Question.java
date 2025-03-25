@@ -32,6 +32,9 @@ public class Question {
     @Column(nullable = false)
     private int score;
 
+    @Column(name = "position")
+    private int position;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private QuestionType questionType;

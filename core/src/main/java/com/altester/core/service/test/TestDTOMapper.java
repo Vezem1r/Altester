@@ -21,9 +21,6 @@ import java.util.stream.Collectors;
 public class TestDTOMapper {
     private final GroupRepository groupRepository;
 
-    /**
-     * Convert a Test entity to a TestSummaryDTO
-     */
     public TestSummaryDTO convertToTestSummaryDTO(Test test) {
         return TestSummaryDTO.builder()
                 .id(test.getId())
@@ -37,9 +34,6 @@ public class TestDTOMapper {
                 .build();
     }
 
-    /**
-     * Convert a Test entity to a TestPreviewDTO with associated groups for the current user
-     */
     public TestPreviewDTO convertToTestPreviewDTO(Test test, User currentUser) {
         List<Group> testGroups = findGroupsByTest(test);
         List<GroupSummaryDTO> associatedGroups = new ArrayList<>();
@@ -84,13 +78,12 @@ public class TestDTOMapper {
         return builder.build();
     }
 
-    /**
-     * Convert a Question entity to a QuestionDTO
-     */
     public QuestionDTO convertToQuestionDTO(Question question) {
-        List<OptionDTO> options = question.getOptions().stream()
+        List<OptionDTO> options = question.getOptions() != null
+                ? question.getOptions().stream()
                 .map(this::convertToOptionDTO)
-                .collect(Collectors.toList());
+                .collect(Collectors.toList())
+                : Collections.emptyList();
 
         return QuestionDTO.builder()
                 .id(question.getId())
@@ -102,9 +95,6 @@ public class TestDTOMapper {
                 .build();
     }
 
-    /**
-     * Convert an Option entity to an OptionDTO
-     */
     public OptionDTO convertToOptionDTO(Option option) {
         return OptionDTO.builder()
                 .id(option.getId())
@@ -114,9 +104,6 @@ public class TestDTOMapper {
                 .build();
     }
 
-    /**
-     * Find all groups associated with a test
-     */
     public List<Group> findGroupsByTest(Test test) {
         List<Group> allGroups = groupRepository.findAll();
         return allGroups.stream()

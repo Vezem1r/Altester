@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   auth-service:
     container_name: auth-service_container
@@ -26,6 +28,9 @@ services:
       - internal
     ports:
       - "8080:8080"
+    volumes:
+      - question_images:/app/question-images
+
   db:
     image: postgres:15
     container_name: postgres_container
@@ -49,3 +54,4 @@ networks:
 
 volumes:
   postgres_data:
+  question_images:
