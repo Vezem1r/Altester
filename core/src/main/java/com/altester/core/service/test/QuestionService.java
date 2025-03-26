@@ -345,6 +345,20 @@ public class QuestionService {
                 }
                 break;
 
+            case IMAGE_WITH_MULTIPLE_CHOICE:
+                if (!hasImage) {
+                    throw new IllegalArgumentException("IMAGE_WITH_MULTIPLE_CHOICE question type requires an image");
+                }
+                if (!hasOptions) {
+                    throw new IllegalArgumentException("IMAGE_WITH_MULTIPLE_CHOICE question type requires at least one option");
+                }
+
+                boolean hasCorrectImageOption = options.stream().anyMatch(OptionDTO::isCorrect);
+                if (!hasCorrectImageOption) {
+                    throw new IllegalArgumentException("IMAGE_WITH_MULTIPLE_CHOICE question must have at least one correct option");
+                }
+                break;
+
             default:
                 throw new IllegalArgumentException("Unsupported question type: " + questionType);
         }
