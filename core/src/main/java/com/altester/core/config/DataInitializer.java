@@ -24,7 +24,11 @@ public class DataInitializer implements CommandLineRunner {
         //Creating Subjects
         dataInit.createSubject(20);
 
-        //Create groups with student/10
+        // Create groups with various configurations:
+        // - Current semester (active) groups
+        // - Past semester (inactive) groups
+        // - Future semester groups
+        // - Each with assigned tests, questions, and options
         dataInit.createStudentGroups();
     }
 
