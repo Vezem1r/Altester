@@ -4,7 +4,7 @@ import com.altester.core.dtos.core_service.question.CreateQuestionDTO;
 import com.altester.core.dtos.core_service.question.QuestionDetailsDTO;
 import com.altester.core.dtos.core_service.question.UpdateQuestionDTO;
 import com.altester.core.dtos.core_service.test.OptionDTO;
-import com.altester.core.exception.GroupInactiveException;
+import com.altester.core.exception.*;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
@@ -45,7 +45,7 @@ public class QuestionService {
     private final TestDTOMapper testDTOMapper;
     private final GroupActivityService groupActivityService;
 
-    @Value("${app.upload.question-images:./question-images}")
+    @Value("${app.upload.question-images")
     private String uploadDir;
 
     @Transactional
@@ -56,13 +56,13 @@ public class QuestionService {
         User currentUser = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> {
                     log.error("User {} not found", principal.getName());
-                    return new RuntimeException("User not found");
+                    return new UserNotFoundException("User not found");
                 });
 
         Test test = testRepository.findById(testId)
                 .orElseThrow(() -> {
                     log.error("Test with ID {} not found", testId);
-                    return new RuntimeException("Test not found");
+                    return new TestNotFoundException("Test not found");
                 });
 
         verifyTestModificationPermission(currentUser, test);
@@ -77,7 +77,7 @@ public class QuestionService {
                 log.info("Image saved successfully: {}", imagePath);
             } catch (Exception e) {
                 log.error("Failed to save image for question", e);
-                throw new RuntimeException("Could not save image", e);
+                throw new ImageSaveException("Could not save image");
             }
         }
 
@@ -118,13 +118,13 @@ public class QuestionService {
         User currentUser = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> {
                     log.error("User {} not found", principal.getName());
-                    return new RuntimeException("User not found");
+                    return new UserNotFoundException("User not found");
                 });
 
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> {
                     log.error("Question with ID {} not found", questionId);
-                    return new RuntimeException("Question not found");
+                    return new QuestionNotFoundException("Question not found");
                 });
 
         Test test = question.getTest();
@@ -189,13 +189,13 @@ public class QuestionService {
         User currentUser = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> {
                     log.error("User {} not found", principal.getName());
-                    return new RuntimeException("User not found");
+                    return new UserNotFoundException("User not found");
                 });
 
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> {
                     log.error("Question with ID {} not found", questionId);
-                    return new RuntimeException("Question not found");
+                    return new QuestionNotFoundException("Question not found");
                 });
 
         int position = question.getPosition();
@@ -225,13 +225,13 @@ public class QuestionService {
         User currentUser = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> {
                     log.error("User {} not found", principal.getName());
-                    return new RuntimeException("User not found");
+                    return new UserNotFoundException("User not found");
                 });
 
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> {
                     log.error("Question with ID {} not found", questionId);
-                    return new RuntimeException("Question not found");
+                    return new QuestionNotFoundException("Question not found");
                 });
 
         Test test = question.getTest();
@@ -245,14 +245,11 @@ public class QuestionService {
         if (currentUser.getRole() == RolesEnum.TEACHER) {
             List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
 
-            boolean canEdit = testAccessValidator.canTeacherEditTest(currentUser, test, teacherGroups);
-            if (!canEdit) {
-                log.warn("Teacher {} attempted to modify test without permission", currentUser.getUsername());
-                throw new RuntimeException("Not authorized to modify this test");
-            }
-        } else if (currentUser.getRole() != RolesEnum.ADMIN) {
+            testAccessValidator.canTeacherEditTest(currentUser, test, teacherGroups);
+        }
+        if (currentUser.getRole() != RolesEnum.ADMIN) {
             log.warn("User {} with role {} attempted to modify test", currentUser.getUsername(), currentUser.getRole());
-            throw new RuntimeException("Not authorized to modify this test");
+            throw new TestAccessDeniedException("Not authorized to modify this test");
         }
 
         List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
@@ -267,10 +264,10 @@ public class QuestionService {
     @Transactional
     public void changeQuestionPosition(Long questionId, int newPosition, Principal principal) {
         User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         Question question = questionRepository.findById(questionId)
-                .orElseThrow(() -> new RuntimeException("Question not found"));
+                .orElseThrow(() -> new QuestionNotFoundException("Question not found"));
 
         Test test = question.getTest();
 
@@ -280,7 +277,7 @@ public class QuestionService {
         int maxPosition = questionRepository.findMaxPositionByTestId(test.getId()).orElse(0);
 
         if (newPosition < 1 || newPosition > maxPosition) {
-            throw new IllegalArgumentException("Position must be between 1 and " + maxPosition);
+            throw new InvalidPositionException("Position must be between 1 and " + maxPosition);
         }
 
         if (oldPosition < newPosition) {
@@ -296,7 +293,7 @@ public class QuestionService {
     private void validateQuestionData(QuestionType questionType, String questionText,
                                       Object image, List<OptionDTO> options) {
         if (questionType == null) {
-            throw new IllegalArgumentException("Question type must be provided");
+            throw new IllegalQuestionTypeException("Question type must be provided");
         }
 
         boolean hasText = questionText != null && !questionText.trim().isEmpty();
@@ -306,61 +303,61 @@ public class QuestionService {
         switch (questionType) {
             case TEXT_ONLY:
                 if (!hasText) {
-                    throw new IllegalArgumentException("TEXT_ONLY question type requires non-empty text");
+                    throw new InvalidQuestionTextException("TEXT_ONLY question type requires non-empty text");
                 }
                 if (hasImage) {
-                    throw new IllegalArgumentException("TEXT_ONLY question type cannot have an image");
+                    throw new InvalidImageException("TEXT_ONLY question type cannot have an image");
                 }
                 break;
 
             case IMAGE_ONLY:
                 if (!hasImage) {
-                    throw new IllegalArgumentException("IMAGE_ONLY question type requires an image");
+                    throw new InvalidImageException("IMAGE_ONLY question type requires an image");
                 }
                 if (hasText) {
-                    throw new IllegalArgumentException("IMAGE_ONLY question type should not have text");
+                    throw new InvalidQuestionTextException("IMAGE_ONLY question type should not have text");
                 }
                 break;
 
             case TEXT_WITH_IMAGE:
                 if (!hasText) {
-                    throw new IllegalArgumentException("TEXT_WITH_IMAGE question type requires non-empty text");
+                    throw new InvalidQuestionTextException("TEXT_WITH_IMAGE question type requires non-empty text");
                 }
                 if (!hasImage) {
-                    throw new IllegalArgumentException("TEXT_WITH_IMAGE question type requires an image");
+                    throw new InvalidImageException("TEXT_WITH_IMAGE question type requires an image");
                 }
                 break;
 
             case MULTIPLE_CHOICE:
                 if (!hasText) {
-                    throw new IllegalArgumentException("MULTIPLE_CHOICE question type requires non-empty text");
+                    throw new InvalidQuestionTextException("MULTIPLE_CHOICE question type requires non-empty text");
                 }
                 if (!hasOptions) {
-                    throw new IllegalArgumentException("MULTIPLE_CHOICE question type requires at least one option");
+                    throw new InvalidOptionSelectionException("MULTIPLE_CHOICE question type requires at least one option");
                 }
 
                 boolean hasCorrectOption = options.stream().anyMatch(OptionDTO::isCorrect);
                 if (!hasCorrectOption) {
-                    throw new IllegalArgumentException("MULTIPLE_CHOICE question must have at least one correct option");
+                    throw new MissingCorrectOptionException("MULTIPLE_CHOICE question must have at least one correct option");
                 }
                 break;
 
             case IMAGE_WITH_MULTIPLE_CHOICE:
                 if (!hasImage) {
-                    throw new IllegalArgumentException("IMAGE_WITH_MULTIPLE_CHOICE question type requires an image");
+                    throw new InvalidImageException("IMAGE_WITH_MULTIPLE_CHOICE question type requires an image");
                 }
                 if (!hasOptions) {
-                    throw new IllegalArgumentException("IMAGE_WITH_MULTIPLE_CHOICE question type requires at least one option");
+                    throw new InvalidOptionSelectionException("IMAGE_WITH_MULTIPLE_CHOICE question type requires at least one option");
                 }
 
                 boolean hasCorrectImageOption = options.stream().anyMatch(OptionDTO::isCorrect);
                 if (!hasCorrectImageOption) {
-                    throw new IllegalArgumentException("IMAGE_WITH_MULTIPLE_CHOICE question must have at least one correct option");
+                    throw new MissingCorrectOptionException("IMAGE_WITH_MULTIPLE_CHOICE question must have at least one correct option");
                 }
                 break;
 
             default:
-                throw new IllegalArgumentException("Unsupported question type: " + questionType);
+                throw new IllegalQuestionTypeException("Unsupported question type: " + questionType);
         }
     }
 
@@ -385,7 +382,7 @@ public class QuestionService {
             return filename;
         } catch (IOException e) {
             log.error("Failed to save image", e);
-            throw new RuntimeException("Failed to save image", e);
+            throw new ImageSaveException("Failed to save image");
         }
     }
 

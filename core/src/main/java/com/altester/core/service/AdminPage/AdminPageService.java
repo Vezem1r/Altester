@@ -3,6 +3,10 @@ package com.altester.core.service.AdminPage;
 import com.altester.core.dtos.AdminPage.AdminPageDTO;
 import com.altester.core.dtos.AdminPage.UpdateUser;
 import com.altester.core.dtos.AdminPage.UsersListDTO;
+import com.altester.core.exception.LdapUserModificationException;
+import com.altester.core.exception.UserAlreadyExistsException;
+import com.altester.core.exception.UserNotFoundException;
+import com.altester.core.exception.UserRoleException;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
@@ -35,31 +39,23 @@ public class AdminPageService {
     private final SubjectRepository subjectRepository;
 
     public Page<UsersListDTO> getStudents(int page, String searchQuery, String searchField, String registrationFilter) {
-        try {
+
             Specification<User> spec = createUserSpecification(RolesEnum.STUDENT, searchQuery, searchField, registrationFilter);
 
             PageRequest pageRequest = PageRequest.of(page, 20, Sort.by(Sort.Direction.ASC, "isRegistered")
                     .and(Sort.by(Sort.Direction.ASC, "name")));
 
             return userRepository.findAll(spec, pageRequest).map(this::convertToUsersListDTO);
-        } catch (Exception e) {
-            log.error("Error fetching students with search params: {}", e.getMessage());
-            throw new RuntimeException("Failed to fetch students. " + e.getMessage());
-        }
     }
 
     public Page<UsersListDTO> getTeachers(int page, String searchQuery, String searchField, String registrationFilter) {
-        try {
+
             Specification<User> spec = createUserSpecification(RolesEnum.TEACHER, searchQuery, searchField, registrationFilter);
 
             PageRequest pageRequest = PageRequest.of(page, 20, Sort.by(Sort.Direction.ASC, "isRegistered")
                     .and(Sort.by(Sort.Direction.ASC, "name")));
 
             return userRepository.findAll(spec, pageRequest).map(this::convertToUsersListDTO);
-        } catch (Exception e) {
-            log.error("Error fetching teachers with search params: {}", e.getMessage());
-            throw new RuntimeException("Failed to fetch teachers. " + e.getMessage());
-        }
     }
 
     private Specification<User> createUserSpecification(RolesEnum role, String searchQuery, String searchField, String registrationFilter) {
@@ -144,8 +140,8 @@ public class AdminPageService {
     }
 
     public AdminPageDTO getPage(String username) {
-        try {
-            userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("Teacher not found"));
+
+            userRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("Teacher not found"));
 
             AdminPageDTO dto = new AdminPageDTO();
             dto.setStudentsCount(userRepository.countByRole(RolesEnum.STUDENT));
@@ -155,22 +151,17 @@ public class AdminPageService {
             dto.setTestsCount(testRepository.count());
             dto.setUsername(username);
             return dto;
-        } catch (Exception e) {
-            log.error("Error fetching admin page stats: {}", e.getMessage());
-            throw new RuntimeException("Failed to fetch admin page stats. " + e.getMessage());
-        }
     }
 
     public void demoteToStudent(String username) {
-        try {
             User user = userRepository.findByUsername(username).orElseThrow(() -> {
                 log.error("Username {} not found", username);
-                return new RuntimeException("User " + username + " not found");
+                return new UserNotFoundException("User " + username + " not found");
             });
 
             if (user.getRole() == RolesEnum.STUDENT) {
                 log.warn("User {} is already a student", user.getUsername());
-                throw new RuntimeException("User is already a student");
+                throw new UserRoleException("User is already a student");
             }
 
             groupRepository.findAll().forEach(group -> {
@@ -184,22 +175,17 @@ public class AdminPageService {
             userRepository.save(user);
 
             log.info("User {} (ID: {}) successfully promoted to STUDENT", user.getUsername(), user.getId());
-        } catch (Exception e) {
-            log.error("Failed to promote user to TEACHER: {}", e.getMessage());
-            throw new RuntimeException("Failed to promote user to STUDENT. " + e.getMessage());
-        }
     }
 
     public void promoteToTeacher(String username) {
-        try {
             User user = userRepository.findByUsername(username).orElseThrow(() -> {
                 log.error("Username {} not found", username);
-                return new RuntimeException("User " + username + " not found");
+                return new UserNotFoundException("User " + username + " not found");
             });
 
             if (user.getRole() == RolesEnum.TEACHER) {
                 log.warn("User {} is already a teacher", user.getUsername());
-                throw new RuntimeException("User is already a teacher");
+                throw new UserRoleException("User is already a teacher");
             }
 
             groupRepository.findAll().forEach(group -> {
@@ -213,28 +199,24 @@ public class AdminPageService {
             userRepository.save(user);
 
             log.info("User {} (ID: {}) successfully promoted to TEACHER", user.getUsername(), user.getId());
-        } catch (Exception e) {
-            log.error("Failed to promote user to TEACHER: {}", e.getMessage());
-            throw new RuntimeException("Failed to promote user to TEACHER. " + e.getMessage());
-        }
     }
 
     public UsersListDTO updateUser(UpdateUser updateUser, String username) {
-        try {
+
             User user = userRepository.findByUsername(username).orElseThrow(() -> {
                 log.error("Username {} not found", username);
-                return new RuntimeException("User " + username + " not found");
+                return new UserNotFoundException("User " + username + " not found");
             });
 
             if (!user.isRegistered()) {
                 log.warn("User {} was created via LDAP and cannot be updated", user.getUsername());
-                throw new RuntimeException("User was created via LDAP");
+                throw new LdapUserModificationException("User was created via LDAP");
             }
 
             Optional<User> optionalUser = userRepository.findByUsername(updateUser.getUsername());
             if (optionalUser.isPresent()) {
                 log.error("User with username {} already exists", user.getUsername());
-                throw new RuntimeException("User with username already exists");
+                throw new UserAlreadyExistsException("User with username already exists");
             }
 
             user.setName(updateUser.getName());
@@ -246,9 +228,5 @@ public class AdminPageService {
 
             log.info("User {} (ID: {}) successfully updated", user.getUsername(), user.getId());
             return convertToUsersListDTO(user);
-        } catch (Exception e) {
-            log.error("Failed to update user with username {}: {}", username, e.getMessage());
-            throw new RuntimeException("Failed to update user. "+ e.getMessage());
-        }
     }
 }

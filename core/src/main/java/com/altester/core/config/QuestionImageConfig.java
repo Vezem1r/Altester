@@ -14,7 +14,7 @@ import java.util.Set;
 
 @Configuration
 public class QuestionImageConfig {
-    @Value("${app.upload.question-images:./question-images}")
+    @Value("${app.upload.question-images}")
     private String uploadDir;
 
     @Bean

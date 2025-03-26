@@ -1,6 +1,7 @@
 package com.altester.core.service.test;
 
 import com.altester.core.dtos.core_service.test.*;
+import com.altester.core.exception.*;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
@@ -36,263 +37,166 @@ public class TestService {
 
     @Transactional
     public void toggleTeacherEditPermission(Long testId, Principal principal) {
-        log.info("User {} is attempting to toggle teacher edit permission for test with ID {}", principal.getName(), testId);
+        try {
+            log.info("User {} is attempting to toggle teacher edit permission for test with ID {}", principal.getName(), testId);
 
-        User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> {
-                    log.error("User {} not found", principal.getName());
-                    return new RuntimeException("User not found");
-                });
+            User currentUser = userRepository.findByUsername(principal.getName())
+                    .orElseThrow(() -> {
+                        log.error("User {} not found", principal.getName());
+                        return new UserNotFoundException("User not found");
+                    });
 
-        if (currentUser.getRole() != RolesEnum.ADMIN) {
-            log.warn("User {} is not an admin, access denied", currentUser.getUsername());
-            throw new RuntimeException("Only admins can modify teacher edit permissions");
+            if (currentUser.getRole() != RolesEnum.ADMIN) {
+                log.warn("User {} is not an admin, access denied", currentUser.getUsername());
+                throw new NotAdminException("Only admins can modify teacher edit permissions");
+            }
+
+            Test test = testRepository.findById(testId)
+                    .orElseThrow(() -> {
+                        log.error("Test with ID {} not found", testId);
+                        return new TestNotFoundException("Test not found");
+                    });
+
+            boolean newState = !test.isAllowTeacherEdit();
+            test.setAllowTeacherEdit(newState);
+            testRepository.save(test);
+
+            log.info("Teacher edit permission for test ID {} toggled to {} by admin {}", testId, newState, currentUser.getUsername());
+        } catch (Exception e) {
+            log.error("Error occurred while toggling teacher edit permission for test ID {}", testId, e);
+            throw e;
         }
-
-        Test test = testRepository.findById(testId)
-                .orElseThrow(() -> {
-                    log.error("Test with ID {} not found", testId);
-                    return new RuntimeException("Test not found");
-                });
-
-        boolean newState = !test.isAllowTeacherEdit();
-        test.setAllowTeacherEdit(newState);
-        testRepository.save(test);
-
-        log.info("Teacher edit permission for test ID {} toggled to {} by admin {}", testId, newState, currentUser.getUsername());
     }
 
     @Transactional(readOnly = true)
     public Page<TestSummaryDTO> getAllTestsForAdmin(Pageable pageable, Principal principal, String searchQuery, Boolean isActive) {
-        User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        try {
+            User currentUser = userRepository.findByUsername(principal.getName())
+                    .orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        if (currentUser.getRole() != RolesEnum.ADMIN) {
-            throw new RuntimeException("Only admin can access all tests");
+            if (currentUser.getRole() != RolesEnum.ADMIN) {
+                throw new NotAdminException("Only admin can access all tests");
+            }
+
+            Page<Test> testsPage = testRepository.findAllWithFilters(searchQuery, isActive, pageable);
+
+            return testsPage.map(test -> {
+                TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
+
+                List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
+
+                List<GroupSummaryDTO> groupDTOs = testGroups.stream()
+                        .map(group -> GroupSummaryDTO.builder()
+                                .id(group.getId())
+                                .name(group.getName())
+                                .build())
+                        .collect(Collectors.toList());
+
+                dto.setAssociatedGroups(groupDTOs);
+                return dto;
+            });
+        } catch (Exception e) {
+            log.error("Error occurred while retrieving all tests for admin", e);
+            throw e;
         }
-
-        Page<Test> testsPage = testRepository.findAllWithFilters(searchQuery, isActive, pageable);
-
-        return testsPage.map(test -> {
-            TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
-
-            List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
-
-            List<GroupSummaryDTO> groupDTOs = testGroups.stream()
-                    .map(group -> GroupSummaryDTO.builder()
-                            .id(group.getId())
-                            .name(group.getName())
-                            .build())
-                    .collect(Collectors.toList());
-
-            dto.setAssociatedGroups(groupDTOs);
-            return dto;
-        });
     }
 
     @Transactional(readOnly = true)
     public Page<TestSummaryDTO> getTeacherTests(Pageable pageable, Principal principal, String searchQuery, Boolean isActive) {
-        User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        try {
+            User currentUser = userRepository.findByUsername(principal.getName())
+                    .orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        if (currentUser.getRole() != RolesEnum.TEACHER) {
-            throw new RuntimeException("Only teachers can access this endpoint");
+            if (currentUser.getRole() != RolesEnum.TEACHER) {
+                throw new TestAccessDeniedException("Only teachers can access this endpoint");
+            }
+
+            Page<Test> testsPage = testRepository.findByTeacherWithFilters(
+                    currentUser.getId(), searchQuery, isActive, pageable);
+
+            return testsPage.map(test -> {
+                TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
+
+                List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
+                List<Group> testGroups = testDTOMapper.findGroupsByTest(test).stream()
+                        .filter(teacherGroups::contains)
+                        .toList();
+
+                List<GroupSummaryDTO> groupDTOs = testGroups.stream()
+                        .map(group -> GroupSummaryDTO.builder()
+                                .id(group.getId())
+                                .name(group.getName())
+                                .build())
+                        .collect(Collectors.toList());
+
+                dto.setAssociatedGroups(groupDTOs);
+                return dto;
+            });
+        } catch (Exception e) {
+            log.error("Error occurred while retrieving teacher's tests", e);
+            throw e;
         }
-
-        Page<Test> testsPage = testRepository.findByTeacherWithFilters(
-                currentUser.getId(), searchQuery, isActive, pageable);
-
-        return testsPage.map(test -> {
-            TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
-
-            List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
-            List<Group> testGroups = testDTOMapper.findGroupsByTest(test).stream()
-                    .filter(teacherGroups::contains)
-                    .toList();
-
-            List<GroupSummaryDTO> groupDTOs = testGroups.stream()
-                    .map(group -> GroupSummaryDTO.builder()
-                            .id(group.getId())
-                            .name(group.getName())
-                            .build())
-                    .collect(Collectors.toList());
-
-            dto.setAssociatedGroups(groupDTOs);
-            return dto;
-        });
     }
 
     @Transactional
     public TestPreviewDTO createTest(CreateTestDTO createTestDTO, Principal principal) {
-        User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        try {
+            User currentUser = userRepository.findByUsername(principal.getName())
+                    .orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        Test test = new Test();
-        test.setTitle(createTestDTO.getTitle());
-        test.setDescription(createTestDTO.getDescription());
-        test.setDuration(createTestDTO.getDuration());
-        test.setOpen(createTestDTO.isOpen());
-        test.setMaxAttempts(createTestDTO.getMaxAttempts());
-        test.setStartTime(createTestDTO.getStartTime());
-        test.setEndTime(createTestDTO.getEndTime());
+            Test test = new Test();
+            test.setTitle(createTestDTO.getTitle());
+            test.setDescription(createTestDTO.getDescription());
+            test.setDuration(createTestDTO.getDuration());
+            test.setOpen(createTestDTO.isOpen());
+            test.setMaxAttempts(createTestDTO.getMaxAttempts());
+            test.setStartTime(createTestDTO.getStartTime());
+            test.setEndTime(createTestDTO.getEndTime());
 
-        List<Group> selectedGroups = new ArrayList<>();
-        List<Group> invalidGroups = new ArrayList<>();
-
-        if (currentUser.getRole() == RolesEnum.ADMIN) {
-            test.setCreatedByAdmin(true);
-
-            if (createTestDTO.getSubjectId() != null) {
-                Subject subject = subjectRepository.findById(createTestDTO.getSubjectId())
-                        .orElseThrow(() -> new RuntimeException("Subject not found"));
-
-                if (subject.getGroups() != null && !subject.getGroups().isEmpty()) {
-                    for (Group group : subject.getGroups()) {
-                        if (groupActivityService.canModifyGroup(group)) {
-                            selectedGroups.add(group);
-                        } else {
-                            invalidGroups.add(group);
-                        }
-                    }
-                }
-            } else if (createTestDTO.getGroupIds() != null && !createTestDTO.getGroupIds().isEmpty()) {
-                for (Long groupId : createTestDTO.getGroupIds()) {
-                    Group group = groupRepository.findById(groupId)
-                            .orElseThrow(() -> new RuntimeException("Group not found"));
-
-                    if (groupActivityService.canModifyGroup(group)) {
-                        selectedGroups.add(group);
-                    } else {
-                        invalidGroups.add(group);
-                    }
-                }
-            }
-        } else if (currentUser.getRole() == RolesEnum.TEACHER) {
-            test.setCreatedByAdmin(false);
-
-            if (createTestDTO.getGroupIds() != null && !createTestDTO.getGroupIds().isEmpty()) {
-                List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
-
-                for (Long groupId : createTestDTO.getGroupIds()) {
-                    Group group = groupRepository.findById(groupId)
-                            .orElseThrow(() -> new RuntimeException("Group not found"));
-
-                    if (teacherGroups.contains(group)) {
-                        if (groupActivityService.canModifyGroup(group)) {
-                            selectedGroups.add(group);
-                        } else {
-                            invalidGroups.add(group);
-                        }
-                    }
-                }
-            }
-        }
-
-        if (!invalidGroups.isEmpty()) {
-            String invalidGroupNames = invalidGroups.stream()
-                    .map(Group::getName)
-                    .collect(Collectors.joining(", "));
-            throw new RuntimeException("Cannot add test to past semester groups: " + invalidGroupNames);
-        }
-
-        if (selectedGroups.isEmpty()) {
-            throw new RuntimeException("No valid groups selected");
-        }
-
-        Test savedTest = testRepository.save(test);
-
-        for (Group group : selectedGroups) {
-            group.getTests().add(savedTest);
-            groupRepository.save(group);
-        }
-
-        return testDTOMapper.convertToTestPreviewDTO(savedTest, currentUser);
-    }
-
-    @Transactional
-    public TestPreviewDTO updateTest(CreateTestDTO updateTestDTO, Long testId, Principal principal) {
-        User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        Test existingTest = testRepository.findById(testId)
-                .orElseThrow(() -> new RuntimeException("Test not found"));
-
-        if (currentUser.getRole() == RolesEnum.TEACHER) {
-            List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
-
-            boolean canEdit = testAccessValidator.canTeacherEditTest(currentUser, existingTest, teacherGroups);
-            if (!canEdit) {
-                throw new RuntimeException("Not authorized to update this test");
-            }
-        }
-
-        if (updateTestDTO.getTitle() != null) {
-            existingTest.setTitle(updateTestDTO.getTitle());
-        }
-
-        if (updateTestDTO.getDescription() != null) {
-            existingTest.setDescription(updateTestDTO.getDescription());
-        }
-
-        if (updateTestDTO.getDuration() > 0) {
-            existingTest.setDuration(updateTestDTO.getDuration());
-        }
-
-        existingTest.setOpen(updateTestDTO.isOpen());
-
-        if (updateTestDTO.getMaxAttempts() != null) {
-            existingTest.setMaxAttempts(updateTestDTO.getMaxAttempts());
-        }
-
-        if (updateTestDTO.getStartTime() != null) {
-            existingTest.setStartTime(updateTestDTO.getStartTime());
-        }
-
-        if (updateTestDTO.getEndTime() != null) {
-            existingTest.setEndTime(updateTestDTO.getEndTime());
-        }
-
-        if (updateTestDTO.getSubjectId() != null ||
-                (updateTestDTO.getGroupIds() != null && !updateTestDTO.getGroupIds().isEmpty())) {
-
-            List<Group> newSelectedGroups = new ArrayList<>();
+            List<Group> selectedGroups = new ArrayList<>();
             List<Group> invalidGroups = new ArrayList<>();
 
             if (currentUser.getRole() == RolesEnum.ADMIN) {
-                if (updateTestDTO.getSubjectId() != null) {
-                    Subject subject = subjectRepository.findById(updateTestDTO.getSubjectId())
-                            .orElseThrow(() -> new RuntimeException("Subject not found"));
+                test.setCreatedByAdmin(true);
 
-                    for (Group group : subject.getGroups()) {
-                        if (groupActivityService.canModifyGroup(group)) {
-                            newSelectedGroups.add(group);
-                        } else {
-                            invalidGroups.add(group);
+                if (createTestDTO.getSubjectId() != null) {
+                    Subject subject = subjectRepository.findById(createTestDTO.getSubjectId())
+                            .orElseThrow(() -> new SubjectNotFoundException("Subject not found"));
+
+                    if (subject.getGroups() != null && !subject.getGroups().isEmpty()) {
+                        for (Group group : subject.getGroups()) {
+                            if (groupActivityService.canModifyGroup(group)) {
+                                selectedGroups.add(group);
+                            } else {
+                                invalidGroups.add(group);
+                            }
                         }
                     }
-                } else if (updateTestDTO.getGroupIds() != null && !updateTestDTO.getGroupIds().isEmpty()) {
-                    for (Long groupId : updateTestDTO.getGroupIds()) {
+                } else if (createTestDTO.getGroupIds() != null && !createTestDTO.getGroupIds().isEmpty()) {
+                    for (Long groupId : createTestDTO.getGroupIds()) {
                         Group group = groupRepository.findById(groupId)
-                                .orElseThrow(() -> new RuntimeException("Group not found"));
+                                .orElseThrow(() -> new GroupNotFoundException("Group not found"));
 
                         if (groupActivityService.canModifyGroup(group)) {
-                            newSelectedGroups.add(group);
+                            selectedGroups.add(group);
                         } else {
                             invalidGroups.add(group);
                         }
                     }
                 }
             } else if (currentUser.getRole() == RolesEnum.TEACHER) {
-                if (updateTestDTO.getGroupIds() != null && !updateTestDTO.getGroupIds().isEmpty()) {
+                test.setCreatedByAdmin(false);
+
+                if (createTestDTO.getGroupIds() != null && !createTestDTO.getGroupIds().isEmpty()) {
                     List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
 
-                    for (Long groupId : updateTestDTO.getGroupIds()) {
+                    for (Long groupId : createTestDTO.getGroupIds()) {
                         Group group = groupRepository.findById(groupId)
-                                .orElseThrow(() -> new RuntimeException("Group not found"));
+                                .orElseThrow(() -> new GroupNotFoundException("Group not found"));
 
                         if (teacherGroups.contains(group)) {
                             if (groupActivityService.canModifyGroup(group)) {
-                                newSelectedGroups.add(group);
+                                selectedGroups.add(group);
                             } else {
                                 invalidGroups.add(group);
                             }
@@ -305,76 +209,197 @@ public class TestService {
                 String invalidGroupNames = invalidGroups.stream()
                         .map(Group::getName)
                         .collect(Collectors.joining(", "));
-                throw new RuntimeException("Cannot add test to past semester groups: " + invalidGroupNames);
+                throw new InvalidGroupSelectionException("Cannot add test to past semester groups: " + invalidGroupNames);
             }
 
-            if (newSelectedGroups.isEmpty()) {
-                throw new RuntimeException("No valid groups selected");
+            if (selectedGroups.isEmpty()) {
+                throw new InvalidGroupSelectionException("No valid groups selected");
             }
 
-            List<Group> currentGroups = testDTOMapper.findGroupsByTest(existingTest);
-            for (Group group : currentGroups) {
-                group.getTests().remove(existingTest);
+            Test savedTest = testRepository.save(test);
+
+            for (Group group : selectedGroups) {
+                group.getTests().add(savedTest);
                 groupRepository.save(group);
             }
 
-            for (Group group : newSelectedGroups) {
-                group.getTests().add(existingTest);
-                groupRepository.save(group);
-            }
+            return testDTOMapper.convertToTestPreviewDTO(savedTest, currentUser);
+        } catch (Exception e) {
+            log.error("Error occurred while creating test", e);
+            throw e;
         }
+    }
 
-        Test updatedTest = testRepository.save(existingTest);
-        return testDTOMapper.convertToTestPreviewDTO(updatedTest, currentUser);
+    @Transactional
+    public TestPreviewDTO updateTest(CreateTestDTO updateTestDTO, Long testId, Principal principal) {
+        try {
+            User currentUser = userRepository.findByUsername(principal.getName())
+                    .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+            Test existingTest = testRepository.findById(testId)
+                    .orElseThrow(() -> new TestNotFoundException("Test not found"));
+
+            if (currentUser.getRole() == RolesEnum.TEACHER) {
+                List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
+
+                testAccessValidator.canTeacherEditTest(currentUser, existingTest, teacherGroups);
+            }
+
+            if (updateTestDTO.getTitle() != null) {
+                existingTest.setTitle(updateTestDTO.getTitle());
+            }
+
+            if (updateTestDTO.getDescription() != null) {
+                existingTest.setDescription(updateTestDTO.getDescription());
+            }
+
+            if (updateTestDTO.getDuration() > 0) {
+                existingTest.setDuration(updateTestDTO.getDuration());
+            }
+
+            existingTest.setOpen(updateTestDTO.isOpen());
+
+            if (updateTestDTO.getMaxAttempts() != null) {
+                existingTest.setMaxAttempts(updateTestDTO.getMaxAttempts());
+            }
+
+            if (updateTestDTO.getStartTime() != null) {
+                existingTest.setStartTime(updateTestDTO.getStartTime());
+            }
+
+            if (updateTestDTO.getEndTime() != null) {
+                existingTest.setEndTime(updateTestDTO.getEndTime());
+            }
+
+            if (updateTestDTO.getSubjectId() != null ||
+                    (updateTestDTO.getGroupIds() != null && !updateTestDTO.getGroupIds().isEmpty())) {
+
+                List<Group> newSelectedGroups = new ArrayList<>();
+                List<Group> invalidGroups = new ArrayList<>();
+
+                if (currentUser.getRole() == RolesEnum.ADMIN) {
+                    if (updateTestDTO.getSubjectId() != null) {
+                        Subject subject = subjectRepository.findById(updateTestDTO.getSubjectId())
+                                .orElseThrow(() -> new SubjectNotFoundException("Subject not found"));
+
+                        for (Group group : subject.getGroups()) {
+                            if (groupActivityService.canModifyGroup(group)) {
+                                newSelectedGroups.add(group);
+                            } else {
+                                invalidGroups.add(group);
+                            }
+                        }
+                    } else if (updateTestDTO.getGroupIds() != null && !updateTestDTO.getGroupIds().isEmpty()) {
+                        for (Long groupId : updateTestDTO.getGroupIds()) {
+                            Group group = groupRepository.findById(groupId)
+                                    .orElseThrow(() -> new GroupNotFoundException("Group not found"));
+
+                            if (groupActivityService.canModifyGroup(group)) {
+                                newSelectedGroups.add(group);
+                            } else {
+                                invalidGroups.add(group);
+                            }
+                        }
+                    }
+                } else if (currentUser.getRole() == RolesEnum.TEACHER) {
+                    if (updateTestDTO.getGroupIds() != null && !updateTestDTO.getGroupIds().isEmpty()) {
+                        List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
+
+                        for (Long groupId : updateTestDTO.getGroupIds()) {
+                            Group group = groupRepository.findById(groupId)
+                                    .orElseThrow(() -> new GroupNotFoundException("Group not found"));
+
+                            if (teacherGroups.contains(group)) {
+                                if (groupActivityService.canModifyGroup(group)) {
+                                    newSelectedGroups.add(group);
+                                } else {
+                                    invalidGroups.add(group);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!invalidGroups.isEmpty()) {
+                    String invalidGroupNames = invalidGroups.stream()
+                            .map(Group::getName)
+                            .collect(Collectors.joining(", "));
+                    throw new GroupInactiveException("Cannot add test to past semester groups: " + invalidGroupNames);
+                }
+
+                if (newSelectedGroups.isEmpty()) {
+                    throw new InvalidGroupSelectionException("No valid groups selected");
+                }
+
+                List<Group> currentGroups = testDTOMapper.findGroupsByTest(existingTest);
+                for (Group group : currentGroups) {
+                    group.getTests().remove(existingTest);
+                    groupRepository.save(group);
+                }
+
+                for (Group group : newSelectedGroups) {
+                    group.getTests().add(existingTest);
+                    groupRepository.save(group);
+                }
+            }
+
+            Test updatedTest = testRepository.save(existingTest);
+            return testDTOMapper.convertToTestPreviewDTO(updatedTest, currentUser);
+        } catch (Exception e) {
+            log.error("Error occurred while updating test", e);
+            throw e;
+        }
     }
 
     @Transactional
     public void deleteTest(Long testId, Principal principal) {
-        User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        try {
+            User currentUser = userRepository.findByUsername(principal.getName())
+                    .orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        Test existingTest = testRepository.findById(testId)
-                .orElseThrow(() -> new RuntimeException("Test not found"));
+            Test existingTest = testRepository.findById(testId)
+                    .orElseThrow(() -> new TestNotFoundException("Test not found"));
 
-        if (currentUser.getRole() == RolesEnum.ADMIN) {
-            List<Group> testGroups = testDTOMapper.findGroupsByTest(existingTest);
-            for (Group group : testGroups) {
-                group.getTests().remove(existingTest);
-                groupRepository.save(group);
+            if (currentUser.getRole() == RolesEnum.ADMIN) {
+                List<Group> testGroups = testDTOMapper.findGroupsByTest(existingTest);
+                for (Group group : testGroups) {
+                    group.getTests().remove(existingTest);
+                    groupRepository.save(group);
+                }
+
+                testRepository.delete(existingTest);
+            } else if (currentUser.getRole() == RolesEnum.TEACHER) {
+                List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
+
+                if (existingTest.isCreatedByAdmin()) {
+                    throw new NotAdminException("Cannot delete admin-created tests");
+                }
+
+                testAccessValidator.isTeacherTestCreator(currentUser, existingTest, teacherGroups);
+
+                List<Group> testGroups = testDTOMapper.findGroupsByTest(existingTest);
+                for (Group group : testGroups) {
+                    group.getTests().remove(existingTest);
+                    groupRepository.save(group);
+                }
+
+                testRepository.delete(existingTest);
+            } else {
+                throw new TestAccessDeniedException("Not authorized to delete this test");
             }
-
-            testRepository.delete(existingTest);
-        } else if (currentUser.getRole() == RolesEnum.TEACHER) {
-            List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
-
-            if (existingTest.isCreatedByAdmin()) {
-                throw new RuntimeException("Cannot delete admin-created tests");
-            }
-
-            boolean isTeacherTest = testAccessValidator.isTeacherTestCreator(currentUser, existingTest, teacherGroups);
-            if (!isTeacherTest) {
-                throw new RuntimeException("Cannot delete this test");
-            }
-
-            List<Group> testGroups = testDTOMapper.findGroupsByTest(existingTest);
-            for (Group group : testGroups) {
-                group.getTests().remove(existingTest);
-                groupRepository.save(group);
-            }
-
-            testRepository.delete(existingTest);
-        } else {
-            throw new RuntimeException("Not authorized to delete this test");
+        } catch (Exception e) {
+            log.error("Error occurred while deleting test", e);
+            throw e;
         }
     }
 
     @Transactional(readOnly = true)
     public TestSummaryDTO getTestSummary(Long testId, Principal principal) {
         User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         Test test = testRepository.findById(testId)
-                .orElseThrow(() -> new RuntimeException("Test not found"));
+                .orElseThrow(() -> new TestNotFoundException("Test not found"));
 
         testAccessValidator.validateTestAccess(currentUser, test);
 
@@ -409,10 +434,10 @@ public class TestService {
     @Transactional(readOnly = true)
     public TestPreviewDTO getTestPreview(Long testId, Principal principal) {
         User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         Test test = testRepository.findById(testId)
-                .orElseThrow(() -> new RuntimeException("Test not found"));
+                .orElseThrow(() -> new TestNotFoundException("Test not found"));
 
         testAccessValidator.validateTestAccess(currentUser, test);
 
@@ -423,10 +448,10 @@ public class TestService {
     public Page<TestSummaryDTO> getTestsBySubject(Long subjectId, Principal principal, String searchQuery,
                                                   Boolean isActive, Pageable pageable) {
         User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         Subject subject = subjectRepository.findById(subjectId)
-                .orElseThrow(() -> new RuntimeException("Subject not found"));
+                .orElseThrow(() -> new SubjectNotFoundException("Subject not found"));
 
         Page<Test> testsPage = testRepository.findBySubjectWithFilters(
                 subjectId, searchQuery, isActive, pageable);
@@ -460,10 +485,10 @@ public class TestService {
     public Page<TestSummaryDTO> getTestsByGroup(Long groupId, Principal principal, String searchQuery,
                                                 Boolean isActive, Pageable pageable) {
         User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         Group group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new RuntimeException("Group not found"));
+                .orElseThrow(() -> new GroupNotFoundException("Group not found"));
 
         testAccessValidator.validateGroupAccess(currentUser, group);
 
@@ -486,36 +511,37 @@ public class TestService {
 
     @Transactional
     public void toggleTestActivity(Long testId, Principal principal) {
-        log.info("User {} is attempting to toggle activity for test with ID {}", principal.getName(), testId);
+        try {
+            log.info("User {} is attempting to toggle activity for test with ID {}", principal.getName(), testId);
 
-        User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> {
-                    log.error("User {} not found", principal.getName());
-                    return new RuntimeException("User not found");
-                });
+            User currentUser = userRepository.findByUsername(principal.getName())
+                    .orElseThrow(() -> {
+                        log.error("User {} not found", principal.getName());
+                        return new UserNotFoundException("User not found");
+                    });
 
-        Test test = testRepository.findById(testId)
-                .orElseThrow(() -> {
-                    log.error("Test with ID {} not found", testId);
-                    return new RuntimeException("Test not found");
-                });
+            Test test = testRepository.findById(testId)
+                    .orElseThrow(() -> {
+                        log.error("Test with ID {} not found", testId);
+                        return new TestNotFoundException("Test not found");
+                    });
 
-        if (currentUser.getRole() != RolesEnum.ADMIN) {
-            log.info("User {} is not an admin, checking permissions...", currentUser.getUsername());
+            if (currentUser.getRole() != RolesEnum.ADMIN) {
+                log.info("User {} is not an admin, checking permissions...", currentUser.getUsername());
 
-            List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
+                List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
 
-            boolean canEdit = testAccessValidator.canTeacherEditTest(currentUser, test, teacherGroups);
-            if (!canEdit) {
-                log.warn("User {} is not authorized to change test activity for test {}", currentUser.getUsername(), testId);
-                throw new RuntimeException("Not authorized to change test activity");
+                testAccessValidator.canTeacherEditTest(currentUser, test, teacherGroups);
             }
+
+            boolean newState = !test.isOpen();
+            test.setOpen(newState);
+            testRepository.save(test);
+
+            log.info("Test ID {} activity toggled to {} by user {}", testId, newState, currentUser.getUsername());
+        } catch (UserNotFoundException | TestNotFoundException ex) {
+            log.error(ex.getMessage());
+            throw ex;
         }
-
-        boolean newState = !test.isOpen();
-        test.setOpen(newState);
-        testRepository.save(test);
-
-        log.info("Test ID {} activity toggled to {} by user {}", testId, newState, currentUser.getUsername());
     }
 }

@@ -1,5 +1,9 @@
 package com.altester.core.service.test;
 
+import com.altester.core.exception.GroupAccessDeniedException;
+import com.altester.core.exception.TeacherEditNotAllowedException;
+import com.altester.core.exception.TeacherTestCreatorException;
+import com.altester.core.exception.TestAccessDeniedException;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
@@ -18,10 +22,6 @@ public class TestAccessValidator {
     private final GroupRepository groupRepository;
     private final TestDTOMapper testDTOMapper;
 
-    /**
-     * Validate if a user has access to a test
-     * @throws RuntimeException if access is denied
-     */
     public void validateTestAccess(User currentUser, Test test) {
         if (currentUser.getRole() == RolesEnum.ADMIN) {
             return;
@@ -32,17 +32,13 @@ public class TestAccessValidator {
             boolean isTeacherTest = isTeacherTestCreator(currentUser, test, teacherGroups);
 
             if (!isTeacherTest) {
-                throw new RuntimeException("Not authorized to access this test");
+                throw new TestAccessDeniedException("Not authorized to access this test");
             }
         } else {
-            throw new RuntimeException("Not authorized to access this test");
+            throw new TestAccessDeniedException("Not authorized to access this test");
         }
     }
 
-    /**
-     * Validate if a user has access to a group
-     * @throws RuntimeException if access is denied
-     */
     public void validateGroupAccess(User currentUser, Group group) {
         if (currentUser.getRole() == RolesEnum.ADMIN) {
             return;
@@ -51,20 +47,13 @@ public class TestAccessValidator {
         if (currentUser.getRole() == RolesEnum.TEACHER) {
             List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
             if (!teacherGroups.contains(group)) {
-                throw new RuntimeException("Not authorized to access this group");
+                throw new GroupAccessDeniedException("Not authorized to access this group");
             }
         } else {
-            throw new RuntimeException("Not authorized to access this group");
+            throw new GroupAccessDeniedException("Not authorized to access this group");
         }
     }
 
-    /**
-     * Check if a teacher can edit a test.
-     * Teachers can edit a test if:
-     * 1. It's their own test, OR
-     * 2. It's an admin-created test with allowTeacherEdit=true, and they have access to it
-     * @return true if the teacher can edit the test
-     */
     public boolean canTeacherEditTest(User teacher, Test test, List<Group> teacherGroups) {
         if (teacherGroups == null) {
             teacherGroups = groupRepository.findByTeacher(teacher);
@@ -81,7 +70,7 @@ public class TestAccessValidator {
         }
 
         if (!isTeacherAssociated) {
-            return false;
+            throw new TeacherEditNotAllowedException("Teacher is not associated with this test");
         }
 
         if (test.isCreatedByAdmin()) {
@@ -91,10 +80,6 @@ public class TestAccessValidator {
         return true;
     }
 
-    /**
-     * Check if a teacher is associated with a test through any of their groups
-     * @return true if the teacher is associated with the test
-     */
     public boolean isTeacherTestCreator(User teacher, Test test, List<Group> teacherGroups) {
         if (teacherGroups == null) {
             teacherGroups = groupRepository.findByTeacher(teacher);
@@ -108,6 +93,6 @@ public class TestAccessValidator {
             }
         }
 
-        return false;
+        throw new TeacherTestCreatorException("Teacher is not the creator of this test");
     }
 }

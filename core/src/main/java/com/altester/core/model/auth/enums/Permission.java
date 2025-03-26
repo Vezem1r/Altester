@@ -3,6 +3,7 @@ package com.altester.core.model.auth.enums;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+@Getter
 @RequiredArgsConstructor
 public enum Permission {
 
@@ -22,6 +23,5 @@ public enum Permission {
     STUDENT_DELETE("user:delete"),
     ;
 
-    @Getter
     private final String permission;
 }

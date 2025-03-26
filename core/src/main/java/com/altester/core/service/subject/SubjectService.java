@@ -4,6 +4,10 @@ import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
 import com.altester.core.dtos.core_service.subject.SubjectDTO;
 import com.altester.core.dtos.core_service.subject.SubjectGroupDTO;
 import com.altester.core.dtos.core_service.subject.UpdateGroupsDTO;
+import com.altester.core.exception.GroupAlreadyAssignedException;
+import com.altester.core.exception.GroupNotFoundException;
+import com.altester.core.exception.SubjectAlreadyExistsException;
+import com.altester.core.exception.SubjectNotFoundException;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
 import com.altester.core.repository.GroupRepository;
@@ -78,16 +82,16 @@ public class SubjectService {
     }
 
     public void updateSubject(CreateSubjectDTO createSubjectDTO, long subjectId) {
-        try {
+
             Subject subject = subjectRepository.findById(subjectId).orElseThrow(() -> {
                 log.error("Subject with id {} not found", subjectId);
-                return new RuntimeException("Subject not found");
+                return new SubjectNotFoundException("Subject not found");
             });
 
             Optional<Subject> optionalSubject = subjectRepository.findByShortName(createSubjectDTO.getShortName().toUpperCase());
             if (optionalSubject.isPresent() && optionalSubject.get().getId() != subject.getId()) {
                 log.error("Subject with short name: {} already exists", createSubjectDTO.getShortName());
-                throw new RuntimeException("Subject with short name: " + createSubjectDTO.getShortName() + " already exists");
+                throw new SubjectAlreadyExistsException("Subject with short name: " + createSubjectDTO.getShortName() + " already exists");
             }
 
             subject.setName(createSubjectDTO.getName());
@@ -96,18 +100,13 @@ public class SubjectService {
             subject.setModified(LocalDateTime.now());
 
             subjectRepository.save(subject);
-
-        } catch (Exception e) {
-            log.error("Error during subject update: {}", e.getMessage());
-            throw new RuntimeException(e.getMessage());
-        }
     }
 
     public void deleteSubject(long subjectId) {
         try {
             subjectRepository.findById(subjectId).orElseThrow(() -> {
                 log.error("Subject with id {} not found", subjectId);
-                return new RuntimeException("Subject with id " + subjectId + " not found");
+                return new SubjectNotFoundException("Subject with id " + subjectId + " not found");
             });
             subjectRepository.deleteById(subjectId);
         } catch (Exception e) {
@@ -117,11 +116,11 @@ public class SubjectService {
     }
 
     public void createSubject(CreateSubjectDTO createSubjectDTO) {
-        try {
+
             Optional<Subject> optSubject = subjectRepository.findByShortName(createSubjectDTO.getShortName().toUpperCase());
             if (optSubject.isPresent()) {
                 log.error("Subject with short name {} already exists", createSubjectDTO.getShortName());
-                throw new RuntimeException("Subject with short name already exists");
+                throw new SubjectAlreadyExistsException("Subject with short name already exists");
             }
 
             Subject subject = Subject.builder()
@@ -133,19 +132,15 @@ public class SubjectService {
 
             subjectRepository.save(subject);
             log.info("Subject with short name {} created", createSubjectDTO.getShortName());
-        } catch (Exception e) {
-            log.error("Error creating subject {}", createSubjectDTO.getShortName());
-            throw new RuntimeException(e.getMessage());
-        }
     }
 
     @Transactional
     public void updateGroups(UpdateGroupsDTO updateGroupsDTO) {
-        try {
+
             Subject subject = subjectRepository.findById(updateGroupsDTO.getSubjectId())
                     .orElseThrow(() -> {
                         log.error("Subject with id {} not found", updateGroupsDTO.getSubjectId());
-                        return new RuntimeException("Subject with id " + updateGroupsDTO.getSubjectId() + " not found");
+                        return new SubjectNotFoundException("Subject with id " + updateGroupsDTO.getSubjectId() + " not found");
                     });
 
             List<Group> validGroupsList = new ArrayList<>();
@@ -161,7 +156,7 @@ public class SubjectService {
                 if (group.isActive() || groupActivityService.isGroupInFuture(group)) {
                     Optional<Subject> existingSubject = subjectRepository.findByGroupsContaining(group);
                     if (existingSubject.isPresent() && existingSubject.get().getId() != subject.getId()) {
-                        throw new RuntimeException("Group " + group.getName() + " is already assigned to another subject.");
+                        throw new GroupAlreadyAssignedException("Group " + group.getName() + " is already assigned to another subject.");
                     }
                     validGroupsList.add(group);
                 } else {
@@ -197,11 +192,6 @@ public class SubjectService {
             } else {
                 log.info("Subject {} groups updated successfully", subject.getName());
             }
-
-        } catch (Exception e) {
-            log.error("Error updating groups in subject {}. {}", updateGroupsDTO.getSubjectId(), e.getMessage());
-            throw new RuntimeException(e.getMessage());
-        }
     }
 
     @Transactional
@@ -210,13 +200,13 @@ public class SubjectService {
             Subject subject = subjectRepository.findById(subjectId)
                     .orElseThrow(() -> {
                         log.error("Subject with id {} not found", subjectId);
-                        return new RuntimeException("Subject with id " + subjectId + " not found");
+                        return new SubjectNotFoundException("Subject with id " + subjectId + " not found");
                     });
 
             Group group = groupRepository.findById(groupId)
                     .orElseThrow(() -> {
                         log.error("Group with id {} not found", groupId);
-                        return new RuntimeException("Group with id " + groupId + " not found");
+                        return new GroupNotFoundException("Group with id " + groupId + " not found");
                     });
 
             groupActivityService.checkAndUpdateGroupActivity(group);
@@ -229,7 +219,7 @@ public class SubjectService {
             Optional<Subject> existingSubject = subjectRepository.findByGroupsContaining(group);
             if (existingSubject.isPresent() && existingSubject.get().getId() != subject.getId()) {
                 log.error("Group {} is already assigned to another subject", group.getName());
-                throw new RuntimeException("Group " + group.getName() + " is already assigned to another subject.");
+                throw new GroupAlreadyAssignedException("Group " + group.getName() + " is already assigned to another subject.");
             }
 
             if (!subject.getGroups().contains(group)) {
