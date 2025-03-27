@@ -17,6 +17,7 @@ public class QuestionDTO {
     private String questionText;
     private String imagePath;
     private int score;
+    private int position;
     private QuestionType questionType;
     private List<OptionDTO> options;
 }

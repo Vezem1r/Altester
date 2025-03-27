@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -67,6 +68,7 @@ public class TestDTOMapper {
         }
 
         List<QuestionDTO> questions = test.getQuestions().stream()
+                .sorted(Comparator.comparing(Question::getPosition))
                 .map(this::convertToQuestionDTO)
                 .collect(Collectors.toList());
 
@@ -110,6 +112,7 @@ public class TestDTOMapper {
                 .questionText(question.getQuestionText())
                 .imagePath(question.getImagePath())
                 .score(question.getScore())
+                .position(question.getPosition())
                 .questionType(question.getQuestionType())
                 .options(options)
                 .build();
