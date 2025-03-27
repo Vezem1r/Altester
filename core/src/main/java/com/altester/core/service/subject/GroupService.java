@@ -113,7 +113,8 @@ public class GroupService {
      * @param activityFilter Optional filter by activity status ("active", "inactive", "future")
      * @return Paginated list of GroupsResponse objects
      */
-    public Page<GroupsResponse> getAllGroups(Pageable pageable, String searchQuery, String activityFilter) {
+    public Page<GroupsResponse> getAllGroups(Pageable pageable, String searchQuery, String activityFilter,
+                                             Boolean available, Long subjectId) {
         List<Group> groups = groupRepository.findAll();
 
         if (StringUtils.hasText(searchQuery)) {
@@ -141,6 +142,35 @@ public class GroupService {
                         };
                     })
                     .collect(Collectors.toList());
+        }
+
+        if (available != null && available) {
+            List<Subject> allSubjects = subjectRepository.findAll();
+            Set<Long> groupsInSubjects = allSubjects.stream()
+                    .flatMap(subject -> subject.getGroups().stream())
+                    .map(Group::getId)
+                    .collect(Collectors.toSet());
+
+            groups = groups.stream()
+                    .filter(group -> !groupsInSubjects.contains(group.getId()))
+                    .filter(group -> group.isActive() || groupActivityService.isGroupInFuture(group))
+                    .collect(Collectors.toList());
+        } else if (subjectId != null) {
+            Optional<Subject> subjectOpt = subjectRepository.findById(subjectId);
+            if (subjectOpt.isPresent()) {
+                Subject subject = subjectOpt.get();
+                Set<Long> groupsIds = subject.getGroups().stream()
+                        .map(Group::getId)
+                        .collect(Collectors.toSet());
+
+                groups = groups.stream()
+                        .filter(group -> groupsIds.contains(group.getId()))
+                        .filter(group -> group.isActive() || groupActivityService.isGroupInFuture(group))
+                        .collect(Collectors.toList());
+            } else {
+                log.warn("Subject with ID {} not found", subjectId);
+                groups = new ArrayList<>();
+            }
         }
 
         int start = (int) pageable.getOffset();

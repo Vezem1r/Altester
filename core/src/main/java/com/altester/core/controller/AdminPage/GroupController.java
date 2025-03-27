@@ -103,11 +103,14 @@ public class GroupController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(required = false) String searchQuery,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String activityFilter) {
+            @RequestParam(required = false) String activityFilter,
+            @RequestParam(required = false) Boolean available,
+            @RequestParam(required = false) Long subjectId) {
         try {
             Pageable pageable = PageRequest.of(page, size);
-            Page<GroupsResponse> groups = groupService.getAllGroups(pageable, searchQuery, activityFilter);
-            log.info("Groups fetched successfully with search: {}, filter: {}", searchQuery, activityFilter);
+            Page<GroupsResponse> groups = groupService.getAllGroups(pageable, searchQuery, activityFilter, available, subjectId);
+            log.info("Groups fetched successfully with search: {}, filter: {}, available: {}, subjectId: {}",
+                    searchQuery, activityFilter, available, subjectId);
             return ResponseEntity.status(HttpStatus.OK).body(groups);
         } catch (Exception e) {
             log.error("Groups fetch failed: {}", e.getMessage());
