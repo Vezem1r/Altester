@@ -1,5 +1,6 @@
 package com.altester.core.dtos.core_service.test;
 
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,13 +14,33 @@ import java.util.Set;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CreateTestDTO {
-    private  String title;
-    private  String description;
+    @NotBlank(message = "Title is required")
+    @Size(max = 255, message = "Title must be less than 255 characters")
+    private String title;
+
+    @Size(max = 1024, message = "Description must be less than 1024 characters")
+    private String description;
+
+    @Min(value = 1, message = "Duration must be at least 1 minute")
     private int duration;
+
     private boolean isOpen;
+
     private Integer maxAttempts;
+
     private LocalDateTime startTime;
+
     private LocalDateTime endTime;
+
     private Long subjectId;
+
     private Set<Long> groupIds;
+
+    @AssertTrue(message = "End time must be after start time")
+    private boolean isTimeRangeValid() {
+        if (startTime == null || endTime == null) {
+            return true;
+        }
+        return endTime.isAfter(startTime);
+    }
 }

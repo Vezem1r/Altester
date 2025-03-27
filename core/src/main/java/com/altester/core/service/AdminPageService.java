@@ -1,0 +1,40 @@
+package com.altester.core.service;
+
+import com.altester.core.dtos.AdminPage.AdminPageDTO;
+import com.altester.core.dtos.AdminPage.UpdateUser;
+import com.altester.core.dtos.AdminPage.UsersListDTO;
+import com.altester.core.exception.ResourceNotFoundException;
+import org.springframework.data.domain.Page;
+
+public interface AdminPageService {
+
+    /**
+     * @param searchQuery Optional search text to filter students
+     * @param searchField Field to search in ("all", "name", "firstName", "lastName", "email", "username")
+     * @param registrationFilter Filter by registration status ("ldap", "registered", or null for all)
+     * @return Paginated list of UsersListDTO objects
+     */
+    Page<UsersListDTO> getStudents(int page, String searchQuery, String searchField, String registrationFilter);
+
+    /**
+     * @param searchQuery Optional search text to filter teachers
+     * @param searchField Field to search in ("all", "name", "firstName", "lastName", "email", "username")
+     * @param registrationFilter Filter by registration status ("ldap", "registered", or null for all)
+     * @return Paginated list of UsersListDTO objects
+     */
+    Page<UsersListDTO> getTeachers(int page, String searchQuery, String searchField, String registrationFilter);
+
+    /**
+     * Retrieves admin page data with system statistics
+     * @param username Username of the admin user
+     * @return AdminPageDTO with system statistics
+     * @throws ResourceNotFoundException if user with given username doesn't exist
+     */
+    AdminPageDTO getPage(String username);
+
+    void demoteToStudent(String username);
+
+    void promoteToTeacher(String username);
+
+    UsersListDTO updateUser(UpdateUser updateUser, String username);
+}

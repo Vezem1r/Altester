@@ -1,4 +1,4 @@
-package com.altester.core.service.test;
+package com.altester.core.serviceImpl.test;
 
 import com.altester.core.dtos.core_service.test.*;
 import com.altester.core.exception.*;
@@ -11,7 +11,8 @@ import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.TestRepository;
 import com.altester.core.repository.UserRepository;
-import com.altester.core.service.subject.GroupActivityService;
+import com.altester.core.service.TestService;
+import com.altester.core.serviceImpl.group.GroupActivityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -26,7 +27,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class TestService {
+public class TestServiceImpl  implements TestService {
     private final TestRepository testRepository;
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
@@ -35,13 +36,6 @@ public class TestService {
     private final TestAccessValidator testAccessValidator;
     private final GroupActivityService groupActivityService;
 
-    /**
-     * Retrieves the current authenticated user.
-     *
-     * @param principal The authenticated user principal
-     * @return User entity for the authenticated user
-     * @throws ResourceNotFoundException If the user is not found
-     */
     private User getCurrentUser(Principal principal) {
         return userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> {
@@ -50,13 +44,6 @@ public class TestService {
                 });
     }
 
-    /**
-     * Retrieves a test by its ID.
-     *
-     * @param testId The ID of the test to retrieve
-     * @return Test entity
-     * @throws ResourceNotFoundException If the test is not found
-     */
     private Test getTestById(Long testId) {
         return testRepository.findById(testId)
                 .orElseThrow(() -> {
@@ -70,13 +57,6 @@ public class TestService {
      * Administrators can assign tests to any active group or by subject.
      * Teachers can only assign tests to their own active groups.
      * Inactive groups are silently skipped when using subjectId.
-     *
-     * @param currentUser The current authenticated user
-     * @param createTestDTO DTO containing group or subject selection criteria
-     * @return List of valid Group entities for test assignment
-     * @throws ResourceNotFoundException If any specified group or subject is not found
-     * @throws StateConflictException If any explicitly selected groups (via groupIds) are inactive
-     * @throws ValidationException If no valid groups are identified
      */
     private List<Group> findValidGroupsForTest(User currentUser, CreateTestDTO createTestDTO) {
         List<Group> selectedGroups = new ArrayList<>();
@@ -148,15 +128,7 @@ public class TestService {
         return selectedGroups;
     }
 
-    /**
-     * Toggles whether teachers can edit a specific test.
-     * Only administrators can perform this action.
-     *
-     * @param testId The ID of the test for which to toggle the edit permission
-     * @param principal The authenticated user principal
-     * @throws ResourceNotFoundException If the test is not found
-     * @throws AccessDeniedException If the current user is not an administrator
-     */
+    @Override
     @Transactional
     public void toggleTeacherEditPermission(Long testId, Principal principal) {
         log.info("User {} is attempting to toggle teacher edit permission for test with ID {}", principal.getName(), testId);
@@ -176,17 +148,7 @@ public class TestService {
         log.info("Teacher edit permission for test ID {} toggled to {} by admin {}", testId, newState, currentUser.getUsername());
     }
 
-    /**
-     * Retrieves a paginated list of all tests with filtering options for administrators.
-     *
-     * @param pageable Pagination information
-     * @param principal The authenticated user principal
-     * @param searchQuery Optional search query to filter tests by title or description
-     * @param isActive Optional filter to show only active or inactive tests
-     * @return Page of TestSummaryDTO objects with associated groups
-     * @throws ResourceNotFoundException If the user is not found
-     * @throws AccessDeniedException If the current user is not an administrator
-     */
+    @Override
     @Transactional(readOnly = true)
     public Page<TestSummaryDTO> getAllTestsForAdmin(Pageable pageable, Principal principal, String searchQuery, Boolean isActive) {
         log.debug("Getting all tests for admin with search query: {}, isActive: {}", searchQuery, isActive);
@@ -216,17 +178,7 @@ public class TestService {
         });
     }
 
-    /**
-     * Retrieves a paginated list of tests assigned to groups associated with the authenticated teacher.
-     *
-     * @param pageable Pagination information
-     * @param principal The authenticated user principal
-     * @param searchQuery Optional search query to filter tests by title or description
-     * @param isActive Optional filter to show only active or inactive tests
-     * @return Page of TestSummaryDTO objects with associated groups
-     * @throws ResourceNotFoundException If the user is not found
-     * @throws AccessDeniedException If the current user is not a teacher
-     */
+    @Override
     @Transactional(readOnly = true)
     public Page<TestSummaryDTO> getTeacherTests(Pageable pageable, Principal principal, String searchQuery, Boolean isActive) {
         log.debug("Getting tests for teacher with search query: {}, isActive: {}", searchQuery, isActive);
@@ -260,17 +212,7 @@ public class TestService {
         });
     }
 
-    /**
-     * Creates a new test with the provided details and associates it with the selected groups.
-     * Administrators can create tests for any group, while teachers can only create tests for their assigned groups.
-     *
-     * @param createTestDTO The data transfer object containing test creation information
-     * @param principal The authenticated user principal
-     * @return TestPreviewDTO containing the created test details
-     * @throws ResourceNotFoundException If the user, group, or subject is not found
-     * @throws ValidationException If no valid groups are selected
-     * @throws StateConflictException If trying to add test to inactive groups
-     */
+    @Override
     @Transactional
     public TestPreviewDTO createTest(CreateTestDTO createTestDTO, Principal principal) {
         log.info("Creating new test with title: {}", createTestDTO.getTitle());
@@ -297,20 +239,7 @@ public class TestService {
         return testDTOMapper.convertToTestPreviewDTO(savedTest, currentUser);
     }
 
-    /**
-     * Updates an existing test with the provided details.
-     * Administrators can update any test, while teachers can only update tests they are associated with
-     * and that allow teacher editing.
-     *
-     * @param updateTestDTO The data transfer object containing test update information
-     * @param testId The ID of the test to update
-     * @param principal The authenticated user principal
-     * @return TestPreviewDTO containing the updated test details
-     * @throws ResourceNotFoundException If the user, test, group, or subject is not found
-     * @throws AccessDeniedException If the teacher cannot edit the test
-     * @throws ValidationException If no valid groups are selected when changing group associations
-     * @throws StateConflictException If trying to add test to inactive groups
-     */
+    @Override
     @Transactional
     public TestPreviewDTO updateTest(CreateTestDTO updateTestDTO, Long testId, Principal principal) {
         log.info("Updating test with ID: {}", testId);
@@ -366,16 +295,7 @@ public class TestService {
         return testDTOMapper.convertToTestPreviewDTO(updatedTest, currentUser);
     }
 
-    /**
-     * Deletes a test and removes all its associations with groups.
-     * Administrators can delete any test, while teachers can only delete tests they created
-     * (not admin-created tests).
-     *
-     * @param testId The ID of the test to delete
-     * @param principal The authenticated user principal
-     * @throws ResourceNotFoundException If the user or test is not found
-     * @throws AccessDeniedException If the current user does not have permission to delete the test
-     */
+    @Override
     @Transactional
     public void deleteTest(Long testId, Principal principal) {
         log.info("Deleting test with ID: {}", testId);
@@ -416,16 +336,7 @@ public class TestService {
         log.info("Test with ID {} has been deleted", test.getId());
     }
 
-    /**
-     * Retrieves a summary of a specific test with its basic details and associated groups.
-     * The user must have access to the test to view its summary.
-     *
-     * @param testId The ID of the test to retrieve
-     * @param principal The authenticated user principal
-     * @return TestSummaryDTO containing the test details and its associated groups
-     * @throws ResourceNotFoundException If the user or test is not found
-     * @throws AccessDeniedException If the current user does not have access to the test
-     */
+    @Override
     @Transactional(readOnly = true)
     public TestSummaryDTO getTestSummary(Long testId, Principal principal) {
         log.debug("Getting test summary for test ID: {}", testId);
@@ -463,16 +374,7 @@ public class TestService {
         return summaryDTO;
     }
 
-    /**
-     * Retrieves a detailed preview of a specific test.
-     * The user must have access to the test to view its preview.
-     *
-     * @param testId The ID of the test to preview
-     * @param principal The authenticated user principal
-     * @return TestPreviewDTO containing the detailed test information
-     * @throws ResourceNotFoundException If the user or test is not found
-     * @throws AccessDeniedException If the current user does not have access to the test
-     */
+    @Override
     @Transactional(readOnly = true)
     public TestPreviewDTO getTestPreview(Long testId, Principal principal) {
         log.debug("Getting test preview for test ID: {}", testId);
@@ -485,18 +387,7 @@ public class TestService {
         return testDTOMapper.convertToTestPreviewDTO(test, currentUser);
     }
 
-    /**
-     * Retrieves a paginated list of tests associated with a specific subject.
-     * Filters tests based on user role permissions.
-     *
-     * @param subjectId The ID of the subject whose tests to retrieve
-     * @param principal The authenticated user principal
-     * @param searchQuery Optional search query to filter tests by title or description
-     * @param isActive Optional filter to show only active or inactive tests
-     * @param pageable Pagination information
-     * @return Page of TestSummaryDTO objects with associated groups
-     * @throws ResourceNotFoundException If the user or subject is not found
-     */
+    @Override
     @Transactional(readOnly = true)
     public Page<TestSummaryDTO> getTestsBySubject(Long subjectId, Principal principal, String searchQuery,
                                                   Boolean isActive, Pageable pageable) {
@@ -534,19 +425,7 @@ public class TestService {
             return dto;
         });
     }
-    /**
-     * Retrieves a paginated list of tests associated with a specific group.
-     * The user must have access to the group to view its tests.
-     *
-     * @param groupId The ID of the group whose tests to retrieve
-     * @param principal The authenticated user principal
-     * @param searchQuery Optional search query to filter tests by title or description
-     * @param isActive Optional filter to show only active or inactive tests
-     * @param pageable Pagination information
-     * @return Page of TestSummaryDTO objects with the specified group
-     * @throws ResourceNotFoundException If the user or group is not found
-     * @throws AccessDeniedException If the current user does not have access to the group
-     */
+    @Override
     @Transactional(readOnly = true)
     public Page<TestSummaryDTO> getTestsByGroup(Long groupId, Principal principal, String searchQuery,
                                                 Boolean isActive, Pageable pageable) {
@@ -575,15 +454,7 @@ public class TestService {
             return dto;
         });
     }
-    /**
-     * Toggles the activity state of a test (open/closed).
-     * Administrators can toggle any test, while teachers can only toggle tests they are permitted to edit.
-     *
-     * @param testId The ID of the test to toggle
-     * @param principal The authenticated user principal
-     * @throws ResourceNotFoundException If the user or test is not found
-     * @throws AccessDeniedException If the current user does not have permission to edit the test
-     */
+    @Override
     @Transactional
     public void toggleTestActivity(Long testId, Principal principal) {
         log.info("User {} is attempting to toggle activity for test with ID {}", principal.getName(), testId);

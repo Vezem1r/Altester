@@ -1,4 +1,4 @@
-package com.altester.core.service;
+package com.altester.core.serviceImpl;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;

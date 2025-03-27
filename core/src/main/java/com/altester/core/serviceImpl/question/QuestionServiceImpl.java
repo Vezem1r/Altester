@@ -1,4 +1,4 @@
-package com.altester.core.service.test;
+package com.altester.core.serviceImpl.question;
 
 import com.altester.core.dtos.core_service.question.CreateQuestionDTO;
 import com.altester.core.dtos.core_service.question.QuestionDetailsDTO;
@@ -11,7 +11,10 @@ import com.altester.core.model.subject.Option;
 import com.altester.core.model.subject.Question;
 import com.altester.core.model.subject.Test;
 import com.altester.core.repository.*;
-import com.altester.core.service.subject.GroupActivityService;
+import com.altester.core.service.QuestionService;
+import com.altester.core.serviceImpl.test.TestAccessValidator;
+import com.altester.core.serviceImpl.test.TestDTOMapper;
+import com.altester.core.serviceImpl.group.GroupActivityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,7 +27,7 @@ import java.util.List;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class QuestionService {
+public class QuestionServiceImpl implements QuestionService {
     private final QuestionRepository questionRepository;
     private final TestRepository testRepository;
     private final UserRepository userRepository;
@@ -37,13 +40,6 @@ public class QuestionService {
     private final ImageService imageService;
     private final QuestionValidator questionValidator;
 
-    /**
-     * Retrieves the current authenticated user.
-     *
-     * @param principal The authenticated user principal
-     * @return User entity for the authenticated user
-     * @throws ResourceNotFoundException If the user is not found
-     */
     private User getCurrentUser(Principal principal) {
         return userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> {
@@ -52,13 +48,6 @@ public class QuestionService {
                 });
     }
 
-    /**
-     * Retrieves a test by its ID.
-     *
-     * @param testId The ID of the test to retrieve
-     * @return Test entity
-     * @throws ResourceNotFoundException If the test is not found
-     */
     private Test getTestById(Long testId) {
         return testRepository.findById(testId)
                 .orElseThrow(() -> {
@@ -67,13 +56,6 @@ public class QuestionService {
                 });
     }
 
-    /**
-     * Retrieves a question by its ID.
-     *
-     * @param questionId The ID of the question to retrieve
-     * @return Question entity
-     * @throws ResourceNotFoundException If the question is not found
-     */
     private Question getQuestionById(Long questionId) {
         return questionRepository.findById(questionId)
                 .orElseThrow(() -> {
@@ -82,20 +64,7 @@ public class QuestionService {
                 });
     }
 
-    /**
-     * Adds a new question to a test.
-     *
-     * @param testId The ID of the test to add the question to
-     * @param createQuestionDTO The data transfer object containing question details
-     * @param principal The authenticated user principal
-     * @param image Optional image file for the question
-     * @return QuestionDetailsDTO containing the created question details
-     * @throws ResourceNotFoundException If the user or test is not found
-     * @throws AccessDeniedException If the user does not have permission to modify the test
-     * @throws ValidationException If the question data is invalid
-     * @throws FileOperationException If there's an error saving the image
-     * @throws StateConflictException If trying to modify a test in a past semester group
-     */
+    @Override
     @Transactional
     public QuestionDetailsDTO addQuestion(Long testId, CreateQuestionDTO createQuestionDTO,
                                           Principal principal, MultipartFile image) {
@@ -148,20 +117,7 @@ public class QuestionService {
         return questionDTOMapper.convertToQuestionDetailsDTO(savedQuestion);
     }
 
-    /**
-     * Updates an existing question.
-     *
-     * @param questionId The ID of the question to update
-     * @param updateQuestionDTO The data transfer object containing updated question details
-     * @param principal The authenticated user principal
-     * @param image Optional new image file for the question
-     * @return QuestionDetailsDTO containing the updated question details
-     * @throws ResourceNotFoundException If the user or question is not found
-     * @throws AccessDeniedException If the user does not have permission to modify the question
-     * @throws ValidationException If the updated question data is invalid
-     * @throws FileOperationException If there's an error saving or deleting the image
-     * @throws StateConflictException If trying to modify a test in a past semester group
-     */
+    @Override
     @Transactional
     public QuestionDetailsDTO updateQuestion(Long questionId, UpdateQuestionDTO updateQuestionDTO,
                                              Principal principal, MultipartFile image) {
@@ -232,15 +188,7 @@ public class QuestionService {
         return questionDTOMapper.convertToQuestionDetailsDTO(updatedQuestion);
     }
 
-    /**
-     * Deletes a question from a test.
-     *
-     * @param questionId The ID of the question to delete
-     * @param principal The authenticated user principal
-     * @throws ResourceNotFoundException If the user or question is not found
-     * @throws AccessDeniedException If the user does not have permission to modify the test
-     * @throws StateConflictException If trying to modify a test in a past semester group
-     */
+    @Override
     @Transactional
     public void deleteQuestion(Long questionId, Principal principal) {
         log.info("User {} is attempting to delete question with ID {}", principal.getName(), questionId);
@@ -267,15 +215,7 @@ public class QuestionService {
         log.info("Question with ID {} deleted", questionId);
     }
 
-    /**
-     * Retrieves details of a specific question.
-     *
-     * @param questionId The ID of the question to retrieve
-     * @param principal The authenticated user principal
-     * @return QuestionDetailsDTO containing the question details
-     * @throws ResourceNotFoundException If the user or question is not found
-     * @throws AccessDeniedException If the user does not have permission to access the test
-     */
+    @Override
     @Transactional(readOnly = true)
     public QuestionDetailsDTO getQuestion(Long questionId, Principal principal) {
         log.info("User {} is attempting to get question with ID {}", principal.getName(), questionId);
@@ -289,17 +229,7 @@ public class QuestionService {
         return questionDTOMapper.convertToQuestionDetailsDTO(question);
     }
 
-    /**
-     * Changes the position of a question within a test.
-     *
-     * @param questionId The ID of the question to reposition
-     * @param newPosition The new position for the question
-     * @param principal The authenticated user principal
-     * @throws ResourceNotFoundException If the user or question is not found
-     * @throws AccessDeniedException If the user does not have permission to modify the test
-     * @throws ValidationException If the new position is invalid
-     * @throws StateConflictException If trying to modify a test in a past semester group
-     */
+    @Override
     @Transactional
     public void changeQuestionPosition(Long questionId, int newPosition, Principal principal) {
         log.info("User {} is attempting to change position of question ID {} to position {}",
@@ -340,8 +270,6 @@ public class QuestionService {
      * For teachers, checks if they can edit the specific test.
      * Also verifies that all groups associated with the test are active.
      *
-     * @param currentUser The current authenticated user
-     * @param test The test being modified
      * @throws AccessDeniedException If the user does not have permission to modify the test
      * @throws StateConflictException If trying to modify a test in a past semester group
      */

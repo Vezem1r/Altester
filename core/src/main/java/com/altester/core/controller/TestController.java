@@ -1,13 +1,15 @@
 package com.altester.core.controller;
 
 import com.altester.core.dtos.core_service.test.*;
-import com.altester.core.service.test.TestService;
+import com.altester.core.service.TestService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -15,104 +17,72 @@ import java.security.Principal;
 @RestController
 @RequiredArgsConstructor
 @Slf4j
+@Validated
 public class TestController {
     private final TestService testService;
 
     @GetMapping("/admin/tests")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<TestSummaryDTO>> getAllTestsForAdmin(
-            Pageable pageable,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
             Principal principal,
             @RequestParam(required = false) String searchQuery,
             @RequestParam(required = false) Boolean isActive) {
-        try {
-            log.info("Fetching admin tests with searchQuery: '{}', isActive: {}", searchQuery, isActive);
-            Page<TestSummaryDTO> tests = testService.getAllTestsForAdmin(pageable, principal, searchQuery, isActive);
-            return ResponseEntity.ok(tests);
-        } catch (Exception e) {
-            log.error("Error retrieving all tests for admin: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        log.info("Fetching admin tests with searchQuery: '{}', isActive: {}", searchQuery, isActive);
+        Page<TestSummaryDTO> tests = testService.getAllTestsForAdmin(PageRequest.of(page, size), principal, searchQuery, isActive);
+        return ResponseEntity.ok(tests);
     }
 
     @GetMapping("/teacher/tests/my")
     @PreAuthorize("hasRole('TEACHER')")
     public ResponseEntity<Page<TestSummaryDTO>> getTeacherTests(
-            Pageable pageable,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
             Principal principal,
             @RequestParam(required = false) String searchQuery,
             @RequestParam(required = false) Boolean isActive) {
-        try {
-            log.info("Fetching teacher tests with searchQuery: '{}', isActive: {}", searchQuery, isActive);
-            Page<TestSummaryDTO> tests = testService.getTeacherTests(pageable, principal, searchQuery, isActive);
-            return ResponseEntity.ok(tests);
-        } catch (Exception e) {
-            log.error("Error retrieving teacher tests: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        log.info("Fetching teacher tests with searchQuery: '{}', isActive: {}", searchQuery, isActive);
+        Page<TestSummaryDTO> tests = testService.getTeacherTests(PageRequest.of(page, size), principal, searchQuery, isActive);
+        return ResponseEntity.ok(tests);
     }
 
     @PostMapping("/teacher/tests")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
-    public ResponseEntity<TestPreviewDTO> createTest(@RequestBody CreateTestDTO createTestDTO, Principal principal) {
-        try {
-            TestPreviewDTO createdTest = testService.createTest(createTestDTO, principal);
-            return ResponseEntity.ok(createdTest);
-        } catch (Exception e) {
-            log.error("Error creating test: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(null);
-        }
+    public ResponseEntity<TestPreviewDTO> createTest(@Valid @RequestBody CreateTestDTO createTestDTO, Principal principal) {
+        TestPreviewDTO createdTest = testService.createTest(createTestDTO, principal);
+        return ResponseEntity.ok(createdTest);
     }
 
     @PutMapping("/teacher/tests/{testId}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<TestPreviewDTO> updateTest(
             @PathVariable Long testId,
-            @RequestBody CreateTestDTO updateTestDTO,
+            @Valid @RequestBody CreateTestDTO updateTestDTO,
             Principal principal) {
-        try {
-            TestPreviewDTO updatedTest = testService.updateTest(updateTestDTO, testId, principal);
-            return ResponseEntity.ok(updatedTest);
-        } catch (Exception e) {
-            log.error("Error updating test: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(null);
-        }
+        TestPreviewDTO updatedTest = testService.updateTest(updateTestDTO, testId, principal);
+        return ResponseEntity.ok(updatedTest);
     }
 
     @DeleteMapping("/teacher/tests/{testId}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<Void> deleteTest(@PathVariable Long testId, Principal principal) {
-        try {
-            testService.deleteTest(testId, principal);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            log.error("Error deleting test: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        testService.deleteTest(testId, principal);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/teacher/tests/{testId}/summary")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<TestSummaryDTO> getTestSummary(@PathVariable Long testId, Principal principal) {
-        try {
-            TestSummaryDTO test = testService.getTestSummary(testId, principal);
-            return ResponseEntity.ok(test);
-        } catch (Exception e) {
-            log.error("Error retrieving test summary: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        TestSummaryDTO test = testService.getTestSummary(testId, principal);
+        return ResponseEntity.ok(test);
     }
 
     @GetMapping("/teacher/tests/{testId}/preview")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<TestPreviewDTO> getTestPreview(@PathVariable Long testId, Principal principal) {
-        try {
-            TestPreviewDTO test = testService.getTestPreview(testId, principal);
-            return ResponseEntity.ok(test);
-        } catch (Exception e) {
-            log.error("Error retrieving test preview: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        TestPreviewDTO test = testService.getTestPreview(testId, principal);
+        return ResponseEntity.ok(test);
     }
 
     @GetMapping("/teacher/tests/subject/{subjectId}")
@@ -120,19 +90,13 @@ public class TestController {
     public ResponseEntity<Page<TestSummaryDTO>> getTestsBySubject(
             @PathVariable Long subjectId,
             Principal principal,
-            Pageable pageable,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String searchQuery,
             @RequestParam(required = false) Boolean isActive) {
-        try {
-            log.info("Fetching tests for subject {} with searchQuery: '{}', isActive: {}",
-                    subjectId, searchQuery, isActive);
-            Page<TestSummaryDTO> tests = testService.getTestsBySubject(
-                    subjectId, principal, searchQuery, isActive, pageable);
-            return ResponseEntity.ok(tests);
-        } catch (Exception e) {
-            log.error("Error retrieving tests by subject: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        log.info("Fetching tests for subject {} with searchQuery: '{}', isActive: {}", subjectId, searchQuery, isActive);
+        Page<TestSummaryDTO> tests = testService.getTestsBySubject(subjectId, principal, searchQuery, isActive, PageRequest.of(page, size));
+        return ResponseEntity.ok(tests);
     }
 
     @GetMapping("/teacher/tests/group/{groupId}")
@@ -140,42 +104,26 @@ public class TestController {
     public ResponseEntity<Page<TestSummaryDTO>> getTestsByGroup(
             @PathVariable Long groupId,
             Principal principal,
-            Pageable pageable,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String searchQuery,
             @RequestParam(required = false) Boolean isActive) {
-        try {
-            log.info("Fetching tests for group {} with searchQuery: '{}', isActive: {}",
-                    groupId, searchQuery, isActive);
-            Page<TestSummaryDTO> tests = testService.getTestsByGroup(
-                    groupId, principal, searchQuery, isActive, pageable);
-            return ResponseEntity.ok(tests);
-        } catch (Exception e) {
-            log.error("Error retrieving tests by group: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        log.info("Fetching tests for group {} with searchQuery: '{}', isActive: {}", groupId, searchQuery, isActive);
+        Page<TestSummaryDTO> tests = testService.getTestsByGroup(groupId, principal, searchQuery, isActive, PageRequest.of(page, size));
+        return ResponseEntity.ok(tests);
     }
 
     @PutMapping("/teacher/tests/{testId}/activity")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
     public ResponseEntity<Void> toggleTestActivity(@PathVariable Long testId, Principal principal) {
-        try {
-            testService.toggleTestActivity(testId, principal);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            log.error("Error toggling test activity: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        testService.toggleTestActivity(testId, principal);
+        return ResponseEntity.ok().build();
     }
 
     @PutMapping("/admin/tests/{testId}/teacher-edit")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> toggleTeacherEditPermission(@PathVariable Long testId, Principal principal) {
-        try {
-            testService.toggleTeacherEditPermission(testId, principal);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            log.error("Error toggling teacher edit permission: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        testService.toggleTeacherEditPermission(testId, principal);
+        return ResponseEntity.ok().build();
     }
 }

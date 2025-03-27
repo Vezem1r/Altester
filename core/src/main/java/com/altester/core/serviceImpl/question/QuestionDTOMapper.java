@@ -1,4 +1,4 @@
-package com.altester.core.service.test;
+package com.altester.core.serviceImpl.question;
 
 import com.altester.core.dtos.core_service.question.QuestionDetailsDTO;
 import com.altester.core.dtos.core_service.test.OptionDTO;

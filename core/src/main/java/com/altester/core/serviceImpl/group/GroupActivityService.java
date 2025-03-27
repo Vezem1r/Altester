@@ -1,4 +1,4 @@
-package com.altester.core.service.subject;
+package com.altester.core.serviceImpl.group;
 
 import com.altester.core.config.SemesterConfig;
 import com.altester.core.model.subject.Group;

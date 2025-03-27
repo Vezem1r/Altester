@@ -1,4 +1,4 @@
-package com.altester.core.service.test;
+package com.altester.core.serviceImpl.test;
 
 import com.altester.core.dtos.core_service.test.*;
 import com.altester.core.model.auth.User;

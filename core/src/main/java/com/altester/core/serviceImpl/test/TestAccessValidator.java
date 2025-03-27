@@ -1,4 +1,4 @@
-package com.altester.core.service.test;
+package com.altester.core.serviceImpl.test;
 
 import com.altester.core.exception.AccessDeniedException;
 import com.altester.core.model.auth.User;

@@ -1,4 +1,4 @@
-package com.altester.core.service.DataInit;
+package com.altester.core.serviceImpl.DataInit;
 
 import com.altester.core.config.SemesterConfig;
 import com.altester.core.model.auth.User;
@@ -16,7 +16,7 @@ import com.altester.core.repository.QuestionRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.TestRepository;
 import com.altester.core.repository.UserRepository;
-import com.altester.core.service.subject.GroupActivityService;
+import com.altester.core.serviceImpl.group.GroupActivityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

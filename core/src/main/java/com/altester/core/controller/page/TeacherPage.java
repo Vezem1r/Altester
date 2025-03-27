@@ -1,4 +1,4 @@
-package com.altester.core.controller.TeacherPage;
+package com.altester.core.controller.page;
 
 import com.altester.core.dtos.TeacherPage.ListTeacherGroupDTO;
 import com.altester.core.dtos.TeacherPage.TeacherPageDTO;
@@ -21,7 +21,6 @@ import java.security.Principal;
 public class TeacherPage {
 
     private final TeacherPageService teacherPageService;
-
 
     @GetMapping()
     ResponseEntity<TeacherPageDTO> getTeacherPage(Principal principal) {

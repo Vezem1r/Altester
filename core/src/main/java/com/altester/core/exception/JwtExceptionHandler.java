@@ -1,4 +1,4 @@
-package com.altester.core.advice;
+package com.altester.core.exception;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;

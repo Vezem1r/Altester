@@ -13,5 +13,3 @@ public class TeacherGroupDTO {
     private int testCount;
     private boolean active;
 }
-
-

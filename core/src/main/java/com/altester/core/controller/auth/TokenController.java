@@ -1,6 +1,6 @@
 package com.altester.core.controller.auth;
 
-import com.altester.core.service.JwtService;
+import com.altester.core.serviceImpl.JwtService;
 import io.jsonwebtoken.ExpiredJwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

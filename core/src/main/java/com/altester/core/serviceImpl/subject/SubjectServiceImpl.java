@@ -1,4 +1,4 @@
-package com.altester.core.service.subject;
+package com.altester.core.serviceImpl.subject;
 
 import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
 import com.altester.core.dtos.core_service.subject.SubjectDTO;
@@ -11,9 +11,12 @@ import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
+import com.altester.core.service.SubjectService;
+import com.altester.core.serviceImpl.group.GroupActivityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,20 +29,16 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class SubjectService {
+public class SubjectServiceImpl implements SubjectService {
 
     private final SubjectRepository subjectRepository;
     private final GroupRepository groupRepository;
     private final GroupActivityService groupActivityService;
 
-    /**
-     * Retrieves a paginated list of subjects with optional search filtering
-     *
-     * @param pageable Pagination information (page number, size, sorting)
-     * @param searchQuery Optional search term to filter subjects by name or short name (case-insensitive)
-     * @return Page of SubjectDTO objects containing subject details and associated groups
-     */
-    public Page<SubjectDTO> getAllSubjects(Pageable pageable, String searchQuery) {
+    @Override
+    public Page<SubjectDTO> getAllSubjects(int page, int size, String searchQuery) {
+        Pageable pageable = PageRequest.of(page, size);
+
         if (!StringUtils.hasText(searchQuery)) {
             return subjectRepository.findAll(pageable).map(this::convertToSubjectDTO);
         } else {
@@ -50,12 +49,6 @@ public class SubjectService {
         }
     }
 
-    /**
-     * Converts a Subject entity to SubjectDTO with associated groups information
-     *
-     * @param subject The Subject entity to convert
-     * @return SubjectDTO containing subject details and simplified group information
-     */
     private SubjectDTO convertToSubjectDTO(Subject subject) {
         List<SubjectGroupDTO> groups = subject.getGroups().stream()
                 .map(group -> new SubjectGroupDTO(group.getId(), group.getName()))
@@ -71,15 +64,7 @@ public class SubjectService {
         );
     }
 
-    /**
-     * Updates an existing subject with new information
-     *
-     * @param createSubjectDTO DTO containing updated subject information
-     * @param subjectId ID of the subject to update
-     * @throws IllegalArgumentException if subject data is null
-     * @throws ResourceNotFoundException if subject with given ID doesn't exist
-     * @throws ResourceAlreadyExistsException if another subject with the same short name already exists
-     */
+    @Override
     @Transactional
     public void updateSubject(CreateSubjectDTO createSubjectDTO, long subjectId) {
         if (createSubjectDTO == null) {
@@ -107,13 +92,7 @@ public class SubjectService {
         log.info("Subject with id {} updated successfully", subjectId);
     }
 
-    /**
-     * Deletes a subject by ID
-     *
-     * @param subjectId ID of the subject to delete
-     * @throws ResourceNotFoundException if subject with given ID doesn't exist
-     * @throws RuntimeException if deletion fails
-     */
+    @Override
     @Transactional
     public void deleteSubject(long subjectId) {
         Subject subject = subjectRepository.findById(subjectId).orElseThrow(() -> {
@@ -130,13 +109,7 @@ public class SubjectService {
         }
     }
 
-    /**
-     * Creates a new subject with the provided information
-     *
-     * @param createSubjectDTO DTO containing new subject information
-     * @throws IllegalArgumentException if subject data is null
-     * @throws ResourceAlreadyExistsException if a subject with the same short name already exists
-     */
+    @Override
     @Transactional
     public void createSubject(CreateSubjectDTO createSubjectDTO) {
         if (createSubjectDTO == null) {
@@ -161,17 +134,9 @@ public class SubjectService {
         log.info("Subject with short name {} created", shortName);
     }
 
-    /**
-     * Updates the groups associated with a subject
-     *
-     * @param updateGroupsDTO DTO containing subject ID and list of group IDs to associate
-     * @throws IllegalArgumentException if update data or group IDs are null
-     * @throws ResourceNotFoundException if subject with given ID doesn't exist
-     * @throws StateConflictException if any group is already assigned to another subject
-     */
+    @Override
     @Transactional
     public void updateGroups(UpdateGroupsDTO updateGroupsDTO) {
-
         if (updateGroupsDTO == null || updateGroupsDTO.getGroupIds() == null) {
             throw new IllegalArgumentException("Update groups data cannot be null");
         }
@@ -206,12 +171,6 @@ public class SubjectService {
         updateSubjectGroups(subject, validGroupsList);
     }
 
-    /**
-     * Updates the subject groups by adding valid groups and removing ineligible ones
-     *
-     * @param subject The subject entity to update
-     * @param validGroupsList List of eligible groups to add to the subject
-     */
     private void updateSubjectGroups(Subject subject, List<Group> validGroupsList) {
         Set<Group> groupsToAdd = new HashSet<>(validGroupsList);
         Set<Group> currentGroups = subject.getGroups();
@@ -275,15 +234,7 @@ public class SubjectService {
         }
     }
 
-    /**
-     * Adds a specific group to a subject
-     *
-     * @param subjectId ID of the subject to update
-     * @param groupId ID of the group to add
-     * @throws ResourceNotFoundException if subject or group with given IDs don't exist
-     * @throws StateConflictException if the group is already assigned to another subject
-     * @throws RuntimeException if update fails
-     */
+    @Override
     @Transactional
     public void updateGroup(long subjectId, long groupId) {
         Subject subject = subjectRepository.findById(subjectId)
@@ -299,6 +250,7 @@ public class SubjectService {
                 });
 
         if (!isGroupEligibleForAssignment(group)) {
+            log.warn("Group {} is not eligible for assignment (inactive past group)", group.getName());
             return;
         }
 

@@ -1,6 +1,6 @@
 package com.altester.core.config;
 
-import com.altester.core.service.DataInit.DataInit;
+import com.altester.core.serviceImpl.DataInit.DataInit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;

@@ -1,4 +1,4 @@
-package com.altester.core.service.DataInit;
+package com.altester.core.serviceImpl.DataInit;
 
 import java.util.Arrays;
 import java.util.List;

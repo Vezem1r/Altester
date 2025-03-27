@@ -1,4 +1,4 @@
-package com.altester.core.service.subject;
+package com.altester.core.serviceImpl.group;
 
 import com.altester.core.config.SemesterConfig;
 import com.altester.core.dtos.core_service.subject.*;
@@ -11,11 +11,13 @@ import com.altester.core.model.subject.enums.Semester;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.UserRepository;
+import com.altester.core.service.GroupService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -26,7 +28,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class GroupService {
+public class GroupServiceImpl  implements GroupService {
 
     private final GroupRepository groupRepository;
     private final UserRepository userRepository;
@@ -35,12 +37,6 @@ public class GroupService {
     private final GroupActivityService groupActivityService;
     private final GroupDTOMapper groupMapper;
 
-    /**
-     * Retrieves a Group entity by ID or throws a ResourceNotFoundException
-     * @param id ID of the group to retrieve
-     * @return Group entity
-     * @throws ResourceNotFoundException if group with given ID doesn't exist
-     */
     private Group getGroupById(long id) {
         return groupRepository.findById(id)
                 .orElseThrow(() -> {
@@ -49,13 +45,6 @@ public class GroupService {
                 });
     }
 
-    /**
-     * Finds a User by ID with role validation or throws a ResourceNotFoundException
-     * @param id ID of the user to retrieve
-     * @param role Expected role of the user for error messaging
-     * @return User entity
-     * @throws ResourceNotFoundException if user with given ID doesn't exist
-     */
     private User getUserById(long id, String role) {
         return userRepository.findById(id)
                 .orElseThrow(() -> {
@@ -64,12 +53,7 @@ public class GroupService {
                 });
     }
 
-    /**
-     * Deletes a group if allowed by activity rules or throws StateConflictException
-     * @param id ID of the group to delete
-     * @throws StateConflictException if group cannot be deleted due to activity constraints
-     * @throws ValidationException if deletion fails for other reasons
-     */
+    @Override
     @Transactional
     public void deleteGroup(long id) {
         Group group = getGroupById(id);
@@ -88,12 +72,7 @@ public class GroupService {
         }
     }
 
-    /**
-     * Retrieves a complete GroupDTO with all associated information by ID
-     * @param id ID of the group to retrieve
-     * @return GroupDTO with complete information about the group
-     * @throws ResourceNotFoundException if group doesn't exist
-     */
+    @Override
     public GroupDTO getGroup(long id) {
         Group group = getGroupById(id);
 
@@ -106,15 +85,11 @@ public class GroupService {
         return groupMapper.toGroupDTO(group, subjectName, isInFuture);
     }
 
-    /**
-     * Returns a paginated list of groups with optional filtering by search query and activity status
-     * @param pageable Pagination information
-     * @param searchQuery Optional search query to filter groups by name, teacher, or semester
-     * @param activityFilter Optional filter by activity status ("active", "inactive", "future")
-     * @return Paginated list of GroupsResponse objects
-     */
-    public Page<GroupsResponse> getAllGroups(Pageable pageable, String searchQuery, String activityFilter,
+    @Override
+    public Page<GroupsResponse> getAllGroups(int page, int size, String searchQuery, String activityFilter,
                                              Boolean available, Long subjectId) {
+        Pageable pageable = PageRequest.of(page, size);
+
         List<Group> groups = groupRepository.findAll();
 
         if (StringUtils.hasText(searchQuery)) {
@@ -195,14 +170,7 @@ public class GroupService {
         return new PageImpl<>(groupResponses, pageable, groups.size());
     }
 
-    /**
-     * Updates an existing group with new information if allowed by activity rules
-     * @param id ID of the group to update
-     * @param createGroupDTO DTO containing updated group information
-     * @throws StateConflictException if group cannot be modified due to activity constraints
-     * @throws ValidationException if update fails validation
-     * @throws ResourceAlreadyExistsException if new group name is already taken
-     */
+    @Override
     @Transactional
     public void updateGroup(Long id, CreateGroupDTO createGroupDTO) {
         Group group = getGroupById(id);
@@ -262,13 +230,7 @@ public class GroupService {
         log.info("Group '{}' updated successfully with {} students", group.getName(), students.size());
     }
 
-    /**
-     * Creates a new group with provided information and returns the generated ID
-     * @param createGroupDTO DTO containing new group information
-     * @return ID of the newly created group
-     * @throws ResourceAlreadyExistsException if group name already exists
-     * @throws StateConflictException if teacher role validation fails
-     */
+    @Override
     @Transactional
     public Long createGroup(CreateGroupDTO createGroupDTO) {
         if (groupRepository.findByName(createGroupDTO.getGroupName()).isPresent()) {
@@ -320,13 +282,11 @@ public class GroupService {
         return savedGroup.getId();
     }
 
-    /**
-     * Retrieves a paginated list of students with their subject associations
-     * @param pageable Pagination information
-     * @param searchQuery Optional search query to filter students by name or username
-     * @return Paginated list of CreateGroupUserListDTO objects
-     */
-    public Page<CreateGroupUserListDTO> getAllStudents(Pageable pageable, String searchQuery) {
+    @Override
+    public Page<CreateGroupUserListDTO> getAllStudents(int page, int size, String searchQuery) {
+
+        Pageable pageable = PageRequest.of(page, size);
+
         Page<User> studentsPage;
 
         if (StringUtils.hasText(searchQuery)) {
@@ -373,13 +333,10 @@ public class GroupService {
         return new PageImpl<>(students, pageable, studentsPage.getTotalElements());
     }
 
-    /**
-     * Returns a paginated list of teachers with optional search filtering
-     * @param pageable Pagination information
-     * @param searchQuery Optional search query to filter teachers by name, surname, username, or email
-     * @return Paginated list of GroupUserList objects
-     */
-    public Page<GroupUserList> getAllTeachers(Pageable pageable, String searchQuery) {
+    @Override
+    public Page<GroupUserList> getAllTeachers(int page, int size, String searchQuery) {
+        Pageable pageable = PageRequest.of(page, size);
+
         Page<User> teachersPage;
 
         if (StringUtils.hasText(searchQuery)) {
@@ -411,18 +368,9 @@ public class GroupService {
         return teachersPage.map(groupMapper::toGroupUserList);
     }
 
-    /**
-     * Gets current group members and available students categorized for management screens
-     * @param pageable Pagination information
-     * @param groupId ID of the group to get members for
-     * @param searchQuery Optional search query to filter available students
-     * @param includeCurrentMembers Whether to include current members in available students
-     * @param hideStudentsInSameSubject Whether to hide students already in the same subject
-     * @return GroupStudentsResponseDTO with current members and available students
-     * @throws ValidationException if groupId is null
-     */
+    @Override
     public GroupStudentsResponseDTO getGroupStudentsWithCategories(
-            Pageable pageable, Long groupId, String searchQuery, boolean includeCurrentMembers, boolean hideStudentsInSameSubject) {
+            int page, int size, Long groupId, String searchQuery, boolean includeCurrentMembers, boolean hideStudentsInSameSubject) {
 
         if (groupId == null) {
             throw ValidationException.invalidParameter("groupId", "Group ID is required");
@@ -439,8 +387,8 @@ public class GroupService {
                 group.getStudents(), subjectNames);
 
         Page<CreateGroupUserListDTO> availableStudents =
-                includeCurrentMembers ? getAllStudents(pageable, searchQuery) :
-                        getAllStudentsNotInGroup(pageable, groupId, searchQuery, hideStudentsInSameSubject);
+                includeCurrentMembers ? getAllStudents(page, size, searchQuery) :
+                        getAllStudentsNotInGroup(page, size, groupId, searchQuery, hideStudentsInSameSubject);
 
         return GroupStudentsResponseDTO.builder()
                 .currentMembers(currentMembers)
@@ -448,16 +396,11 @@ public class GroupService {
                 .build();
     }
 
-    /**
-     * Retrieves students not in specified group with optional filtering by subject association
-     * @param pageable Pagination information
-     * @param groupId ID of the group to exclude students from
-     * @param searchQuery Optional search query to filter students
-     * @param hideStudentsInSameSubject Whether to hide students already in the same subject
-     * @return Paginated list of CreateGroupUserListDTO objects
-     */
+    @Override
     public Page<CreateGroupUserListDTO> getAllStudentsNotInGroup(
-            Pageable pageable, Long groupId, String searchQuery, boolean hideStudentsInSameSubject) {
+            int page, int size, Long groupId, String searchQuery, boolean hideStudentsInSameSubject) {
+
+        Pageable pageable = PageRequest.of(page, size);
 
         Group group = getGroupById(groupId);
 
@@ -557,11 +500,6 @@ public class GroupService {
         return new PageImpl<>(resultList, pageable, filteredStudents.size());
     }
 
-    /**
-     * Helper method to get a list of subject names for a specific student
-     * @param student User entity representing a student
-     * @return List of subject short names the student is enrolled in
-     */
     private List<String> getStudentSubjects(User student) {
         List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
 

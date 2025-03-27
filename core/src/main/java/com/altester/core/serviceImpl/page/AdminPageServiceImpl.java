@@ -1,4 +1,4 @@
-package com.altester.core.service.AdminPage;
+package com.altester.core.serviceImpl.page;
 
 import com.altester.core.dtos.AdminPage.AdminPageDTO;
 import com.altester.core.dtos.AdminPage.UpdateUser;
@@ -15,6 +15,7 @@ import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.TestRepository;
 import com.altester.core.repository.UserRepository;
+import com.altester.core.service.AdminPageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -33,7 +34,7 @@ import java.util.Optional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AdminPageService {
+public class AdminPageServiceImpl implements AdminPageService {
 
     private static final int PAGE_SIZE = 20;
     private static final String LDAP_FILTER = "ldap";
@@ -44,12 +45,6 @@ public class AdminPageService {
     private final GroupRepository groupRepository;
     private final SubjectRepository subjectRepository;
 
-    /**
-     * Retrieves a User entity by username or throws a ResourceNotFoundException
-     * @param username Username of the user to retrieve
-     * @return User entity
-     * @throws ResourceNotFoundException if user with given username doesn't exist
-     */
     private User getUserByUsername(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> {
@@ -58,14 +53,7 @@ public class AdminPageService {
                 });
     }
 
-    /**
-     * Returns a paginated list of students with filtering options
-     * @param page Page number (zero-based)
-     * @param searchQuery Optional search text to filter students
-     * @param searchField Field to search in ("all", "name", "firstName", "lastName", "email", "username")
-     * @param registrationFilter Filter by registration status ("ldap", "registered", or null for all)
-     * @return Paginated list of UsersListDTO objects
-     */
+    @Override
     public Page<UsersListDTO> getStudents(int page, String searchQuery, String searchField, String registrationFilter) {
         Specification<User> spec = createUserSpecification(RolesEnum.STUDENT, searchQuery, searchField, registrationFilter);
 
@@ -75,14 +63,7 @@ public class AdminPageService {
         return userRepository.findAll(spec, pageRequest).map(this::convertToUsersListDTO);
     }
 
-    /**
-     * Returns a paginated list of teachers with filtering options
-     * @param page Page number (zero-based)
-     * @param searchQuery Optional search text to filter teachers
-     * @param searchField Field to search in ("all", "name", "firstName", "lastName", "email", "username")
-     * @param registrationFilter Filter by registration status ("ldap", "registered", or null for all)
-     * @return Paginated list of UsersListDTO objects
-     */
+    @Override
     public Page<UsersListDTO> getTeachers(int page, String searchQuery, String searchField, String registrationFilter) {
         Specification<User> spec = createUserSpecification(RolesEnum.TEACHER, searchQuery, searchField, registrationFilter);
 
@@ -92,14 +73,6 @@ public class AdminPageService {
         return userRepository.findAll(spec, pageRequest).map(this::convertToUsersListDTO);
     }
 
-    /**
-     * Creates a specification for filtering users based on role and search criteria
-     * @param role Role to filter by
-     * @param searchQuery Search text to filter users
-     * @param searchField Field to search in
-     * @param registrationFilter Filter by registration status
-     * @return Specification for user filtering
-     */
     private Specification<User> createUserSpecification(RolesEnum role, String searchQuery, String searchField, String registrationFilter) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -142,12 +115,7 @@ public class AdminPageService {
         };
     }
 
-    /**
-     * Retrieves admin page data with system statistics
-     * @param username Username of the admin user
-     * @return AdminPageDTO with system statistics
-     * @throws ResourceNotFoundException if user with given username doesn't exist
-     */
+    @Override
     public AdminPageDTO getPage(String username) {
         log.debug("Fetching admin page data for user: {}", username);
         getUserByUsername(username);
@@ -162,12 +130,7 @@ public class AdminPageService {
         return dto;
     }
 
-    /**
-     * Changes a teacher's role to student and removes them from teaching responsibilities
-     * @param username Username of the teacher to demote
-     * @throws ResourceNotFoundException if user doesn't exist
-     * @throws StateConflictException if user is already a student
-     */
+    @Override
     @Transactional
     public void demoteToStudent(String username) {
         User user = getUserByUsername(username);
@@ -191,12 +154,7 @@ public class AdminPageService {
         log.info("User {} (ID: {}) successfully promoted to STUDENT", user.getUsername(), user.getId());
     }
 
-    /**
-     * Changes a student's role to teacher and removes them from student groups
-     * @param username Username of the student to promote
-     * @throws ResourceNotFoundException if user doesn't exist
-     * @throws StateConflictException if user is already a teacher
-     */
+    @Override
     @Transactional
     public void promoteToTeacher(String username) {
         User user = getUserByUsername(username);
@@ -220,15 +178,7 @@ public class AdminPageService {
         log.info("User {} (ID: {}) successfully promoted to TEACHER", user.getUsername(), user.getId());
     }
 
-    /**
-     * Updates a user's profile information
-     * @param updateUser DTO containing updated user information
-     * @param username Username of the user to update
-     * @return Updated UsersListDTO
-     * @throws ResourceNotFoundException if user doesn't exist
-     * @throws AccessDeniedException if trying to update an LDAP user
-     * @throws ResourceAlreadyExistsException if new username is already taken
-     */
+    @Override
     @Transactional
     public UsersListDTO updateUser(UpdateUser updateUser, String username) {
 
@@ -258,11 +208,6 @@ public class AdminPageService {
         return convertToUsersListDTO(savedUser);
     }
 
-    /**
-     * Converts a User entity to UsersListDTO with group and subject associations
-     * @param user User entity to convert
-     * @return UsersListDTO with user information and associations
-     */
     private UsersListDTO convertToUsersListDTO(User user) {
         UsersListDTO dto = new UsersListDTO();
         dto.setFirstName(user.getName());
