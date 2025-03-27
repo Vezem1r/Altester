@@ -14,4 +14,7 @@ public interface SubjectRepository extends JpaRepository<Subject, Long> {
     Page<Subject> findAll(Pageable pageable);
     Optional<Subject> findByGroupsId(Long groupsId);
     Optional<Subject> findByGroupsContaining(Group group);
+
+    Page<Subject> findByNameContainingIgnoreCaseOrShortNameContainingIgnoreCase(
+            String name, String shortName, Pageable pageable);
 }

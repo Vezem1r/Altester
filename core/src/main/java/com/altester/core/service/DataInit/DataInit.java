@@ -275,8 +275,7 @@ public class DataInit {
     }
 
     @Transactional
-    protected void createSemesterGroups(Semester semester, int academicYear, int groupCount, boolean isActive,
-                                        List<User> students, List<User> teachers) {
+    protected void createSemesterGroups(Semester semester, int academicYear, int groupCount, boolean isActive, List<User> students, List<User> teachers) {
 
         log.info("Creating {} {} semester {} groups", groupCount, semester, academicYear);
 

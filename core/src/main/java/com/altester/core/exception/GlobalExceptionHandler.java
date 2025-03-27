@@ -1,198 +1,112 @@
 package com.altester.core.exception;
 
+import jakarta.validation.ConstraintViolationException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(AlTesterException.class)
+    public ResponseEntity<ErrorResponse> handleAlTesterException(AlTesterException ex) {
+        log.error("Application exception: {}", ex.getMessage(), ex);
+        ErrorResponse errorResponse = ErrorResponse.from(ex);
+        return ResponseEntity.status(ex.getHttpStatus()).body(errorResponse);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
+        log.error("Constraint violation: {}", ex.getMessage(), ex);
+
+        ErrorResponse errorResponse = new ErrorResponse(
+                ErrorCode.VALIDATION_ERROR.getCode(),
+                "Validation failed");
+
+        ex.getConstraintViolations().forEach(violation -> {
+            String propertyPath = violation.getPropertyPath().toString();
+            String field = propertyPath.substring(propertyPath.lastIndexOf('.') + 1);
+            errorResponse.addDetail(field, violation.getMessage());
+        });
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(MethodArgumentNotValidException ex) {
+        log.error("Method argument not valid: {}", ex.getMessage(), ex);
+
+        ErrorResponse errorResponse = new ErrorResponse(
+                ErrorCode.VALIDATION_ERROR.getCode(),
+                "Validation failed");
+
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getAllErrors().forEach(error -> {
+            String fieldName = ((FieldError) error).getField();
+            String errorMessage = error.getDefaultMessage();
+            errors.put(fieldName, errorMessage);
+        });
+
+        errorResponse.addDetail("validationErrors", errors);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ErrorResponse> handleBindException(BindException ex) {
+        log.error("Binding exception: {}", ex.getMessage(), ex);
+
+        ErrorResponse errorResponse = new ErrorResponse(
+                ErrorCode.VALIDATION_ERROR.getCode(),
+                "Binding error");
+
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(error ->
+                errors.put(error.getField(), error.getDefaultMessage())
+        );
+
+        errorResponse.addDetail("bindingErrors", errors);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        log.error("Type mismatch: {}", ex.getMessage(), ex);
+
+        String paramName = ex.getName();
+        String requiredType = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown";
+        String providedValue = ex.getValue() != null ? ex.getValue().toString() : "null";
+
+        ErrorResponse errorResponse = new ErrorResponse(
+                ErrorCode.VALIDATION_ERROR.getCode(),
+                "Parameter '" + paramName + "' should be of type '" + requiredType + "'");
+
+        errorResponse.addDetail("parameter", paramName);
+        errorResponse.addDetail("requiredType", requiredType);
+        errorResponse.addDetail("providedValue", providedValue);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, String>> handleGeneralException(Exception ex) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "An unexpected error occurred: " + ex.getMessage()));
-    }
+    public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
+        log.error("Unexpected error: {}", ex.getMessage(), ex);
 
-    @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleUserNotFound(UserNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", ex.getMessage()));
-    }
+        ErrorResponse errorResponse = new ErrorResponse(
+                ErrorCode.INTERNAL_SERVER_ERROR.getCode(),
+                "An unexpected error occurred: " + ex.getMessage());
 
-    @ExceptionHandler(UserAlreadyExistsException.class)
-    public ResponseEntity<Map<String, String>> handleUserAlreadyExists(UserAlreadyExistsException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(UserRoleException.class)
-    public ResponseEntity<Map<String, String>> handleRoleChangeNotAllowed(UserRoleException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(LdapUserModificationException.class)
-    public ResponseEntity<Map<String, String>> handleLdapModification(LdapUserModificationException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(SubjectNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleSubjectNotFound(SubjectNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(SubjectAlreadyExistsException.class)
-    public ResponseEntity<Map<String, String>> handleSubjectAlreadyExists(SubjectAlreadyExistsException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(GroupNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleGroupNotFound(GroupNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(GroupAlreadyAssignedException.class)
-    public ResponseEntity<Map<String, String>> handleGroupAlreadyAssigned(GroupAlreadyAssignedException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(GroupDeleteException.class)
-    public ResponseEntity<Map<String, String>> handleGroupDelete(GroupDeleteException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(GroupNameAlreadyExistsException.class)
-    public ResponseEntity<Map<String, String>> handleGroupNameAlreadyExists(GroupNameAlreadyExistsException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(GroupValidationException.class)
-    public ResponseEntity<Map<String, String>> handleGroupValidation(GroupValidationException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(InvalidGroupIdException.class)
-    public ResponseEntity<Map<String, String>> handleInvalidGroupId(InvalidGroupIdException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(GroupMismatchException.class)
-    public ResponseEntity<Map<String, String>> handleGroupMismatch(GroupMismatchException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(StudentNotInGroupException.class)
-    public ResponseEntity<Map<String, String>> handleStudentNotInGroup(StudentNotInGroupException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(MultipleActiveGroupsException.class)
-    public ResponseEntity<Map<String, String>> handleMultipleActiveGroups(MultipleActiveGroupsException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(TestAccessDeniedException.class)
-    public ResponseEntity<Map<String, String>> handleTestAccessDenied(TestAccessDeniedException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(GroupAccessDeniedException.class)
-    public ResponseEntity<Map<String, String>> handleGroupAccessDenied(GroupAccessDeniedException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(TeacherEditNotAllowedException.class)
-    public ResponseEntity<Map<String, String>> handleTeacherEditNotAllowed(TeacherEditNotAllowedException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(TeacherTestCreatorException.class)
-    public ResponseEntity<Map<String, String>> handleTeacherTestCreator(TeacherTestCreatorException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(NotAdminException.class)
-    public ResponseEntity<Map<String, String>> handleTestNotFound(TestNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(TeacherTestCreatorException.class)
-    public ResponseEntity<Map<String, String>> handleNotAdmin(NotAdminException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(InvalidGroupSelectionException.class)
-    public ResponseEntity<Map<String, String>> handleNotAdmin(InvalidGroupSelectionException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(ImageSaveException.class)
-    public ResponseEntity<Map<String, String>> handleImageSave(ImageSaveException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(QuestionNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleQuestionNotFound(QuestionNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(InvalidPositionException.class)
-    public ResponseEntity<Map<String, String>> handleInvalidPosition(InvalidPositionException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(InvalidQuestionTextException.class)
-    public ResponseEntity<Map<String, String>> handleInvalidQuestionText(InvalidQuestionTextException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(IllegalQuestionTypeException.class)
-    public ResponseEntity<Map<String, String>> handleIllegalQuestionType(IllegalQuestionTypeException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(InvalidImageException.class)
-    public ResponseEntity<Map<String, String>> handleInvalidImage(InvalidImageException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(MissingCorrectOptionException.class)
-    public ResponseEntity<Map<String, String>> handleMissingCorrectOption(MissingCorrectOptionException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(InvalidOptionSelectionException.class)
-    public ResponseEntity<Map<String, String>> handleInvalidOptionSelection(InvalidOptionSelectionException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
 }

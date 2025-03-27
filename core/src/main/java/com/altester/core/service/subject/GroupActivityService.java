@@ -19,6 +19,11 @@ public class GroupActivityService {
     private final GroupRepository groupRepository;
     private final SemesterConfig semesterConfig;
 
+    /**
+     * Checks and updates a group's activity status based on current semester settings
+     * @param group Group to check and update
+     * @return Updated activity status (true if active)
+     */
     public boolean checkAndUpdateGroupActivity(Group group) {
         if (group == null) {
             log.warn("Attempted to check activity for null group");
@@ -45,6 +50,11 @@ public class GroupActivityService {
         return group.isActive();
     }
 
+    /**
+     * Determines if a group belongs to a future semester relative to current date
+     * @param group Group to check
+     * @return true if group is in a future semester, false otherwise
+     */
     public boolean isGroupInFuture(Group group) {
         if (group == null) {
             return false;
@@ -78,6 +88,12 @@ public class GroupActivityService {
         return false;
     }
 
+    /**
+     * Checks if a group can be modified based on its activity status
+     * Active groups and future groups can be modified
+     * @param group Group to check
+     * @return true if group can be modified, false otherwise
+     */
     public boolean canModifyGroup(Group group) {
         if (group == null) {
             return false;
@@ -92,6 +108,10 @@ public class GroupActivityService {
         return isGroupInFuture(group);
     }
 
+    /**
+     * Scheduled task to update activity status of all groups
+     * Runs daily at midnight
+     */
     @Scheduled(cron = "0 0 0 * * *")
     public void updateAllGroupStatuses() {
         log.info("Running scheduled group status update");

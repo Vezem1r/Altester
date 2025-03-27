@@ -4,10 +4,9 @@ import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
 import com.altester.core.dtos.core_service.subject.SubjectDTO;
 import com.altester.core.dtos.core_service.subject.SubjectGroupDTO;
 import com.altester.core.dtos.core_service.subject.UpdateGroupsDTO;
-import com.altester.core.exception.GroupAlreadyAssignedException;
-import com.altester.core.exception.GroupNotFoundException;
-import com.altester.core.exception.SubjectAlreadyExistsException;
-import com.altester.core.exception.SubjectNotFoundException;
+import com.altester.core.exception.ResourceAlreadyExistsException;
+import com.altester.core.exception.ResourceNotFoundException;
+import com.altester.core.exception.StateConflictException;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
 import com.altester.core.repository.GroupRepository;
@@ -15,7 +14,6 @@ import com.altester.core.repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,38 +32,30 @@ public class SubjectService {
     private final GroupRepository groupRepository;
     private final GroupActivityService groupActivityService;
 
+    /**
+     * Retrieves a paginated list of subjects with optional search filtering
+     *
+     * @param pageable Pagination information (page number, size, sorting)
+     * @param searchQuery Optional search term to filter subjects by name or short name (case-insensitive)
+     * @return Page of SubjectDTO objects containing subject details and associated groups
+     */
     public Page<SubjectDTO> getAllSubjects(Pageable pageable, String searchQuery) {
         if (!StringUtils.hasText(searchQuery)) {
             return subjectRepository.findAll(pageable).map(this::convertToSubjectDTO);
         } else {
-            String searchLower = searchQuery.toLowerCase();
-
-            List<Subject> allSubjects = subjectRepository.findAll();
-
-            List<Subject> filteredSubjects = allSubjects.stream()
-                    .filter(subject ->
-                            subject.getName().toLowerCase().contains(searchLower) ||
-                                    subject.getShortName().toLowerCase().contains(searchLower)
-                    )
-                    .collect(Collectors.toList());
-
-            int start = (int) pageable.getOffset();
-            int end = Math.min((start + pageable.getPageSize()), filteredSubjects.size());
-
-            if (start > filteredSubjects.size()) {
-                return new PageImpl<>(Collections.emptyList(), pageable, filteredSubjects.size());
-            }
-
-            List<Subject> pagedSubjects = filteredSubjects.subList(start, end);
-
-            List<SubjectDTO> subjectDTOs = pagedSubjects.stream()
-                    .map(this::convertToSubjectDTO)
-                    .collect(Collectors.toList());
-
-            return new PageImpl<>(subjectDTOs, pageable, filteredSubjects.size());
+            return subjectRepository
+                    .findByNameContainingIgnoreCaseOrShortNameContainingIgnoreCase(
+                            searchQuery, searchQuery, pageable)
+                    .map(this::convertToSubjectDTO);
         }
     }
 
+    /**
+     * Converts a Subject entity to SubjectDTO with associated groups information
+     *
+     * @param subject The Subject entity to convert
+     * @return SubjectDTO containing subject details and simplified group information
+     */
     private SubjectDTO convertToSubjectDTO(Subject subject) {
         List<SubjectGroupDTO> groups = subject.getGroups().stream()
                 .map(group -> new SubjectGroupDTO(group.getId(), group.getName()))
@@ -81,146 +71,239 @@ public class SubjectService {
         );
     }
 
+    /**
+     * Updates an existing subject with new information
+     *
+     * @param createSubjectDTO DTO containing updated subject information
+     * @param subjectId ID of the subject to update
+     * @throws IllegalArgumentException if subject data is null
+     * @throws ResourceNotFoundException if subject with given ID doesn't exist
+     * @throws ResourceAlreadyExistsException if another subject with the same short name already exists
+     */
+    @Transactional
     public void updateSubject(CreateSubjectDTO createSubjectDTO, long subjectId) {
+        if (createSubjectDTO == null) {
+            throw new IllegalArgumentException("Subject data cannot be null");
+        }
 
-            Subject subject = subjectRepository.findById(subjectId).orElseThrow(() -> {
-                log.error("Subject with id {} not found", subjectId);
-                return new SubjectNotFoundException("Subject not found");
-            });
+        Subject subject = subjectRepository.findById(subjectId).orElseThrow(() -> {
+            log.error("Subject with id {} not found", subjectId);
+            return ResourceNotFoundException.subject(subjectId);
+        });
 
-            Optional<Subject> optionalSubject = subjectRepository.findByShortName(createSubjectDTO.getShortName().toUpperCase());
-            if (optionalSubject.isPresent() && optionalSubject.get().getId() != subject.getId()) {
-                log.error("Subject with short name: {} already exists", createSubjectDTO.getShortName());
-                throw new SubjectAlreadyExistsException("Subject with short name: " + createSubjectDTO.getShortName() + " already exists");
-            }
+        String shortName = createSubjectDTO.getShortName().toUpperCase();
+        Optional<Subject> optionalSubject = subjectRepository.findByShortName(shortName);
+        if (optionalSubject.isPresent() && optionalSubject.get().getId() != subject.getId()) {
+            log.error("Subject with short name: {} already exists", shortName);
+            throw ResourceAlreadyExistsException.subject(shortName);
+        }
 
-            subject.setName(createSubjectDTO.getName());
-            subject.setShortName(createSubjectDTO.getShortName().toUpperCase());
-            subject.setDescription(createSubjectDTO.getDescription());
-            subject.setModified(LocalDateTime.now());
+        subject.setName(createSubjectDTO.getName());
+        subject.setShortName(shortName);
+        subject.setDescription(createSubjectDTO.getDescription());
+        subject.setModified(LocalDateTime.now());
 
-            subjectRepository.save(subject);
+        subjectRepository.save(subject);
+        log.info("Subject with id {} updated successfully", subjectId);
     }
 
+    /**
+     * Deletes a subject by ID
+     *
+     * @param subjectId ID of the subject to delete
+     * @throws ResourceNotFoundException if subject with given ID doesn't exist
+     * @throws RuntimeException if deletion fails
+     */
+    @Transactional
     public void deleteSubject(long subjectId) {
+        Subject subject = subjectRepository.findById(subjectId).orElseThrow(() -> {
+            log.error("Subject with id {} not found", subjectId);
+            return ResourceNotFoundException.subject(subjectId);
+        });
+
         try {
-            subjectRepository.findById(subjectId).orElseThrow(() -> {
-                log.error("Subject with id {} not found", subjectId);
-                return new SubjectNotFoundException("Subject with id " + subjectId + " not found");
-            });
-            subjectRepository.deleteById(subjectId);
+            subjectRepository.delete(subject);
+            log.info("Subject with id {} deleted successfully", subjectId);
         } catch (Exception e) {
-            log.error("Error during subject delete: {}", e.getMessage());
-            throw new RuntimeException(e.getMessage());
+            log.error("Error during subject delete: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to delete subject: " + e.getMessage(), e);
         }
     }
 
+    /**
+     * Creates a new subject with the provided information
+     *
+     * @param createSubjectDTO DTO containing new subject information
+     * @throws IllegalArgumentException if subject data is null
+     * @throws ResourceAlreadyExistsException if a subject with the same short name already exists
+     */
+    @Transactional
     public void createSubject(CreateSubjectDTO createSubjectDTO) {
+        if (createSubjectDTO == null) {
+            throw new IllegalArgumentException("Subject data cannot be null");
+        }
 
-            Optional<Subject> optSubject = subjectRepository.findByShortName(createSubjectDTO.getShortName().toUpperCase());
-            if (optSubject.isPresent()) {
-                log.error("Subject with short name {} already exists", createSubjectDTO.getShortName());
-                throw new SubjectAlreadyExistsException("Subject with short name already exists");
-            }
+        String shortName = createSubjectDTO.getShortName().toUpperCase();
+        Optional<Subject> optSubject = subjectRepository.findByShortName(shortName);
+        if (optSubject.isPresent()) {
+            log.error("Subject with short name {} already exists", shortName);
+            throw ResourceAlreadyExistsException.subject(shortName);
+        }
 
-            Subject subject = Subject.builder()
-                    .name(createSubjectDTO.getName())
-                    .shortName(createSubjectDTO.getShortName().toUpperCase())
-                    .description(createSubjectDTO.getDescription())
-                    .modified(LocalDateTime.now())
-                    .build();
+        Subject subject = Subject.builder()
+                .name(createSubjectDTO.getName())
+                .shortName(shortName)
+                .description(createSubjectDTO.getDescription())
+                .modified(LocalDateTime.now())
+                .build();
 
-            subjectRepository.save(subject);
-            log.info("Subject with short name {} created", createSubjectDTO.getShortName());
+        subjectRepository.save(subject);
+        log.info("Subject with short name {} created", shortName);
     }
 
+    /**
+     * Updates the groups associated with a subject
+     *
+     * @param updateGroupsDTO DTO containing subject ID and list of group IDs to associate
+     * @throws IllegalArgumentException if update data or group IDs are null
+     * @throws ResourceNotFoundException if subject with given ID doesn't exist
+     * @throws StateConflictException if any group is already assigned to another subject
+     */
     @Transactional
     public void updateGroups(UpdateGroupsDTO updateGroupsDTO) {
 
-            Subject subject = subjectRepository.findById(updateGroupsDTO.getSubjectId())
-                    .orElseThrow(() -> {
-                        log.error("Subject with id {} not found", updateGroupsDTO.getSubjectId());
-                        return new SubjectNotFoundException("Subject with id " + updateGroupsDTO.getSubjectId() + " not found");
-                    });
+        if (updateGroupsDTO == null || updateGroupsDTO.getGroupIds() == null) {
+            throw new IllegalArgumentException("Update groups data cannot be null");
+        }
 
-            List<Group> validGroupsList = new ArrayList<>();
+        Subject subject = subjectRepository.findById(updateGroupsDTO.getSubjectId())
+                .orElseThrow(() -> {
+                    log.error("Subject with id {} not found", updateGroupsDTO.getSubjectId());
+                    return ResourceNotFoundException.subject(updateGroupsDTO.getSubjectId());
+                });
 
-            for (Long groupId : updateGroupsDTO.getGroupIds()) {
-                Group group = groupRepository.findById(groupId).orElse(null);
-                if (group == null) {
-                    continue;
-                }
+        List<Group> validGroupsList = new ArrayList<>();
+        List<Long> notFoundGroups = new ArrayList<>();
 
-                groupActivityService.checkAndUpdateGroupActivity(group);
-
-                if (group.isActive() || groupActivityService.isGroupInFuture(group)) {
-                    Optional<Subject> existingSubject = subjectRepository.findByGroupsContaining(group);
-                    if (existingSubject.isPresent() && existingSubject.get().getId() != subject.getId()) {
-                        throw new GroupAlreadyAssignedException("Group " + group.getName() + " is already assigned to another subject.");
-                    }
-                    validGroupsList.add(group);
-                } else {
-                    log.info("Skipping inactive past group: {}", group.getName());
-                }
+        for (Long groupId : updateGroupsDTO.getGroupIds()) {
+            Optional<Group> groupOpt = groupRepository.findById(groupId);
+            if (groupOpt.isEmpty()) {
+                notFoundGroups.add(groupId);
+                continue;
             }
 
-            Set<Group> groupsToAdd = new HashSet<>(validGroupsList);
-            Set<Group> currentGroups = subject.getGroups();
-
-            Set<Group> groupsToRemove = currentGroups.stream()
-                    .filter(group -> {
-                        groupActivityService.checkAndUpdateGroupActivity(group);
-                        return (group.isActive() || groupActivityService.isGroupInFuture(group)) &&
-                                !groupsToAdd.contains(group);
-                    })
-                    .collect(Collectors.toSet());
-
-            Set<Group> pastInactiveGroups = currentGroups.stream()
-                    .filter(group -> !group.isActive() && !groupActivityService.isGroupInFuture(group))
-                    .collect(Collectors.toSet());
-
-            currentGroups.removeAll(groupsToRemove);
-            currentGroups.addAll(groupsToAdd);
-
-            subject.setModified(LocalDateTime.now());
-            subject.setGroups(currentGroups);
-            subjectRepository.save(subject);
-
-            if (!pastInactiveGroups.isEmpty()) {
-                log.info("Subject {} groups updated successfully. Kept {} past inactive groups.",
-                        subject.getName(), pastInactiveGroups.size());
-            } else {
-                log.info("Subject {} groups updated successfully", subject.getName());
+            Group group = groupOpt.get();
+            if (isGroupEligibleForAssignment(group)) {
+                checkGroupAssignment(group, subject.getId());
+                validGroupsList.add(group);
             }
+        }
+
+        if (!notFoundGroups.isEmpty()) {
+            log.warn("Some groups were not found: {}", notFoundGroups);
+        }
+
+        updateSubjectGroups(subject, validGroupsList);
     }
 
+    /**
+     * Updates the subject groups by adding valid groups and removing ineligible ones
+     *
+     * @param subject The subject entity to update
+     * @param validGroupsList List of eligible groups to add to the subject
+     */
+    private void updateSubjectGroups(Subject subject, List<Group> validGroupsList) {
+        Set<Group> groupsToAdd = new HashSet<>(validGroupsList);
+        Set<Group> currentGroups = subject.getGroups();
+
+        Set<Group> groupsToRemove = currentGroups.stream()
+                .filter(group -> {
+                    groupActivityService.checkAndUpdateGroupActivity(group);
+                    return (group.isActive() || groupActivityService.isGroupInFuture(group)) &&
+                            !groupsToAdd.contains(group);
+                })
+                .collect(Collectors.toSet());
+
+        Set<Group> pastInactiveGroups = currentGroups.stream()
+                .filter(group -> !group.isActive() && !groupActivityService.isGroupInFuture(group))
+                .collect(Collectors.toSet());
+
+        currentGroups.removeAll(groupsToRemove);
+        currentGroups.addAll(groupsToAdd);
+
+        subject.setModified(LocalDateTime.now());
+        subject.setGroups(currentGroups);
+        subjectRepository.save(subject);
+
+        if (!pastInactiveGroups.isEmpty()) {
+            log.info("Subject {} groups updated successfully. Kept {} past inactive groups.",
+                    subject.getName(), pastInactiveGroups.size());
+        } else {
+            log.info("Subject {} groups updated successfully", subject.getName());
+        }
+    }
+
+    /**
+     * Checks if a group is eligible for assignment to a subject
+     * Only active groups or future groups are eligible
+     *
+     * @param group The group to check for eligibility
+     * @return true if the group is eligible for assignment, false otherwise
+     */
+    private boolean isGroupEligibleForAssignment(Group group) {
+        groupActivityService.checkAndUpdateGroupActivity(group);
+
+        boolean eligible = group.isActive() || groupActivityService.isGroupInFuture(group);
+        if (!eligible) {
+            log.info("Skipping inactive past group: {}", group.getName());
+        }
+        return eligible;
+    }
+
+    /**
+     * Checks if a group can be assigned to a subject
+     * Ensures the group is not already assigned to another subject
+     *
+     * @param group The group to check for existing assignments
+     * @param subjectId The ID of the subject to assign the group to
+     * @throws StateConflictException if the group is already assigned to another subject
+     */
+    private void checkGroupAssignment(Group group, long subjectId) {
+        Optional<Subject> existingSubject = subjectRepository.findByGroupsContaining(group);
+        if (existingSubject.isPresent() && existingSubject.get().getId() != subjectId) {
+            throw StateConflictException.groupAlreadyAssigned(group.getName());
+        }
+    }
+
+    /**
+     * Adds a specific group to a subject
+     *
+     * @param subjectId ID of the subject to update
+     * @param groupId ID of the group to add
+     * @throws ResourceNotFoundException if subject or group with given IDs don't exist
+     * @throws StateConflictException if the group is already assigned to another subject
+     * @throws RuntimeException if update fails
+     */
     @Transactional
     public void updateGroup(long subjectId, long groupId) {
+        Subject subject = subjectRepository.findById(subjectId)
+                .orElseThrow(() -> {
+                    log.error("Subject with id {} not found", subjectId);
+                    return ResourceNotFoundException.subject(subjectId);
+                });
+
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> {
+                    log.error("Group with id {} not found", groupId);
+                    return ResourceNotFoundException.group(groupId);
+                });
+
+        if (!isGroupEligibleForAssignment(group)) {
+            return;
+        }
+
         try {
-            Subject subject = subjectRepository.findById(subjectId)
-                    .orElseThrow(() -> {
-                        log.error("Subject with id {} not found", subjectId);
-                        return new SubjectNotFoundException("Subject with id " + subjectId + " not found");
-                    });
-
-            Group group = groupRepository.findById(groupId)
-                    .orElseThrow(() -> {
-                        log.error("Group with id {} not found", groupId);
-                        return new GroupNotFoundException("Group with id " + groupId + " not found");
-                    });
-
-            groupActivityService.checkAndUpdateGroupActivity(group);
-
-            if (!group.isActive() && !groupActivityService.isGroupInFuture(group)) {
-                log.info("Skipping inactive past group: {}", group.getName());
-                return;
-            }
-
-            Optional<Subject> existingSubject = subjectRepository.findByGroupsContaining(group);
-            if (existingSubject.isPresent() && existingSubject.get().getId() != subject.getId()) {
-                log.error("Group {} is already assigned to another subject", group.getName());
-                throw new GroupAlreadyAssignedException("Group " + group.getName() + " is already assigned to another subject.");
-            }
+            checkGroupAssignment(group, subject.getId());
 
             if (!subject.getGroups().contains(group)) {
                 subject.getGroups().add(group);
@@ -230,10 +313,11 @@ public class SubjectService {
             } else {
                 log.warn("Group {} is already assigned to subject {}", group.getName(), subject.getName());
             }
-
+        } catch (StateConflictException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Error updating subject {}: {}", subjectId, e.getMessage());
-            throw new RuntimeException(e.getMessage());
+            log.error("Error updating subject {} with group {}: {}", subjectId, groupId, e.getMessage(), e);
+            throw new RuntimeException("Failed to update subject with group: " + e.getMessage(), e);
         }
     }
 }

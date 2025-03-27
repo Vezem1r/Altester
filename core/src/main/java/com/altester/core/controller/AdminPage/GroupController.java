@@ -1,7 +1,7 @@
 package com.altester.core.controller.AdminPage;
 
 import com.altester.core.dtos.core_service.subject.*;
-import com.altester.core.exception.GroupInactiveException;
+import com.altester.core.exception.AlTesterException;
 import com.altester.core.service.subject.GroupService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -77,7 +77,7 @@ public class GroupController {
             Long id = groupService.createGroup(createGroupDTO);
             log.info("Group {} created successfully with ID {}", createGroupDTO.getGroupName(), id);
             return ResponseEntity.status(HttpStatus.CREATED).body(id);
-        } catch (GroupInactiveException e) {
+        } catch (AlTesterException e) {
             log.error("Cannot create group: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         } catch (Exception e) {

@@ -11,7 +11,6 @@ import com.altester.core.model.subject.enums.Semester;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.UserRepository;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,64 +33,86 @@ public class GroupService {
     private final SubjectRepository subjectRepository;
     private final SemesterConfig semesterConfig;
     private final GroupActivityService groupActivityService;
+    private final GroupDTOMapper groupMapper;
 
+    /**
+     * Retrieves a Group entity by ID or throws a ResourceNotFoundException
+     * @param id ID of the group to retrieve
+     * @return Group entity
+     * @throws ResourceNotFoundException if group with given ID doesn't exist
+     */
+    private Group getGroupById(long id) {
+        return groupRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.error("Group with id: {} not found", id);
+                    return ResourceNotFoundException.group(id);
+                });
+    }
+
+    /**
+     * Finds a User by ID with role validation or throws a ResourceNotFoundException
+     * @param id ID of the user to retrieve
+     * @param role Expected role of the user for error messaging
+     * @return User entity
+     * @throws ResourceNotFoundException if user with given ID doesn't exist
+     */
+    private User getUserById(long id, String role) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.error("{} with id: {} not found", role, id);
+                    return ResourceNotFoundException.user(String.valueOf(id), role + " not found");
+                });
+    }
+
+    /**
+     * Deletes a group if allowed by activity rules or throws StateConflictException
+     * @param id ID of the group to delete
+     * @throws StateConflictException if group cannot be deleted due to activity constraints
+     * @throws ValidationException if deletion fails for other reasons
+     */
+    @Transactional
     public void deleteGroup(long id) {
+        Group group = getGroupById(id);
+
+        if (!groupActivityService.canModifyGroup(group)) {
+            log.error("Cannot delete inactive group {} from past semester", group.getName());
+            throw StateConflictException.inactiveGroup(group.getName());
+        }
+
         try {
-            Group group = groupRepository.findById(id).orElseThrow(() -> {
-                log.error("Group with id: {} not found", id);
-                return new GroupNotFoundException("Group not found");
-            });
-
-            if (!groupActivityService.canModifyGroup(group)) {
-                throw new GroupInactiveException("Cannot delete inactive group " + group.getName() + " from past semester");
-            }
-
             groupRepository.deleteById(id);
-        } catch (GroupInactiveException | GroupNotFoundException e) {
-            log.error("Error: {}", e.getMessage());
-            throw e;
+            log.info("Group with id {} successfully deleted", id);
         } catch (Exception e) {
             log.error("Error deleting group with id: {}, {}", id, e.getMessage());
-            throw new GroupDeleteException("Error deleting group");
+            throw ValidationException.groupValidation("Error deleting group: " + e.getMessage());
         }
     }
 
+    /**
+     * Retrieves a complete GroupDTO with all associated information by ID
+     * @param id ID of the group to retrieve
+     * @return GroupDTO with complete information about the group
+     * @throws ResourceNotFoundException if group doesn't exist
+     */
     public GroupDTO getGroup(long id) {
-        Group group = groupRepository.findById(id)
-                .orElseThrow(() -> new GroupNotFoundException("Group not found"));
+        Group group = getGroupById(id);
 
         String subjectName = subjectRepository.findByGroupsContaining(group)
                 .map(subject -> subject.getShortName() + " " + subject.getName())
                 .orElse("Unknown Subject");
 
-        List<GroupUserList> students = group.getStudents().stream()
-                .map(student -> new GroupUserList(
-                        student.getId(), student.getName(), student.getSurname(), student.getUsername()))
-                .toList();
-
-        GroupUserList teacher = (group.getTeacher() != null)
-                ? new GroupUserList(
-                group.getTeacher().getId(),
-                group.getTeacher().getName(),
-                group.getTeacher().getSurname(),
-                group.getTeacher().getUsername())
-                : null;
-
         boolean isInFuture = groupActivityService.isGroupInFuture(group);
 
-        return GroupDTO.builder()
-                .id(group.getId())
-                .name(group.getName())
-                .subject(subjectName)
-                .students(students)
-                .teacher(teacher)
-                .semester(group.getSemester())
-                .academicYear(group.getAcademicYear())
-                .active(group.isActive())
-                .isInFuture(isInFuture)
-                .build();
+        return groupMapper.toGroupDTO(group, subjectName, isInFuture);
     }
 
+    /**
+     * Returns a paginated list of groups with optional filtering by search query and activity status
+     * @param pageable Pagination information
+     * @param searchQuery Optional search query to filter groups by name, teacher, or semester
+     * @param activityFilter Optional filter by activity status ("active", "inactive", "future")
+     * @return Paginated list of GroupsResponse objects
+     */
     public Page<GroupsResponse> getAllGroups(Pageable pageable, String searchQuery, String activityFilter) {
         List<Group> groups = groupRepository.findAll();
 
@@ -136,272 +157,256 @@ public class GroupService {
                     Optional<Subject> subject = subjectRepository.findByGroupsId(group.getId());
                     String subjectName = subject.isPresent() ? subject.get().getShortName() : "No subject";
 
-                    GroupsResponse response = new GroupsResponse(
-                            group.getId(),
-                            group.getName(),
-                            group.getTeacher() != null ? group.getTeacher().getUsername() : "No teacher",
-                            group.getStudents().size(),
-                            subjectName,
-                            group.getSemester(),
-                            group.getAcademicYear(),
-                            group.isActive()
-                    );
-
                     boolean isInFuture = groupActivityService.isGroupInFuture(group);
-                    response.setInFuture(isInFuture);
-                    return response;
+                    return groupMapper.toGroupsResponse(group, subjectName, isInFuture);
                 })
                 .collect(Collectors.toList());
 
         return new PageImpl<>(groupResponses, pageable, groups.size());
     }
 
+    /**
+     * Updates an existing group with new information if allowed by activity rules
+     * @param id ID of the group to update
+     * @param createGroupDTO DTO containing updated group information
+     * @throws StateConflictException if group cannot be modified due to activity constraints
+     * @throws ValidationException if update fails validation
+     * @throws ResourceAlreadyExistsException if new group name is already taken
+     */
     @Transactional
     public void updateGroup(Long id, CreateGroupDTO createGroupDTO) {
-        try {
-            Group group = groupRepository.findById(id)
-                    .orElseThrow(() -> new GroupNotFoundException("Group not found"));
+        Group group = getGroupById(id);
 
-            if (!groupActivityService.canModifyGroup(group)) {
-                throw new GroupInactiveException("Cannot update inactive group " + group.getName() + " from past semester");
-            }
+        if (!groupActivityService.canModifyGroup(group)) {
+            log.error("Cannot update inactive group {} from past semester", group.getName());
+            throw StateConflictException.inactiveGroup(group.getName());
+        }
 
-            if (createGroupDTO.getStudentsIds() == null || createGroupDTO.getStudentsIds().isEmpty()) {
-                log.error("Group update failed: At least one student is required");
-                throw new GroupValidationException("Group must have at least one student");
-            }
+        if (createGroupDTO.getStudentsIds() == null || createGroupDTO.getStudentsIds().isEmpty()) {
+            log.error("Group update failed: At least one student is required");
+            throw ValidationException.groupValidation("Group must have at least one student");
+        }
 
-            if (!group.getName().equals(createGroupDTO.getGroupName()) &&
-                    groupRepository.findByName(createGroupDTO.getGroupName()).isPresent()) {
-                log.error("Group with name '{}' already exists", createGroupDTO.getGroupName());
-                throw new GroupNameAlreadyExistsException("Group with name '" + createGroupDTO.getGroupName() + "' already exists");
-            }
+        if (!group.getName().equals(createGroupDTO.getGroupName()) &&
+                groupRepository.findByName(createGroupDTO.getGroupName()).isPresent()) {
+            log.error("Group with name '{}' already exists", createGroupDTO.getGroupName());
+            throw ResourceAlreadyExistsException.group(createGroupDTO.getGroupName());
+        }
 
-            group.setName(createGroupDTO.getGroupName());
+        group.setName(createGroupDTO.getGroupName());
 
-            User teacher = userRepository.findById(createGroupDTO.getTeacherId())
-                    .orElseThrow(() -> new UserNotFoundException("Teacher not found"));
-            if (!teacher.getRole().equals(RolesEnum.TEACHER)) {
-                log.error("User with ID '{}' is not a teacher", createGroupDTO.getTeacherId());
-                throw new UserRoleException("User is not a teacher");
-            }
-            group.setTeacher(teacher);
+        User teacher = getUserById(createGroupDTO.getTeacherId(), "Teacher");
+        if (!teacher.getRole().equals(RolesEnum.TEACHER)) {
+            log.error("User with ID '{}' is not a teacher", createGroupDTO.getTeacherId());
+            throw StateConflictException.roleConflict("User is not a teacher");
+        }
+        group.setTeacher(teacher);
 
-            Set<User> students = createGroupDTO.getStudentsIds().stream()
+        Set<User> students = createGroupDTO.getStudentsIds().stream()
+                .map(userRepository::findById)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .filter(user -> user.getRole().equals(RolesEnum.STUDENT))
+                .collect(Collectors.toSet());
+
+        if (students.isEmpty()) {
+            log.error("Group update failed: No valid students found");
+            throw ValidationException.groupValidation("Group update failed: No valid students found");
+        }
+        group.setStudents(students);
+
+        if (createGroupDTO.getSemester() == null) {
+            createGroupDTO.setSemester(Semester.valueOf(semesterConfig.getCurrentSemester()));
+        }
+
+        if (createGroupDTO.getAcademicYear() == null) {
+            createGroupDTO.setAcademicYear(semesterConfig.getCurrentAcademicYear());
+        }
+
+        boolean isActive = semesterConfig.isSemesterActive(createGroupDTO.getSemester().name(), createGroupDTO.getAcademicYear());
+        group.setSemester(createGroupDTO.getSemester());
+        group.setAcademicYear(createGroupDTO.getAcademicYear());
+        group.setActive(isActive);
+
+        groupRepository.save(group);
+        log.info("Group '{}' updated successfully with {} students", group.getName(), students.size());
+    }
+
+    /**
+     * Creates a new group with provided information and returns the generated ID
+     * @param createGroupDTO DTO containing new group information
+     * @return ID of the newly created group
+     * @throws ResourceAlreadyExistsException if group name already exists
+     * @throws StateConflictException if teacher role validation fails
+     */
+    @Transactional
+    public Long createGroup(CreateGroupDTO createGroupDTO) {
+        if (groupRepository.findByName(createGroupDTO.getGroupName()).isPresent()) {
+            log.error("Group with name '{}' already exists", createGroupDTO.getGroupName());
+            throw ResourceAlreadyExistsException.group(createGroupDTO.getGroupName());
+        }
+
+        User teacher = getUserById(createGroupDTO.getTeacherId(), "Teacher");
+        if (!teacher.getRole().equals(RolesEnum.TEACHER)) {
+            log.error("User with ID '{}' is not a teacher", createGroupDTO.getTeacherId());
+            throw StateConflictException.roleConflict("User is not a teacher");
+        }
+
+        if (createGroupDTO.getSemester() == null) {
+            createGroupDTO.setSemester(Semester.valueOf(semesterConfig.getCurrentSemester()));
+        }
+
+        if (createGroupDTO.getAcademicYear() == null) {
+            createGroupDTO.setAcademicYear(semesterConfig.getCurrentAcademicYear());
+        }
+
+        boolean isActive = (createGroupDTO.getActive() != null)
+                ? createGroupDTO.getActive()
+                : semesterConfig.isSemesterActive(createGroupDTO.getSemester().name(), createGroupDTO.getAcademicYear());
+
+        Set<User> students = new HashSet<>();
+        if (createGroupDTO.getStudentsIds() != null && !createGroupDTO.getStudentsIds().isEmpty()) {
+            students = createGroupDTO.getStudentsIds().stream()
                     .map(userRepository::findById)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .filter(user -> user.getRole().equals(RolesEnum.STUDENT))
                     .collect(Collectors.toSet());
-
-            if (students.isEmpty()) {
-                log.error("Group update failed: No valid students found");
-                throw new GroupValidationException("Group update failed: No valid students found");
-            }
-            group.setStudents(students);
-
-            if (createGroupDTO.getSemester() == null) {
-                createGroupDTO.setSemester(Semester.valueOf(semesterConfig.getCurrentSemester()));
-            }
-
-            if (createGroupDTO.getAcademicYear() == null) {
-                createGroupDTO.setAcademicYear(semesterConfig.getCurrentAcademicYear());
-            }
-
-            boolean isActive = semesterConfig.isSemesterActive(createGroupDTO.getSemester().name(), createGroupDTO.getAcademicYear());
-
-            group.setSemester(createGroupDTO.getSemester());
-            group.setAcademicYear(createGroupDTO.getAcademicYear());
-            group.setActive(isActive);
-
-            groupRepository.save(group);
-            log.info("Group '{}' updated successfully with {} students", group.getName(), students.size());
-        } catch (GroupInactiveException | GroupValidationException | GroupNameAlreadyExistsException | UserNotFoundException | UserRoleException e) {
-            log.error("Error updating group: {}", e.getMessage());
-            throw e;
-        } catch (Exception e) {
-            log.error("Unexpected error while updating group: {}", e.getMessage(), e);
-            throw new RuntimeException("Unexpected error: " + e.getMessage());
         }
+
+        Group group = Group.builder()
+                .name(createGroupDTO.getGroupName())
+                .teacher(teacher)
+                .students(students)
+                .semester(createGroupDTO.getSemester())
+                .academicYear(createGroupDTO.getAcademicYear())
+                .active(isActive)
+                .build();
+
+        Group savedGroup = groupRepository.save(group);
+        log.info("Group '{}' created successfully with {} students, active status: {}",
+                group.getName(), students.size(), group.isActive());
+
+        return savedGroup.getId();
     }
 
-    public Long createGroup(CreateGroupDTO createGroupDTO) {
-        try {
-            if (groupRepository.findByName(createGroupDTO.getGroupName()).isPresent()) {
-                log.error("Group with name '{}' already exists", createGroupDTO.getGroupName());
-                throw new GroupNameAlreadyExistsException("Group with name '" + createGroupDTO.getGroupName() + "' already exists");
-            }
-
-            User teacher = userRepository.findById(createGroupDTO.getTeacherId())
-                    .orElseThrow(() -> new UserNotFoundException("Teacher cannot be null"));
-            if (!teacher.getRole().equals(RolesEnum.TEACHER)) {
-                log.error("User with ID '{}' is not a teacher", createGroupDTO.getTeacherId());
-                throw new UserRoleException("User is not a teacher");
-            }
-
-            if (createGroupDTO.getSemester() == null) {
-                createGroupDTO.setSemester(Semester.valueOf(semesterConfig.getCurrentSemester()));
-            }
-
-            if (createGroupDTO.getAcademicYear() == null) {
-                createGroupDTO.setAcademicYear(semesterConfig.getCurrentAcademicYear());
-            }
-
-            boolean isActive = (createGroupDTO.getActive() != null)
-                    ? createGroupDTO.getActive()
-                    : semesterConfig.isSemesterActive(createGroupDTO.getSemester().name(), createGroupDTO.getAcademicYear());
-
-            Set<User> students = new HashSet<>();
-            if (createGroupDTO.getStudentsIds() != null && !createGroupDTO.getStudentsIds().isEmpty()) {
-                students = createGroupDTO.getStudentsIds().stream()
-                        .map(userRepository::findById)
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .filter(user -> user.getRole().equals(RolesEnum.STUDENT))
-                        .collect(Collectors.toSet());
-            }
-
-            Group group = Group.builder()
-                    .name(createGroupDTO.getGroupName())
-                    .teacher(teacher)
-                    .students(students)
-                    .semester(createGroupDTO.getSemester())
-                    .academicYear(createGroupDTO.getAcademicYear())
-                    .active(isActive)
-                    .build();
-
-            groupRepository.save(group);
-            log.info("Group '{}' created successfully with {} students, active status: {}",
-                    group.getName(), students.size(), group.isActive());
-
-            return group.getId();
-        } catch (GroupNameAlreadyExistsException | UserNotFoundException | UserRoleException | GroupValidationException e) {
-            log.error("Error creating group: {}", e.getMessage(), e);
-            throw e;
-        } catch (Exception e) {
-            log.error("Unexpected error while creating group: {}", e.getMessage(), e);
-            throw new RuntimeException("Unexpected error: " + e.getMessage());
-        }
-    }
-
+    /**
+     * Retrieves a paginated list of students with their subject associations
+     * @param pageable Pagination information
+     * @param searchQuery Optional search query to filter students by name or username
+     * @return Paginated list of CreateGroupUserListDTO objects
+     */
     public Page<CreateGroupUserListDTO> getAllStudents(Pageable pageable, String searchQuery) {
-        try {
-            Page<User> studentsPage;
+        Page<User> studentsPage;
 
-            if (StringUtils.hasText(searchQuery)) {
-                String searchLower = searchQuery.toLowerCase();
-                List<User> allStudents = userRepository.findAllByRole(RolesEnum.STUDENT);
+        if (StringUtils.hasText(searchQuery)) {
+            String searchLower = searchQuery.toLowerCase();
+            List<User> allStudents = userRepository.findAllByRole(RolesEnum.STUDENT);
 
-                List<User> filteredStudents = allStudents.stream()
-                        .filter(student -> {
-                            String fullName = (student.getName() + " " + student.getSurname()).toLowerCase();
-                            String username = student.getUsername() != null ? student.getUsername().toLowerCase() : "";
+            List<User> filteredStudents = allStudents.stream()
+                    .filter(student -> {
+                        String fullName = (student.getName() + " " + student.getSurname()).toLowerCase();
+                        String username = student.getUsername() != null ? student.getUsername().toLowerCase() : "";
 
-                            return fullName.contains(searchLower) || username.contains(searchLower);
-                        })
-                        .collect(Collectors.toList());
-
-                int start = (int) pageable.getOffset();
-                int end = Math.min((start + pageable.getPageSize()), filteredStudents.size());
-
-                if (start > filteredStudents.size()) {
-                    return new PageImpl<>(Collections.emptyList(), pageable, filteredStudents.size());
-                }
-
-                List<User> pagedStudents = filteredStudents.subList(start, end);
-                studentsPage = new PageImpl<>(pagedStudents, pageable, filteredStudents.size());
-            } else {
-                studentsPage = userRepository.findByRole(RolesEnum.STUDENT, pageable);
-            }
-
-            List<CreateGroupUserListDTO> students = studentsPage.getContent().stream()
-                    .map(student -> {
-                        List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
-
-                        List<String> subjectNames = studentActiveGroups.stream()
-                                .map(group -> subjectRepository.findByGroupsContaining(group)
-                                        .map(Subject::getShortName)
-                                        .orElse("Group has no subject"))
-                                .distinct()
-                                .toList();
-
-                        return new CreateGroupUserListDTO(
-                                student.getId(),
-                                student.getName(),
-                                student.getSurname(),
-                                student.getUsername(),
-                                subjectNames
-                        );
+                        return fullName.contains(searchLower) || username.contains(searchLower);
                     })
-                    .toList();
+                    .collect(Collectors.toList());
 
-            return new PageImpl<>(students, pageable, studentsPage.getTotalElements());
-        } catch (Exception e) {
-            log.error("Error fetching students: {}", e.getMessage(), e);
-            throw new RuntimeException("Error fetching students: " + e.getMessage());
-        }
-    }
+            int start = (int) pageable.getOffset();
+            int end = Math.min((start + pageable.getPageSize()), filteredStudents.size());
 
-    public Page<GroupUserList> getAllTeachers(Pageable pageable, String searchQuery) {
-        try {
-            Page<User> teachersPage;
-
-            if (StringUtils.hasText(searchQuery)) {
-                List<User> allTeachers = userRepository.findAllByRole(RolesEnum.TEACHER);
-
-                String searchLower = searchQuery.toLowerCase();
-                List<User> filteredTeachers = allTeachers.stream()
-                        .filter(teacher ->
-                                (teacher.getName() != null && teacher.getName().toLowerCase().contains(searchLower)) ||
-                                        (teacher.getSurname() != null && teacher.getSurname().toLowerCase().contains(searchLower)) ||
-                                        (teacher.getUsername() != null && teacher.getUsername().toLowerCase().contains(searchLower)) ||
-                                        (teacher.getEmail() != null && teacher.getEmail().toLowerCase().contains(searchLower))
-                        )
-                        .collect(Collectors.toList());
-
-                int start = (int) pageable.getOffset();
-                int end = Math.min((start + pageable.getPageSize()), filteredTeachers.size());
-
-                if (start > filteredTeachers.size()) {
-                    return new PageImpl<>(Collections.emptyList(), pageable, filteredTeachers.size());
-                }
-
-                List<User> pagedTeachers = filteredTeachers.subList(start, end);
-                teachersPage = new PageImpl<>(pagedTeachers, pageable, filteredTeachers.size());
-            } else {
-                teachersPage = userRepository.findByRole(RolesEnum.TEACHER, pageable);
+            if (start > filteredStudents.size()) {
+                return new PageImpl<>(Collections.emptyList(), pageable, filteredStudents.size());
             }
 
-            return teachersPage.map(user -> new GroupUserList(user.getId(), user.getName(), user.getSurname(), user.getUsername()));
-        } catch (Exception e) {
-            log.error("Error fetching teachers: {}", e.getMessage(), e);
-            throw new RuntimeException("Error fetching teachers: " + e.getMessage());
+            List<User> pagedStudents = filteredStudents.subList(start, end);
+            studentsPage = new PageImpl<>(pagedStudents, pageable, filteredStudents.size());
+        } else {
+            studentsPage = userRepository.findByRole(RolesEnum.STUDENT, pageable);
         }
+
+        List<CreateGroupUserListDTO> students = studentsPage.getContent().stream()
+                .map(student -> {
+                    List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
+
+                    List<String> subjectNames = studentActiveGroups.stream()
+                            .map(group -> subjectRepository.findByGroupsContaining(group)
+                                    .map(Subject::getShortName)
+                                    .orElse("Group has no subject"))
+                            .distinct()
+                            .toList();
+
+                    return groupMapper.toCreateGroupUserListDTO(student, subjectNames);
+                })
+                .toList();
+
+        return new PageImpl<>(students, pageable, studentsPage.getTotalElements());
     }
 
+    /**
+     * Returns a paginated list of teachers with optional search filtering
+     * @param pageable Pagination information
+     * @param searchQuery Optional search query to filter teachers by name, surname, username, or email
+     * @return Paginated list of GroupUserList objects
+     */
+    public Page<GroupUserList> getAllTeachers(Pageable pageable, String searchQuery) {
+        Page<User> teachersPage;
+
+        if (StringUtils.hasText(searchQuery)) {
+            List<User> allTeachers = userRepository.findAllByRole(RolesEnum.TEACHER);
+
+            String searchLower = searchQuery.toLowerCase();
+            List<User> filteredTeachers = allTeachers.stream()
+                    .filter(teacher ->
+                            (teacher.getName() != null && teacher.getName().toLowerCase().contains(searchLower)) ||
+                                    (teacher.getSurname() != null && teacher.getSurname().toLowerCase().contains(searchLower)) ||
+                                    (teacher.getUsername() != null && teacher.getUsername().toLowerCase().contains(searchLower)) ||
+                                    (teacher.getEmail() != null && teacher.getEmail().toLowerCase().contains(searchLower))
+                    )
+                    .collect(Collectors.toList());
+
+            int start = (int) pageable.getOffset();
+            int end = Math.min((start + pageable.getPageSize()), filteredTeachers.size());
+
+            if (start > filteredTeachers.size()) {
+                return new PageImpl<>(Collections.emptyList(), pageable, filteredTeachers.size());
+            }
+
+            List<User> pagedTeachers = filteredTeachers.subList(start, end);
+            teachersPage = new PageImpl<>(pagedTeachers, pageable, filteredTeachers.size());
+        } else {
+            teachersPage = userRepository.findByRole(RolesEnum.TEACHER, pageable);
+        }
+
+        return teachersPage.map(groupMapper::toGroupUserList);
+    }
+
+    /**
+     * Gets current group members and available students categorized for management screens
+     * @param pageable Pagination information
+     * @param groupId ID of the group to get members for
+     * @param searchQuery Optional search query to filter available students
+     * @param includeCurrentMembers Whether to include current members in available students
+     * @param hideStudentsInSameSubject Whether to hide students already in the same subject
+     * @return GroupStudentsResponseDTO with current members and available students
+     * @throws ValidationException if groupId is null
+     */
     public GroupStudentsResponseDTO getGroupStudentsWithCategories(
             Pageable pageable, Long groupId, String searchQuery, boolean includeCurrentMembers, boolean hideStudentsInSameSubject) {
 
         if (groupId == null) {
-            throw new InvalidGroupIdException("Group ID is required");
+            throw ValidationException.invalidParameter("groupId", "Group ID is required");
         }
 
-        Group group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new GroupNotFoundException("Group with id " + groupId + " not found"));
+        Group group = getGroupById(groupId);
 
-        List<CreateGroupUserListDTO> currentMembers = group.getStudents().stream()
-                .map(student -> {
-                    List<String> subjectNames = getStudentSubjects(student);
-                    return new CreateGroupUserListDTO(
-                            student.getId(),
-                            student.getName(),
-                            student.getSurname(),
-                            student.getUsername(),
-                            subjectNames
-                    );
-                })
-                .sorted(Comparator.comparing(dto -> dto.getName() + " " + dto.getSurname()))
+        List<String> subjectNames = group.getStudents().stream()
+                .flatMap(student -> getStudentSubjects(student).stream())
+                .distinct()
                 .collect(Collectors.toList());
+
+        List<CreateGroupUserListDTO> currentMembers = groupMapper.mapAndSortCurrentMembers(
+                group.getStudents(), subjectNames);
 
         Page<CreateGroupUserListDTO> availableStudents =
                 includeCurrentMembers ? getAllStudents(pageable, searchQuery) :
@@ -413,11 +418,18 @@ public class GroupService {
                 .build();
     }
 
+    /**
+     * Retrieves students not in specified group with optional filtering by subject association
+     * @param pageable Pagination information
+     * @param groupId ID of the group to exclude students from
+     * @param searchQuery Optional search query to filter students
+     * @param hideStudentsInSameSubject Whether to hide students already in the same subject
+     * @return Paginated list of CreateGroupUserListDTO objects
+     */
     public Page<CreateGroupUserListDTO> getAllStudentsNotInGroup(
             Pageable pageable, Long groupId, String searchQuery, boolean hideStudentsInSameSubject) {
 
-        Group group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new GroupNotFoundException("Group with id " + groupId + " not found"));
+        Group group = getGroupById(groupId);
 
         Set<Long> studentsInGroupIds = group.getStudents().stream()
                 .map(User::getId)
@@ -497,18 +509,15 @@ public class GroupService {
                             .distinct()
                             .toList();
 
-                    CreateGroupUserListDTO dto = new CreateGroupUserListDTO(
-                            student.getId(),
-                            student.getName(),
-                            student.getSurname(),
-                            student.getUsername(),
-                            subjectNames
-                    );
+                    CreateGroupUserListDTO dto = groupMapper.toCreateGroupUserListDTO(student, subjectNames);
 
                     if (finalSubject != null && finalStudentsInSubjectIds.contains(student.getId())) {
-                        dto.setInSameSubject(true);
-                        dto.setSubjectName(finalSubject.getName());
-                        dto.setSubjectShortName(finalSubject.getShortName());
+                        groupMapper.enrichWithSubjectInfo(
+                                dto,
+                                true,
+                                finalSubject.getName(),
+                                finalSubject.getShortName()
+                        );
                     }
 
                     return dto;
@@ -518,6 +527,11 @@ public class GroupService {
         return new PageImpl<>(resultList, pageable, filteredStudents.size());
     }
 
+    /**
+     * Helper method to get a list of subject names for a specific student
+     * @param student User entity representing a student
+     * @return List of subject short names the student is enrolled in
+     */
     private List<String> getStudentSubjects(User student) {
         List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
 

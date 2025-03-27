@@ -1,17 +1,12 @@
 package com.altester.core.controller.auth;
 
 import com.altester.core.dtos.auth_service.pass.ChangePassDTO;
-import com.altester.core.model.auth.User;
-import com.altester.core.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
-
-import java.security.Principal;
 
 @RequestMapping("/password")
 @RestController
@@ -20,18 +15,12 @@ import java.security.Principal;
 public class UserPassController {
 
     private final RestTemplate restTemplate;
-    private final UserRepository userRepository;
 
     @Value("${AUTH_SERVICE_URL}")
     private String authServiceUrl;
 
     private String getAuthServiceUrl() {
         return authServiceUrl + "/password";
-    }
-
-    private User getUserByPrincipal(Principal principal) {
-        return userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new UsernameNotFoundException(principal.getName()));
     }
 
     private ResponseEntity<String> forwardRequest(String endpoint, HttpMethod method, HttpEntity<?> requestEntity) {

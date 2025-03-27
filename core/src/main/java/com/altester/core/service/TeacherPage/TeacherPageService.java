@@ -29,6 +29,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TeacherPageService {
 
+    // TODO: Add cash, add pagination search
+
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
     private final SubjectRepository subjectRepository;
@@ -36,7 +38,7 @@ public class TeacherPageService {
 
     public TeacherPageDTO getPage(String username) {
         User teacher = userRepository.findByUsername(username).orElseThrow(()
-                -> new UserNotFoundException("Teacher not found" + username));
+                -> ResourceNotFoundException.user(username, "Teacher not found: " + username));
 
         List<Group> teacherGroups = groupRepository.findByTeacher(teacher);
 
@@ -69,7 +71,7 @@ public class TeacherPageService {
 
     public Page<TeacherStudentsDTO> getStudents(String username, Pageable pageable) {
         User teacher = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UserNotFoundException("Teacher not found: " + username));
+                .orElseThrow(() -> ResourceNotFoundException.user(username, "Teacher not found: " + username));
 
         List<Group> activeGroups = groupRepository.findByTeacher(teacher).stream()
                 .filter(Group::isActive)
@@ -110,7 +112,7 @@ public class TeacherPageService {
 
     public Page<ListTeacherGroupDTO> getGroups(String username, Pageable pageable) {
         User teacher = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UserNotFoundException("Teacher not found: " + username));
+                .orElseThrow(() -> ResourceNotFoundException.user(username, "Teacher not found: " + username));
 
         List<ListTeacherGroupDTO> groups = groupRepository.findByTeacher(teacher).stream()
                 .map(group -> {
@@ -146,41 +148,41 @@ public class TeacherPageService {
     public void moveStudentBetweenGroups(String username, String studentUsername, Long fromGroupId, Long toGroupId) {
         try {
             User teacher = userRepository.findByUsername(username)
-                    .orElseThrow(() -> new UserNotFoundException("Teacher not found: " + username));
+                    .orElseThrow(() -> ResourceNotFoundException.user(username, "Teacher not found: " + username));
 
             Group fromGroup = groupRepository.findById(fromGroupId)
-                    .orElseThrow(() -> new GroupNotFoundException("Source group not found"));
+                    .orElseThrow(() -> ResourceNotFoundException.group(fromGroupId));
             Group toGroup = groupRepository.findById(toGroupId)
-                    .orElseThrow(() -> new GroupNotFoundException("Target group not found"));
+                    .orElseThrow(() -> ResourceNotFoundException.group(toGroupId));
 
             // Check if both groups are active
             boolean isFromGroupActive = groupActivityService.checkAndUpdateGroupActivity(fromGroup);
             boolean isToGroupActive = groupActivityService.checkAndUpdateGroupActivity(toGroup);
 
             if (!isFromGroupActive) {
-                throw new GroupInactiveException("Cannot move students from inactive group: " + fromGroup.getName());
+                throw StateConflictException.inactiveGroup(fromGroup.getName());
             }
 
             if (!isToGroupActive) {
-                throw new GroupInactiveException("Cannot move students to inactive group: " + toGroup.getName());
+                throw StateConflictException.inactiveGroup(toGroup.getName());
             }
 
             if (!fromGroup.getTeacher().equals(teacher) || !toGroup.getTeacher().equals(teacher)) {
-                throw new GroupMismatchException("You can only move students within your own groups");
+                throw ValidationException.groupValidation("You can only move students within your own groups");
             }
 
             Optional<Subject> fromSubject = subjectRepository.findByGroupsContaining(fromGroup);
             Optional<Subject> toSubject = subjectRepository.findByGroupsContaining(toGroup);
 
             if (fromSubject.isEmpty() || toSubject.isEmpty() || !fromSubject.get().equals(toSubject.get())) {
-                throw new GroupMismatchException("Groups must belong to the same subject");
+                throw ValidationException.groupValidation("Groups must belong to the same subject");
             }
 
             User student = userRepository.findByUsername(studentUsername)
-                    .orElseThrow(() -> new UserNotFoundException("Student not found"));
+                    .orElseThrow(() -> ResourceNotFoundException.user(studentUsername, "Student not found"));
 
             if (!fromGroup.getStudents().contains(student)) {
-                throw new StudentNotInGroupException("Student is not in the source group");
+                throw ValidationException.groupValidation("Student is not in the source group");
             }
 
             List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student)
@@ -190,7 +192,7 @@ public class TeacherPageService {
 
             if (studentActiveGroups.size() > 1 &&
                     studentActiveGroups.stream().anyMatch(g -> g.getId() != fromGroupId)) {
-                throw new MultipleActiveGroupsException("Student is already in multiple active groups of this subject");
+                throw StateConflictException.multipleActiveGroups("Student is already in multiple active groups of this subject");
             }
 
             fromGroup.getStudents().remove(student);
@@ -199,8 +201,7 @@ public class TeacherPageService {
             groupRepository.save(fromGroup);
             groupRepository.save(toGroup);
 
-        } catch (UserNotFoundException | GroupNotFoundException | GroupInactiveException | GroupMismatchException |
-                 StudentNotInGroupException | MultipleActiveGroupsException e) {
+        } catch (AlTesterException e) {
             log.error("Error moving student between groups: {}", e.getMessage());
             throw e;
         } catch (Exception e) {

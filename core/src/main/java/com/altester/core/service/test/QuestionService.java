@@ -3,7 +3,6 @@ package com.altester.core.service.test;
 import com.altester.core.dtos.core_service.question.CreateQuestionDTO;
 import com.altester.core.dtos.core_service.question.QuestionDetailsDTO;
 import com.altester.core.dtos.core_service.question.UpdateQuestionDTO;
-import com.altester.core.dtos.core_service.test.OptionDTO;
 import com.altester.core.exception.*;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
@@ -11,26 +10,16 @@ import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Option;
 import com.altester.core.model.subject.Question;
 import com.altester.core.model.subject.Test;
-import com.altester.core.model.subject.enums.QuestionType;
 import com.altester.core.repository.*;
 import com.altester.core.service.subject.GroupActivityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.security.Principal;
-import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -43,42 +32,91 @@ public class QuestionService {
     private final GroupRepository groupRepository;
     private final TestAccessValidator testAccessValidator;
     private final TestDTOMapper testDTOMapper;
+    private final QuestionDTOMapper questionDTOMapper;
     private final GroupActivityService groupActivityService;
+    private final ImageService imageService;
+    private final QuestionValidator questionValidator;
 
-    @Value("${app.upload.question-images")
-    private String uploadDir;
+    /**
+     * Retrieves the current authenticated user.
+     *
+     * @param principal The authenticated user principal
+     * @return User entity for the authenticated user
+     * @throws ResourceNotFoundException If the user is not found
+     */
+    private User getCurrentUser(Principal principal) {
+        return userRepository.findByUsername(principal.getName())
+                .orElseThrow(() -> {
+                    log.error("User {} not found", principal.getName());
+                    return ResourceNotFoundException.user(principal.getName());
+                });
+    }
 
+    /**
+     * Retrieves a test by its ID.
+     *
+     * @param testId The ID of the test to retrieve
+     * @return Test entity
+     * @throws ResourceNotFoundException If the test is not found
+     */
+    private Test getTestById(Long testId) {
+        return testRepository.findById(testId)
+                .orElseThrow(() -> {
+                    log.error("Test with ID {} not found", testId);
+                    return ResourceNotFoundException.test(testId);
+                });
+    }
+
+    /**
+     * Retrieves a question by its ID.
+     *
+     * @param questionId The ID of the question to retrieve
+     * @return Question entity
+     * @throws ResourceNotFoundException If the question is not found
+     */
+    private Question getQuestionById(Long questionId) {
+        return questionRepository.findById(questionId)
+                .orElseThrow(() -> {
+                    log.error("Question with ID {} not found", questionId);
+                    return ResourceNotFoundException.question(questionId);
+                });
+    }
+
+    /**
+     * Adds a new question to a test.
+     *
+     * @param testId The ID of the test to add the question to
+     * @param createQuestionDTO The data transfer object containing question details
+     * @param principal The authenticated user principal
+     * @param image Optional image file for the question
+     * @return QuestionDetailsDTO containing the created question details
+     * @throws ResourceNotFoundException If the user or test is not found
+     * @throws AccessDeniedException If the user does not have permission to modify the test
+     * @throws ValidationException If the question data is invalid
+     * @throws FileOperationException If there's an error saving the image
+     * @throws StateConflictException If trying to modify a test in a past semester group
+     */
     @Transactional
     public QuestionDetailsDTO addQuestion(Long testId, CreateQuestionDTO createQuestionDTO,
                                           Principal principal, MultipartFile image) {
         log.info("User {} is attempting to add a question to test with ID {}", principal.getName(), testId);
 
-        User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> {
-                    log.error("User {} not found", principal.getName());
-                    return new UserNotFoundException("User not found");
-                });
-
-        Test test = testRepository.findById(testId)
-                .orElseThrow(() -> {
-                    log.error("Test with ID {} not found", testId);
-                    return new TestNotFoundException("Test not found");
-                });
+        User currentUser = getCurrentUser(principal);
+        Test test = getTestById(testId);
 
         verifyTestModificationPermission(currentUser, test);
 
-        validateQuestionData(createQuestionDTO.getQuestionType(), createQuestionDTO.getQuestionText(),
-                image, createQuestionDTO.getOptions());
+        questionValidator.validateQuestionData(
+                createQuestionDTO.getQuestionType(),
+                createQuestionDTO.getQuestionText(),
+                image != null && !image.isEmpty(),
+                createQuestionDTO.getOptions()
+        );
 
         String imagePath = null;
         if (image != null && !image.isEmpty()) {
-            try {
-                imagePath = saveImage(image);
-                log.info("Image saved successfully: {}", imagePath);
-            } catch (Exception e) {
-                log.error("Failed to save image for question", e);
-                throw new ImageSaveException("Could not save image");
-            }
+            imagePath = imageService.saveImage(image);
+            log.info("Image saved successfully: {}", imagePath);
         }
 
         int lastPosition = questionRepository.findMaxPositionByTestId(testId).orElse(0);
@@ -107,47 +145,59 @@ public class QuestionService {
         }
 
         log.info("Question with ID {} added to test with ID {}", savedQuestion.getId(), testId);
-        return convertToQuestionDetailsDTO(savedQuestion);
+        return questionDTOMapper.convertToQuestionDetailsDTO(savedQuestion);
     }
 
+    /**
+     * Updates an existing question.
+     *
+     * @param questionId The ID of the question to update
+     * @param updateQuestionDTO The data transfer object containing updated question details
+     * @param principal The authenticated user principal
+     * @param image Optional new image file for the question
+     * @return QuestionDetailsDTO containing the updated question details
+     * @throws ResourceNotFoundException If the user or question is not found
+     * @throws AccessDeniedException If the user does not have permission to modify the question
+     * @throws ValidationException If the updated question data is invalid
+     * @throws FileOperationException If there's an error saving or deleting the image
+     * @throws StateConflictException If trying to modify a test in a past semester group
+     */
     @Transactional
     public QuestionDetailsDTO updateQuestion(Long questionId, UpdateQuestionDTO updateQuestionDTO,
                                              Principal principal, MultipartFile image) {
         log.info("User {} is attempting to update question with ID {}", principal.getName(), questionId);
 
-        User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> {
-                    log.error("User {} not found", principal.getName());
-                    return new UserNotFoundException("User not found");
-                });
-
-        Question question = questionRepository.findById(questionId)
-                .orElseThrow(() -> {
-                    log.error("Question with ID {} not found", questionId);
-                    return new QuestionNotFoundException("Question not found");
-                });
-
+        User currentUser = getCurrentUser(principal);
+        Question question = getQuestionById(questionId);
         Test test = question.getTest();
 
         verifyTestModificationPermission(currentUser, test);
 
         String imagePath = question.getImagePath();
+        boolean imageChanged = false;
+
         if (image != null && !image.isEmpty()) {
             if (imagePath != null) {
-                deleteImage(imagePath);
+                imageService.deleteImage(imagePath);
             }
-            imagePath = saveImage(image);
+            imagePath = imageService.saveImage(image);
+            imageChanged = true;
         } else if (updateQuestionDTO.isRemoveImage() && imagePath != null) {
-            deleteImage(imagePath);
+            imageService.deleteImage(imagePath);
             imagePath = null;
+            imageChanged = true;
         }
 
         String questionText = updateQuestionDTO.getQuestionText() != null ?
                 updateQuestionDTO.getQuestionText() : question.getQuestionText();
 
-        validateQuestionData(updateQuestionDTO.getQuestionType(), questionText,
-                (image != null && !image.isEmpty()) || (imagePath != null && !updateQuestionDTO.isRemoveImage()) ?
-                        new Object() : null, updateQuestionDTO.getOptions());
+        boolean hasImage = imagePath != null || imageChanged;
+        questionValidator.validateQuestionData(
+                updateQuestionDTO.getQuestionType(),
+                questionText,
+                hasImage,
+                updateQuestionDTO.getOptions()
+        );
 
         if (updateQuestionDTO.getQuestionText() != null) {
             question.setQuestionText(updateQuestionDTO.getQuestionText());
@@ -179,32 +229,31 @@ public class QuestionService {
         Question updatedQuestion = questionRepository.save(question);
         log.info("Question with ID {} updated", questionId);
 
-        return convertToQuestionDetailsDTO(updatedQuestion);
+        return questionDTOMapper.convertToQuestionDetailsDTO(updatedQuestion);
     }
 
+    /**
+     * Deletes a question from a test.
+     *
+     * @param questionId The ID of the question to delete
+     * @param principal The authenticated user principal
+     * @throws ResourceNotFoundException If the user or question is not found
+     * @throws AccessDeniedException If the user does not have permission to modify the test
+     * @throws StateConflictException If trying to modify a test in a past semester group
+     */
     @Transactional
     public void deleteQuestion(Long questionId, Principal principal) {
         log.info("User {} is attempting to delete question with ID {}", principal.getName(), questionId);
 
-        User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> {
-                    log.error("User {} not found", principal.getName());
-                    return new UserNotFoundException("User not found");
-                });
-
-        Question question = questionRepository.findById(questionId)
-                .orElseThrow(() -> {
-                    log.error("Question with ID {} not found", questionId);
-                    return new QuestionNotFoundException("Question not found");
-                });
-
+        User currentUser = getCurrentUser(principal);
+        Question question = getQuestionById(questionId);
         int position = question.getPosition();
         Test test = question.getTest();
 
         verifyTestModificationPermission(currentUser, test);
 
         if (question.getImagePath() != null) {
-            deleteImage(question.getImagePath());
+            imageService.deleteImage(question.getImagePath());
         }
 
         questionRepository.delete(question);
@@ -218,57 +267,46 @@ public class QuestionService {
         log.info("Question with ID {} deleted", questionId);
     }
 
+    /**
+     * Retrieves details of a specific question.
+     *
+     * @param questionId The ID of the question to retrieve
+     * @param principal The authenticated user principal
+     * @return QuestionDetailsDTO containing the question details
+     * @throws ResourceNotFoundException If the user or question is not found
+     * @throws AccessDeniedException If the user does not have permission to access the test
+     */
     @Transactional(readOnly = true)
     public QuestionDetailsDTO getQuestion(Long questionId, Principal principal) {
         log.info("User {} is attempting to get question with ID {}", principal.getName(), questionId);
 
-        User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> {
-                    log.error("User {} not found", principal.getName());
-                    return new UserNotFoundException("User not found");
-                });
-
-        Question question = questionRepository.findById(questionId)
-                .orElseThrow(() -> {
-                    log.error("Question with ID {} not found", questionId);
-                    return new QuestionNotFoundException("Question not found");
-                });
-
+        User currentUser = getCurrentUser(principal);
+        Question question = getQuestionById(questionId);
         Test test = question.getTest();
 
         testAccessValidator.validateTestAccess(currentUser, test);
 
-        return convertToQuestionDetailsDTO(question);
+        return questionDTOMapper.convertToQuestionDetailsDTO(question);
     }
 
-    private void verifyTestModificationPermission(User currentUser, Test test) {
-        if (currentUser.getRole() == RolesEnum.TEACHER) {
-            List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
-
-            testAccessValidator.canTeacherEditTest(currentUser, test, teacherGroups);
-        }
-        if (currentUser.getRole() != RolesEnum.ADMIN) {
-            log.warn("User {} with role {} attempted to modify test", currentUser.getUsername(), currentUser.getRole());
-            throw new TestAccessDeniedException("Not authorized to modify this test");
-        }
-
-        List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
-        for (Group group : testGroups) {
-            if (!groupActivityService.canModifyGroup(group)) {
-                log.warn("Attempt to modify test in past semester group");
-                throw new GroupInactiveException("Cannot modify questions in a test from a past semester group");
-            }
-        }
-    }
-
+    /**
+     * Changes the position of a question within a test.
+     *
+     * @param questionId The ID of the question to reposition
+     * @param newPosition The new position for the question
+     * @param principal The authenticated user principal
+     * @throws ResourceNotFoundException If the user or question is not found
+     * @throws AccessDeniedException If the user does not have permission to modify the test
+     * @throws ValidationException If the new position is invalid
+     * @throws StateConflictException If trying to modify a test in a past semester group
+     */
     @Transactional
     public void changeQuestionPosition(Long questionId, int newPosition, Principal principal) {
-        User currentUser = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
+        log.info("User {} is attempting to change position of question ID {} to position {}",
+                principal.getName(), questionId, newPosition);
 
-        Question question = questionRepository.findById(questionId)
-                .orElseThrow(() -> new QuestionNotFoundException("Question not found"));
-
+        User currentUser = getCurrentUser(principal);
+        Question question = getQuestionById(questionId);
         Test test = question.getTest();
 
         verifyTestModificationPermission(currentUser, test);
@@ -277,138 +315,51 @@ public class QuestionService {
         int maxPosition = questionRepository.findMaxPositionByTestId(test.getId()).orElse(0);
 
         if (newPosition < 1 || newPosition > maxPosition) {
-            throw new InvalidPositionException("Position must be between 1 and " + maxPosition);
+            throw ValidationException.invalidPosition("Position must be between 1 and " + maxPosition);
+        }
+
+        if (oldPosition == newPosition) {
+            log.debug("No position change required as old and new positions are the same");
+            return;
         }
 
         if (oldPosition < newPosition) {
             questionRepository.decrementPositionForRange(test.getId(), oldPosition + 1, newPosition);
-        } else if (oldPosition > newPosition) {
+        } else {
             questionRepository.incrementPositionForRange(test.getId(), newPosition, oldPosition - 1);
         }
 
         question.setPosition(newPosition);
         questionRepository.save(question);
+
+        log.info("Question ID {} position changed from {} to {}", questionId, oldPosition, newPosition);
     }
 
-    private void validateQuestionData(QuestionType questionType, String questionText,
-                                      Object image, List<OptionDTO> options) {
-        if (questionType == null) {
-            throw new IllegalQuestionTypeException("Question type must be provided");
+    /**
+     * Verifies that the current user has permission to modify the test.
+     * For teachers, checks if they can edit the specific test.
+     * Also verifies that all groups associated with the test are active.
+     *
+     * @param currentUser The current authenticated user
+     * @param test The test being modified
+     * @throws AccessDeniedException If the user does not have permission to modify the test
+     * @throws StateConflictException If trying to modify a test in a past semester group
+     */
+    private void verifyTestModificationPermission(User currentUser, Test test) {
+        if (currentUser.getRole() == RolesEnum.TEACHER) {
+            List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
+            testAccessValidator.validateTeacherEditAccess(currentUser, test, teacherGroups);
+        } else if (currentUser.getRole() != RolesEnum.ADMIN) {
+            log.warn("User {} with role {} attempted to modify test", currentUser.getUsername(), currentUser.getRole());
+            throw AccessDeniedException.testEdit();
         }
 
-        boolean hasText = questionText != null && !questionText.trim().isEmpty();
-        boolean hasImage = image != null;
-        boolean hasOptions = options != null && !options.isEmpty();
-
-        switch (questionType) {
-            case TEXT_ONLY:
-                if (!hasText) {
-                    throw new InvalidQuestionTextException("TEXT_ONLY question type requires non-empty text");
-                }
-                if (hasImage) {
-                    throw new InvalidImageException("TEXT_ONLY question type cannot have an image");
-                }
-                break;
-
-            case IMAGE_ONLY:
-                if (!hasImage) {
-                    throw new InvalidImageException("IMAGE_ONLY question type requires an image");
-                }
-                if (hasText) {
-                    throw new InvalidQuestionTextException("IMAGE_ONLY question type should not have text");
-                }
-                break;
-
-            case TEXT_WITH_IMAGE:
-                if (!hasText) {
-                    throw new InvalidQuestionTextException("TEXT_WITH_IMAGE question type requires non-empty text");
-                }
-                if (!hasImage) {
-                    throw new InvalidImageException("TEXT_WITH_IMAGE question type requires an image");
-                }
-                break;
-
-            case MULTIPLE_CHOICE:
-                if (!hasText) {
-                    throw new InvalidQuestionTextException("MULTIPLE_CHOICE question type requires non-empty text");
-                }
-                if (!hasOptions) {
-                    throw new InvalidOptionSelectionException("MULTIPLE_CHOICE question type requires at least one option");
-                }
-
-                boolean hasCorrectOption = options.stream().anyMatch(OptionDTO::isCorrect);
-                if (!hasCorrectOption) {
-                    throw new MissingCorrectOptionException("MULTIPLE_CHOICE question must have at least one correct option");
-                }
-                break;
-
-            case IMAGE_WITH_MULTIPLE_CHOICE:
-                if (!hasImage) {
-                    throw new InvalidImageException("IMAGE_WITH_MULTIPLE_CHOICE question type requires an image");
-                }
-                if (!hasOptions) {
-                    throw new InvalidOptionSelectionException("IMAGE_WITH_MULTIPLE_CHOICE question type requires at least one option");
-                }
-
-                boolean hasCorrectImageOption = options.stream().anyMatch(OptionDTO::isCorrect);
-                if (!hasCorrectImageOption) {
-                    throw new MissingCorrectOptionException("IMAGE_WITH_MULTIPLE_CHOICE question must have at least one correct option");
-                }
-                break;
-
-            default:
-                throw new IllegalQuestionTypeException("Unsupported question type: " + questionType);
-        }
-    }
-
-    private String saveImage(MultipartFile image) {
-        try {
-            Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
-
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
+        List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
+        for (Group group : testGroups) {
+            if (!groupActivityService.canModifyGroup(group)) {
+                log.warn("Attempt to modify test in past semester group");
+                throw StateConflictException.inactiveGroup(group.getName());
             }
-
-            String originalFilename = image.getOriginalFilename();
-            String fileExtension = originalFilename != null && originalFilename.contains(".")
-                    ? originalFilename.substring(originalFilename.lastIndexOf("."))
-                    : "";
-
-            String filename = UUID.randomUUID() + fileExtension;
-            Path filePath = uploadPath.resolve(filename);
-
-            Files.copy(image.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            return filename;
-        } catch (IOException e) {
-            log.error("Failed to save image", e);
-            throw new ImageSaveException("Failed to save image");
         }
-    }
-
-    private void deleteImage(String imagePath) {
-        try {
-            Path path = Paths.get(uploadDir, imagePath);
-            Files.deleteIfExists(path);
-        } catch (IOException e) {
-            log.error("Failed to delete image: {}", e.getMessage());
-        }
-    }
-
-    private QuestionDetailsDTO convertToQuestionDetailsDTO(Question question) {
-        List<OptionDTO> options = question.getOptions() != null
-                ? question.getOptions().stream()
-                .map(testDTOMapper::convertToOptionDTO)
-                .collect(Collectors.toList())
-                : Collections.emptyList();
-
-        return QuestionDetailsDTO.builder()
-                .id(question.getId())
-                .questionText(question.getQuestionText())
-                .imagePath(question.getImagePath())
-                .score(question.getScore())
-                .questionType(question.getQuestionType())
-                .options(options)
-                .build();
     }
 }

@@ -21,6 +21,12 @@ import java.util.stream.Collectors;
 public class TestDTOMapper {
     private final GroupRepository groupRepository;
 
+    /**
+     * Converts a Test entity to a simplified TestSummaryDTO containing essential test information
+     *
+     * @param test The Test entity to convert
+     * @return TestSummaryDTO containing basic test information
+     */
     public TestSummaryDTO convertToTestSummaryDTO(Test test) {
         return TestSummaryDTO.builder()
                 .id(test.getId())
@@ -34,6 +40,14 @@ public class TestDTOMapper {
                 .build();
     }
 
+    /**
+     * Converts a Test entity to a detailed TestPreviewDTO with questions and group information,
+     * filtering data based on the current user's role and permissions
+     *
+     * @param test The Test entity to convert
+     * @param currentUser The user requesting the test preview (affects visible content)
+     * @return TestPreviewDTO containing detailed test information including questions and filtered group access
+     */
     public TestPreviewDTO convertToTestPreviewDTO(Test test, User currentUser) {
         List<Group> testGroups = findGroupsByTest(test);
         List<GroupSummaryDTO> associatedGroups = new ArrayList<>();
@@ -78,6 +92,12 @@ public class TestDTOMapper {
         return builder.build();
     }
 
+    /**
+     * Converts a Question entity to QuestionDTO including all options
+     *
+     * @param question The Question entity to convert
+     * @return QuestionDTO containing question text, score, type and associated options
+     */
     public QuestionDTO convertToQuestionDTO(Question question) {
         List<OptionDTO> options = question.getOptions() != null
                 ? question.getOptions().stream()
@@ -95,6 +115,12 @@ public class TestDTOMapper {
                 .build();
     }
 
+    /**
+     * Converts an Option entity to OptionDTO
+     *
+     * @param option The Option entity to convert
+     * @return OptionDTO containing option text, description and correctness flag
+     */
     public OptionDTO convertToOptionDTO(Option option) {
         return OptionDTO.builder()
                 .id(option.getId())
@@ -104,6 +130,12 @@ public class TestDTOMapper {
                 .build();
     }
 
+    /**
+     * Retrieves all groups associated with a specific test
+     *
+     * @param test The Test entity to find groups for
+     * @return List of Group entities that have the specified test assigned to them
+     */
     public List<Group> findGroupsByTest(Test test) {
         List<Group> allGroups = groupRepository.findAll();
         return allGroups.stream()

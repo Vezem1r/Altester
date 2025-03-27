@@ -1,0 +1,46 @@
+package com.altester.core.exception;
+
+import lombok.Getter;
+import org.springframework.http.HttpStatus;
+
+@Getter
+public enum ErrorCode {
+    RESOURCE_NOT_FOUND("ERR-100", HttpStatus.NOT_FOUND),
+    RESOURCE_ALREADY_EXISTS("ERR-101", HttpStatus.BAD_REQUEST),
+
+    ACCESS_DENIED("ERR-200", HttpStatus.FORBIDDEN),
+    NOT_ADMIN("ERR-201", HttpStatus.FORBIDDEN),
+    LDAP_USER_MODIFICATION("ERR-202", HttpStatus.FORBIDDEN),
+
+    VALIDATION_ERROR("ERR-300", HttpStatus.BAD_REQUEST),
+    INVALID_QUESTION_TYPE("ERR-301", HttpStatus.BAD_REQUEST),
+    INVALID_QUESTION_TEXT("ERR-302", HttpStatus.BAD_REQUEST),
+    INVALID_IMAGE("ERR-303", HttpStatus.BAD_REQUEST),
+    INVALID_OPTION("ERR-304", HttpStatus.BAD_REQUEST),
+    MISSING_CORRECT_OPTION("ERR-305", HttpStatus.BAD_REQUEST),
+    INVALID_POSITION("ERR-306", HttpStatus.BAD_REQUEST),
+    GROUP_VALIDATION_ERROR("ERR-307", HttpStatus.BAD_REQUEST),
+    INVALID_GROUP_ID("ERR-308", HttpStatus.BAD_REQUEST),
+    INVALID_GROUP_SELECTION("ERR-309", HttpStatus.BAD_REQUEST),
+
+    STATE_CONFLICT("ERR-400", HttpStatus.CONFLICT),
+    INACTIVE_GROUP("ERR-401", HttpStatus.CONFLICT),
+    ROLE_CONFLICT("ERR-402", HttpStatus.CONFLICT),
+    GROUP_ALREADY_ASSIGNED("ERR-403", HttpStatus.CONFLICT),
+    GROUP_MISMATCH("ERR-404", HttpStatus.CONFLICT),
+    STUDENT_NOT_IN_GROUP("ERR-405", HttpStatus.CONFLICT),
+    MULTIPLE_ACTIVE_GROUPS("ERR-406", HttpStatus.CONFLICT),
+
+    FILE_OPERATION_ERROR("ERR-500", HttpStatus.INTERNAL_SERVER_ERROR),
+    IMAGE_SAVE_ERROR("ERR-501", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    INTERNAL_SERVER_ERROR("ERR-900", HttpStatus.INTERNAL_SERVER_ERROR);
+
+    private final String code;
+    private final HttpStatus httpStatus;
+
+    ErrorCode(String code, HttpStatus httpStatus) {
+        this.code = code;
+        this.httpStatus = httpStatus;
+    }
+}
