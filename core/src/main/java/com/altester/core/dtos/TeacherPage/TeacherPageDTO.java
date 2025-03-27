@@ -9,5 +9,6 @@ import java.util.List;
 @AllArgsConstructor
 public class TeacherPageDTO {
     private String username;
+    private boolean isRegistered;
     private List<TeacherSubjectDTO> subjects;
 }
