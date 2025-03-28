@@ -30,4 +30,9 @@ public class StateConflictException extends AlTesterException {
         return new StateConflictException("group", "already_assigned",
                 "Group " + groupName + " is already assigned to another subject");
     }
+
+    public static StateConflictException differentSemesters(String fromGroup, String toGroup) {
+        return new StateConflictException("group", "different_semester",
+                "Groups " + fromGroup + " and " + toGroup + " are not in the same semester");
+    }
 }

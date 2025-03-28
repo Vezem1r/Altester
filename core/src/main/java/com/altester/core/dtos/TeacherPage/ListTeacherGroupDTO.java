@@ -13,4 +13,5 @@ public class ListTeacherGroupDTO {
     private String subjectName;
     private List<GroupStudentsDTO> students;
     private boolean active;
+    private boolean future;
 }

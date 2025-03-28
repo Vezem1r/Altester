@@ -4,12 +4,14 @@ import com.altester.auth.dto.Auth.LoginResponse;
 import com.altester.auth.dto.Auth.LoginUserDTO;
 import com.altester.auth.dto.Auth.RegisterUserDTO;
 import com.altester.auth.dto.Auth.VerifyUserDTO;
-import com.altester.auth.models.User;
 import com.altester.auth.service.AuthService;
-import com.altester.auth.service.JwtService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -18,59 +20,37 @@ import java.util.Map;
 @RestController
 @RequiredArgsConstructor
 @Slf4j
+@Validated
 public class AuthController {
 
-    private final JwtService jwtService;
     private final AuthService authService;
 
     @PostMapping("/signup")
-    public ResponseEntity<?> signup(@RequestBody RegisterUserDTO registerUserDto){
+    public ResponseEntity<String> signup(@Valid @RequestBody RegisterUserDTO registerUserDto){
         log.info("Received register request: {}", registerUserDto);
-        try {
-            authService.register(registerUserDto);
-            log.info("Signup successful");
-            return ResponseEntity.ok("User has been created. Verification code has been send on your email");
-        } catch (Exception e) {
-            log.error(e.getMessage());
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        authService.register(registerUserDto);
+        log.info("User has been created. Verification code has been send on your email");
+        return ResponseEntity.ok("User has been created. Verification code has been send on your email");
     }
 
     @PostMapping("/signin")
-    public ResponseEntity<?> signin(@RequestBody LoginUserDTO loginUserDto) {
+    public ResponseEntity<LoginResponse> signin(@Valid @RequestBody LoginUserDTO loginUserDto) {
         log.info("Received login request: {}", loginUserDto);
-        try {
-            User authenticatedUser = authService.signIn(loginUserDto);
-            String jwtToken = jwtService.generateToken(authenticatedUser, authenticatedUser.getRole().name(), loginUserDto.isRememberMe());
-
-            LoginResponse loginResponse = new LoginResponse(jwtToken, authenticatedUser.getRole().toString(), "Login successful");
-
-            String role = jwtService.extractRole(jwtToken);
-            log.info("Extracted role: {}", role);
-            return ResponseEntity.ok(loginResponse);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        LoginResponse loginResponse = authService.signIn(loginUserDto);
+        return ResponseEntity.ok(loginResponse);
     }
 
     @PostMapping("/verify")
-    public ResponseEntity<?> verifyUser(@RequestBody VerifyUserDTO verifyUserDto){
-        try {
-            authService.verifyUser(verifyUserDto);
-            return ResponseEntity.ok(Map.of("message", "Account verified successfully"));
-        } catch (RuntimeException err) {
-            log.error("Verification error: {}", err.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("error", err.getMessage()));
-        }
+    public ResponseEntity<Map<String, String>> verifyUser(@Valid @RequestBody VerifyUserDTO verifyUserDto){
+        authService.verifyUser(verifyUserDto);
+        return ResponseEntity.ok(Map.of("message", "Account verified successfully"));
     }
 
     @PostMapping("/resend")
-    public ResponseEntity<?> resendVerificationCode(@RequestParam String email){
-        try{
-            authService.resendVerificationCode(email);
-            return ResponseEntity.ok("Verification code resend");
-        } catch (RuntimeException e){
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ResponseEntity<String> resendVerificationCode(
+            @RequestParam @NotBlank(message = "Email is required")
+            @Email(message = "Please provide a valid email address") String email){
+        authService.resendVerificationCode(email);
+        return ResponseEntity.ok("Verification code resend");
     }
 }

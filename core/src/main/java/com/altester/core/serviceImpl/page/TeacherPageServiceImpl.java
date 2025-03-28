@@ -250,11 +250,13 @@ public class TeacherPageServiceImpl implements TeacherPageService {
                     String subjectName = subjectRepository.findByGroupsContaining(group)
                             .map(subject -> {
                                 log.trace("Group belongs to subject: {}", subject.getName());
-                                return subject.getName();
+                                return subject.getShortName() + " " + subject.getName();
                             })
                             .orElse("Unknown Subject");
 
-                    return teacherPageMapper.toListTeacherGroupDTO(group, subjectName);
+                    boolean isInFuture = groupActivityService.isGroupInFuture(group);
+
+                    return teacherPageMapper.toListTeacherGroupDTO(group, subjectName, isInFuture);
                 })
                 .toList();
     }
@@ -290,7 +292,7 @@ public class TeacherPageServiceImpl implements TeacherPageService {
                         return ResourceNotFoundException.user(request.getStudentUsername(), "Student not found");
                     });
 
-            validateStudentForMove(student, fromGroup, subject, request.getFromGroupId());
+            validateStudentForMove(student, fromGroup, subject, request.getFromGroupId(), teacher);
 
             fromGroup.getStudents().remove(student);
 
@@ -312,21 +314,29 @@ public class TeacherPageServiceImpl implements TeacherPageService {
     }
 
     private void validateGroupsForMove(User teacher, Group fromGroup, Group toGroup) {
+        boolean isFromGroupInFuture = groupActivityService.isGroupInFuture(fromGroup);
+        boolean isToGroupInFuture = groupActivityService.isGroupInFuture(toGroup);
+
+        if ((isFromGroupInFuture && !isToGroupInFuture) || (!isFromGroupInFuture && isToGroupInFuture)) {
+            log.error("Source group {} and target group {} are not in same semester", fromGroup.getName(), toGroup.getName());
+            throw StateConflictException.differentSemesters(fromGroup.getName(), toGroup.getName());
+        }
+
         boolean isFromGroupActive = groupActivityService.checkAndUpdateGroupActivity(fromGroup);
         boolean isToGroupActive = groupActivityService.checkAndUpdateGroupActivity(toGroup);
 
-        if (!isFromGroupActive) {
-            log.error("Source group {} is inactive", fromGroup.getName());
+        if (!isFromGroupActive && !isFromGroupInFuture) {
+            log.error("Source group {} (ID: {}) is inactive and not in the future", fromGroup.getName(), fromGroup.getId());
             throw StateConflictException.inactiveGroup(fromGroup.getName());
         }
 
-        if (!isToGroupActive) {
-            log.error("Target group {} is inactive", toGroup.getName());
+        if (!isToGroupActive && !isToGroupInFuture) {
+            log.error("Target group {} (ID: {}) is inactive and not in the future", toGroup.getName(), toGroup.getId());
             throw StateConflictException.inactiveGroup(toGroup.getName());
         }
 
         if (!fromGroup.getTeacher().equals(teacher) || !toGroup.getTeacher().equals(teacher)) {
-            log.error("Teacher {} does not own both groups", teacher.getUsername());
+            log.error("Teacher {} does not own both groups (IDs: {} and {})", teacher.getUsername(), fromGroup.getId(), toGroup.getId());
             throw ValidationException.groupValidation("You can only move students within your own groups");
         }
     }
@@ -354,7 +364,7 @@ public class TeacherPageServiceImpl implements TeacherPageService {
         return fromSubject.get();
     }
 
-    private void validateStudentForMove(User student, Group fromGroup, Subject subject, Long fromGroupId) {
+    private void validateStudentForMove(User student, Group fromGroup, Subject subject, Long fromGroupId, User teacher) {
         if (!fromGroup.getStudents().contains(student)) {
             log.error("Student {} is not in source group {}", student.getUsername(), fromGroup.getName());
             throw ValidationException.groupValidation("Student is not in the source group");
@@ -363,6 +373,7 @@ public class TeacherPageServiceImpl implements TeacherPageService {
         List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student)
                 .stream()
                 .filter(g -> subject.getGroups().contains(g))
+                .filter(g -> g.getTeacher().equals(teacher))
                 .toList();
 
         log.debug("Student is in {} active groups for subject {}",

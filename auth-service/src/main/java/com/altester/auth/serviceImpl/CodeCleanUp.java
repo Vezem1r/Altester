@@ -1,4 +1,4 @@
-package com.altester.auth.service;
+package com.altester.auth.serviceImpl;
 
 import com.altester.auth.repository.CodeRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +18,6 @@ public class CodeCleanUp {
     @Scheduled(cron = "0 0 * * * *")
     public void cleanUp() {
         int deletedCount = codeRepository.deleteByExpirationBefore(LocalDateTime.now());
-        log.info("Deleted " + deletedCount + "expired verification codes");
+        log.info("Deleted {} expired verification codes", deletedCount);
     }
 }

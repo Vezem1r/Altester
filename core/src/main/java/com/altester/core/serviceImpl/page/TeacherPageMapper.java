@@ -44,7 +44,7 @@ public class TeacherPageMapper {
                 student.getLastLogin());
     }
 
-    public ListTeacherGroupDTO toListTeacherGroupDTO(Group group, String subjectName) {
+    public ListTeacherGroupDTO toListTeacherGroupDTO(Group group, String subjectName, boolean isInFuture) {
         List<GroupStudentsDTO> studentDTOs = group.getStudents().stream()
                 .map(this::toGroupStudentsDTO)
                 .toList();
@@ -54,7 +54,9 @@ public class TeacherPageMapper {
                 group.getName(),
                 subjectName,
                 studentDTOs,
-                group.isActive());
+                group.isActive(),
+                isInFuture
+        );
     }
 
     public GroupStudentsDTO toGroupStudentsDTO(User student) {
