@@ -25,10 +25,13 @@ public interface TestRepository extends JpaRepository<Test, Long> {
             "AND (:searchQuery IS NULL OR :searchQuery = '' OR " +
             "LOWER(t.title) LIKE LOWER(CONCAT('%', :searchQuery, '%')) OR " +
             "LOWER(t.description) LIKE LOWER(CONCAT('%', :searchQuery, '%'))) " +
-            "AND (:isActive IS NULL OR t.isOpen = :isActive)")
+            "AND (:isActive IS NULL OR t.isOpen = :isActive) " +
+            "AND (:allowTeacherEdit IS NULL OR t.allowTeacherEdit = :allowTeacherEdit) " +
+            "ORDER BY t.allowTeacherEdit DESC")
     Page<Test> findByTeacherWithFilters(@Param("teacherId") Long teacherId,
                                         @Param("searchQuery") String searchQuery,
                                         @Param("isActive") Boolean isActive,
+                                        @Param("allowTeacherEdit") Boolean allowTeacherEdit,
                                         Pageable pageable);
 
     @Query("SELECT DISTINCT t FROM Test t JOIN Group g ON t MEMBER OF g.tests JOIN Subject s ON g MEMBER OF s.groups " +

@@ -180,8 +180,10 @@ public class TestServiceImpl  implements TestService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<TestSummaryDTO> getTeacherTests(Pageable pageable, Principal principal, String searchQuery, Boolean isActive) {
-        log.debug("Getting tests for teacher with search query: {}, isActive: {}", searchQuery, isActive);
+    public Page<TestSummaryDTO> getTeacherTests(Pageable pageable, Principal principal, String searchQuery,
+                                                Boolean isActive, Boolean allowTeacherEdit) {
+        log.debug("Getting tests for teacher with searchQuery: '{}', isActive: {}, allowTeacherEdit: {}",
+                searchQuery, isActive, allowTeacherEdit);
 
         User currentUser = getCurrentUser(principal);
 
@@ -190,7 +192,7 @@ public class TestServiceImpl  implements TestService {
         }
 
         Page<Test> testsPage = testRepository.findByTeacherWithFilters(
-                currentUser.getId(), searchQuery, isActive, pageable);
+                currentUser.getId(), searchQuery, isActive, allowTeacherEdit, pageable);
 
         return testsPage.map(test -> {
             TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);

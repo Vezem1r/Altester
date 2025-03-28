@@ -38,6 +38,7 @@ public class TestDTOMapper {
                 .endTime(test.getEndTime())
                 .totalScore(test.getTotalScore())
                 .maxAttempts(test.getMaxAttempts())
+                .allowTeacherEdit(test.isAllowTeacherEdit())
                 .build();
     }
 
@@ -82,6 +83,7 @@ public class TestDTOMapper {
                 .startTime(test.getStartTime())
                 .endTime(test.getEndTime())
                 .isCreatedByAdmin(test.isCreatedByAdmin())
+                .allowTeacherEdit(test.isAllowTeacherEdit())
                 .totalQuestions(test.getQuestions().size())
                 .totalScore(test.getTotalScore())
                 .associatedGroups(associatedGroups)

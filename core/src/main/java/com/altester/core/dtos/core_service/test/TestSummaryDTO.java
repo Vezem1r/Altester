@@ -21,5 +21,6 @@ public class TestSummaryDTO {
     private LocalDateTime endTime;
     private int totalScore;
     private Integer maxAttempts;
+    private Boolean allowTeacherEdit;
     private List<GroupSummaryDTO> associatedGroups;
 }

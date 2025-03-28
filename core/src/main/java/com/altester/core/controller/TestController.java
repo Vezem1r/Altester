@@ -41,9 +41,10 @@ public class TestController {
             @RequestParam(defaultValue = "10") int size,
             Principal principal,
             @RequestParam(required = false) String searchQuery,
-            @RequestParam(required = false) Boolean isActive) {
-        log.info("Fetching teacher tests with searchQuery: '{}', isActive: {}", searchQuery, isActive);
-        Page<TestSummaryDTO> tests = testService.getTeacherTests(PageRequest.of(page, size), principal, searchQuery, isActive);
+            @RequestParam(required = false) Boolean isActive,
+    @RequestParam(required = false) Boolean allowTeacherEdit) {
+        Page<TestSummaryDTO> tests = testService.getTeacherTests(PageRequest.of(page, size),
+                principal, searchQuery, isActive, allowTeacherEdit);
         return ResponseEntity.ok(tests);
     }
 

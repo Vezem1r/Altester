@@ -11,15 +11,12 @@ public interface TestService {
     /**
      * Toggles whether teachers can edit a specific test.
      * Only administrators can perform this action.
-     *
-     * @param testId The ID of the test for which to toggle the edit permission
-     * @param principal The authenticated user principal
      */
     void toggleTeacherEditPermission(Long testId, Principal principal);
 
     Page<TestSummaryDTO> getAllTestsForAdmin(Pageable pageable, Principal principal, String searchQuery, Boolean isActive);
 
-    Page<TestSummaryDTO> getTeacherTests(Pageable pageable, Principal principal, String searchQuery, Boolean isActive);
+    Page<TestSummaryDTO> getTeacherTests(Pageable pageable, Principal principal, String searchQuery, Boolean isActive, Boolean allowTeacherEdit);
 
     /**
      * Creates a new test with the provided details and associates it with the selected groups.
