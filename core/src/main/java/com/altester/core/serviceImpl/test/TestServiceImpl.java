@@ -230,6 +230,7 @@ public class TestServiceImpl  implements TestService {
         test.setStartTime(createTestDTO.getStartTime());
         test.setEndTime(createTestDTO.getEndTime());
         test.setCreatedByAdmin(currentUser.getRole() == RolesEnum.ADMIN);
+        test.setAllowTeacherEdit(currentUser.getRole() == RolesEnum.TEACHER);
 
         List<Group> selectedGroups = findValidGroupsForTest(currentUser, createTestDTO);
 
