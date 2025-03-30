@@ -88,6 +88,18 @@ public class GlobalExceptionHandler {
         String requiredType = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown";
         String providedValue = ex.getValue() != null ? ex.getValue().toString() : "null";
 
+        if ("semester".equals(paramName) && "Semester".equals(requiredType)) {
+            ErrorResponse errorResponse = new ErrorResponse(
+                    ErrorCode.VALIDATION_ERROR.getCode(),
+                    "Invalid semester value. Valid values are: WINTER, SUMMER");
+
+            errorResponse.addDetail("parameter", paramName);
+            errorResponse.addDetail("validValues", "WINTER, SUMMER");
+            errorResponse.addDetail("providedValue", providedValue);
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+
         ErrorResponse errorResponse = new ErrorResponse(
                 ErrorCode.VALIDATION_ERROR.getCode(),
                 "Parameter '" + paramName + "' should be of type '" + requiredType + "'");

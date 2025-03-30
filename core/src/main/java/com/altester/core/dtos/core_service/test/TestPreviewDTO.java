@@ -25,6 +25,7 @@ public class TestPreviewDTO {
     private Boolean allowTeacherEdit;
     private int totalQuestions;
     private int totalScore;
+    private Integer maxQuestions;
     private List<GroupSummaryDTO> associatedGroups;
     private List<QuestionDTO> questions;
 }

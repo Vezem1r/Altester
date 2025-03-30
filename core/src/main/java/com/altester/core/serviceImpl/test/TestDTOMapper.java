@@ -87,6 +87,7 @@ public class TestDTOMapper {
                 .totalQuestions(test.getQuestions().size())
                 .totalScore(test.getTotalScore())
                 .associatedGroups(associatedGroups)
+                .maxQuestions(test.getMaxQuestions())
                 .questions(questions);
 
         if (currentUser.getRole() == RolesEnum.ADMIN) {

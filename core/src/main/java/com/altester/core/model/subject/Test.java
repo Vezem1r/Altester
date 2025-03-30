@@ -39,6 +39,9 @@ public class Test {
     private Integer maxAttempts;
 
     @Column
+    private Integer maxQuestions;
+
+    @Column
     private LocalDateTime startTime;
 
     @Column

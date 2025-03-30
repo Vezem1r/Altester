@@ -231,6 +231,7 @@ public class TestServiceImpl  implements TestService {
         test.setEndTime(createTestDTO.getEndTime());
         test.setCreatedByAdmin(currentUser.getRole() == RolesEnum.ADMIN);
         test.setAllowTeacherEdit(currentUser.getRole() == RolesEnum.TEACHER);
+        test.setMaxQuestions(createTestDTO.getMaxQuestions());
 
         List<Group> selectedGroups = findValidGroupsForTest(currentUser, createTestDTO);
 
@@ -271,6 +272,10 @@ public class TestServiceImpl  implements TestService {
 
         if (updateTestDTO.getMaxAttempts() != null) {
             existingTest.setMaxAttempts(updateTestDTO.getMaxAttempts());
+        }
+
+        if (updateTestDTO.getMaxQuestions() != null) {
+            existingTest.setMaxQuestions(updateTestDTO.getMaxQuestions());
         }
 
         if (updateTestDTO.getStartTime() != null) {

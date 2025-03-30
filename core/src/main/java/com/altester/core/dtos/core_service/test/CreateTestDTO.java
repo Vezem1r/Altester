@@ -28,6 +28,8 @@ public class CreateTestDTO {
 
     private Integer maxAttempts;
 
+    private Integer maxQuestions;
+
     private LocalDateTime startTime;
 
     private LocalDateTime endTime;
