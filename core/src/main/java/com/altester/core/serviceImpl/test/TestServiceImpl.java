@@ -256,35 +256,9 @@ public class TestServiceImpl  implements TestService {
             testAccessValidator.validateTeacherEditAccess(currentUser, existingTest, teacherGroups);
         }
 
-        if (updateTestDTO.getTitle() != null) {
-            existingTest.setTitle(updateTestDTO.getTitle());
-        }
-
-        if (updateTestDTO.getDescription() != null) {
-            existingTest.setDescription(updateTestDTO.getDescription());
-        }
-
-        if (updateTestDTO.getDuration() > 0) {
-            existingTest.setDuration(updateTestDTO.getDuration());
-        }
-
-        existingTest.setOpen(updateTestDTO.isOpen());
-
-        if (updateTestDTO.getMaxAttempts() != null) {
-            existingTest.setMaxAttempts(updateTestDTO.getMaxAttempts());
-        }
-
-        if (updateTestDTO.getMaxQuestions() != null) {
-            existingTest.setMaxQuestions(updateTestDTO.getMaxQuestions());
-        }
-
-        if (updateTestDTO.getStartTime() != null) {
-            existingTest.setStartTime(updateTestDTO.getStartTime());
-        }
-
-        if (updateTestDTO.getEndTime() != null) {
-            existingTest.setEndTime(updateTestDTO.getEndTime());
-        }
+        existingTest = TestUpdater.of(existingTest, updateTestDTO)
+                .updateAllFields()
+                .build();
 
         if (updateTestDTO.getSubjectId() != null ||
                 (updateTestDTO.getGroupIds() != null && !updateTestDTO.getGroupIds().isEmpty())) {
@@ -292,11 +266,36 @@ public class TestServiceImpl  implements TestService {
             List<Group> newSelectedGroups = findValidGroupsForTest(currentUser, updateTestDTO);
 
             List<Group> currentGroups = testDTOMapper.findGroupsByTest(existingTest);
-            currentGroups.forEach(group -> group.getTests().remove(existingTest));
-            groupRepository.saveAll(currentGroups);
 
-            newSelectedGroups.forEach(group -> group.getTests().add(existingTest));
-            groupRepository.saveAll(newSelectedGroups);
+            Set<Long> newGroupIds = newSelectedGroups.stream()
+                    .map(Group::getId)
+                    .collect(Collectors.toSet());
+
+            Set<Long> currentGroupIds = currentGroups.stream()
+                    .map(Group::getId)
+                    .collect(Collectors.toSet());
+
+            List<Group> groupsToRemove = currentGroups.stream()
+                    .filter(group -> !newGroupIds.contains(group.getId()))
+                    .collect(Collectors.toList());
+
+            List<Group> groupsToAdd = newSelectedGroups.stream()
+                    .filter(group -> !currentGroupIds.contains(group.getId()))
+                    .collect(Collectors.toList());
+
+            if (!groupsToRemove.isEmpty()) {
+                Test finalExistingTest = existingTest;
+                groupsToRemove.forEach(group -> group.getTests().remove(finalExistingTest));
+                groupRepository.saveAll(groupsToRemove);
+                log.debug("Removed test from {} groups", groupsToRemove.size());
+            }
+
+            if (!groupsToAdd.isEmpty()) {
+                Test finalExistingTest1 = existingTest;
+                groupsToAdd.forEach(group -> group.getTests().add(finalExistingTest1));
+                groupRepository.saveAll(groupsToAdd);
+                log.debug("Added test to {} new groups", groupsToAdd.size());
+            }
         }
 
         Test updatedTest = testRepository.save(existingTest);
