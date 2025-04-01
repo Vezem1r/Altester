@@ -27,7 +27,6 @@ public class StudentPageController {
             Principal principal,
             @RequestParam(required = false) String searchQuery,
             @RequestParam(required = false) Long groupId) {
-        log.info("Getting dashboard for student with searchQuery: {}, groupId: {}", searchQuery, groupId);
         StudentDashboardResponse dashboard = studentService.getStudentDashboard(principal, searchQuery, groupId);
         return ResponseEntity.ok(dashboard);
     }
@@ -38,16 +37,25 @@ public class StudentPageController {
             @RequestParam(required = true) Integer academicYear,
             @RequestParam(required = true) Semester semester,
             @RequestParam(required = false) String searchQuery) {
-        log.info("Getting academic history for student with academicYear: {}, semester: {}, searchQuery: {}",
-                academicYear, semester, searchQuery);
         AcademicHistoryResponse history = studentService.getAcademicHistory(principal, academicYear, semester, searchQuery);
         return ResponseEntity.ok(history);
     }
 
     @GetMapping("/available-periods")
     public ResponseEntity<AvailablePeriodsResponse> getAvailablePeriods(Principal principal) {
-        log.info("Getting available academic periods for student");
         AvailablePeriodsResponse periods = studentService.getAvailablePeriods(principal);
         return ResponseEntity.ok(periods);
+    }
+
+    @GetMapping("/test-attempts/{testId}")
+    public ResponseEntity<StudentAttemptsResponse> getStudentTestAttempts(Principal principal, @PathVariable Long testId) {
+        StudentAttemptsResponse attempts = studentService.getStudentTestAttempts(principal, testId);
+        return ResponseEntity.ok(attempts);
+    }
+
+    @GetMapping("/attempt-review/{attemptId}")
+    public ResponseEntity<AttemptReviewDTO> getAttemptReview(Principal principal, @PathVariable Long attemptId) {
+        AttemptReviewDTO review = studentService.getAttemptReview(principal, attemptId);
+        return ResponseEntity.ok(review);
     }
 }

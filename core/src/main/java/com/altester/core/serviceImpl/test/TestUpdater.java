@@ -51,9 +51,7 @@ public class TestUpdater {
     }
 
     public TestUpdater updateMaxAttempts() {
-        if (dto.getMaxAttempts() != null) {
-            test.setMaxAttempts(dto.getMaxAttempts());
-        }
+        test.setMaxAttempts(dto.getMaxAttempts());
         return this;
     }
 
@@ -65,16 +63,13 @@ public class TestUpdater {
     }
 
     public TestUpdater updateStartTime() {
-        if (dto.getStartTime() != null) {
-            test.setStartTime(dto.getStartTime());
-        }
+        test.setStartTime(dto.getStartTime());
         return this;
     }
 
     public TestUpdater updateEndTime() {
-        if (dto.getEndTime() != null) {
-            test.setEndTime(dto.getEndTime());
-        }
+        test.setEndTime(dto.getEndTime());
+
         return this;
     }
 

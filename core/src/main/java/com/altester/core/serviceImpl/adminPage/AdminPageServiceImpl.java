@@ -1,4 +1,4 @@
-package com.altester.core.serviceImpl.page;
+package com.altester.core.serviceImpl.adminPage;
 
 import com.altester.core.dtos.AdminPage.AdminPageDTO;
 import com.altester.core.dtos.AdminPage.UpdateUser;

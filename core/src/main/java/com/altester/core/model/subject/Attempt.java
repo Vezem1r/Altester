@@ -1,6 +1,7 @@
 package com.altester.core.model.subject;
 
 import com.altester.core.model.auth.User;
+import com.altester.core.model.subject.enums.AttemptStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -35,8 +36,9 @@ public class Attempt {
     @Column
     private Integer score;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private boolean completed;
+    private AttemptStatus status;
 
     @ManyToOne
     @JoinColumn(name = "test_id", nullable = false)

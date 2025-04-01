@@ -1,5 +1,6 @@
 package com.altester.core.dtos.core_service.student;
 
+import com.altester.core.model.subject.enums.AttemptStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,17 +10,15 @@ import java.time.LocalDateTime;
 
 @Data
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
-public class TestDTO {
-    private Long id;
-    private String title;
-    private int duration;
+@AllArgsConstructor
+public class TestAttemptDTO {
+    private long attemptId;
+    private int attemptNumber;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
-    private Integer maxAttempts;
-    private Integer remainingAttempts;
-    private Integer totalScore;
-    private Integer bestScore;
-    private int numberOfQuestions;
+    private AttemptStatus status;
+    private Integer score;
+    private int answeredQuestions;
+    private int totalQuestions;
 }

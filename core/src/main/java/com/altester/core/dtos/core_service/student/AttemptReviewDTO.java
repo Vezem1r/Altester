@@ -6,20 +6,19 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
-public class TestDTO {
-    private Long id;
-    private String title;
-    private int duration;
+@AllArgsConstructor
+public class AttemptReviewDTO {
+    private long attemptId;
+    private String testTitle;
+    private String testDescription;
+    private int score;
+    private int totalScore;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
-    private Integer maxAttempts;
-    private Integer remainingAttempts;
-    private Integer totalScore;
-    private Integer bestScore;
-    private int numberOfQuestions;
+    private List<QuestionReviewDTO> questions;
 }

@@ -6,6 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "submissions")
 @AllArgsConstructor
@@ -35,7 +38,17 @@ public class Submission {
     @JoinColumn(name = "question_id", nullable = false)
     private Question question;
 
+/*
     @ManyToOne
     @JoinColumn(name = "selected_option_id")
     private Option selectedOption;
+*/
+
+    @ManyToMany
+    @JoinTable(
+            name = "submission_selected_options",
+            joinColumns = @JoinColumn(name = "submission_id"),
+            inverseJoinColumns = @JoinColumn(name = "option_id")
+    )
+    private List<Option> selectedOptions = new ArrayList<>();
 }
