@@ -14,6 +14,19 @@
 
 Some screenshots from front end
 
-![fast :) preview](1.png)
-![fast :) preview](2.png)
-![fast :) preview](3.png)
+<p align="center">
+  <img src="scr/7.png" width="40%">
+  <img src="scr/8.png" width="40%">
+</p>
+
+<p align="center">
+  <img src="scr/4.png" width="30%">
+  <img src="scr/5.png" width="30%">
+  <img src="scr/6.png" width="30%">
+</p>
+
+<p align="center">
+  <img src="scr/1.png" width="30%">
+  <img src="scr/2.png" width="30%">
+  <img src="scr/3.png" width="30%">
+</p>
