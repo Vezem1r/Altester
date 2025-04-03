@@ -16,5 +16,6 @@ public class StudentDashboardResponse {
     private String name;
     private String surname;
     private String email;
+    private boolean isRegistered;
     private List<GroupDTO> currentGroups;
 }

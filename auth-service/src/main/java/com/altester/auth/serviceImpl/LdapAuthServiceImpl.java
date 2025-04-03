@@ -41,7 +41,7 @@ public class LdapAuthServiceImpl implements LdapAuthService {
 
         String token = jwtService.generateToken(authenticatedUser, authenticatedUser.getRole().name(), false);
 
-        return new LoginResponse(token, authenticatedUser.getRole().toString(), "Login successful");
+        return new LoginResponse(token, authenticatedUser.getRole().toString(),"Login successful");
     }
 
     @Override

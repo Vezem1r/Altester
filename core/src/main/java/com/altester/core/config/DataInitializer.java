@@ -13,7 +13,6 @@ public class DataInitializer implements CommandLineRunner {
 
     private final DataInit dataInit;
 
-
     @Override
     public void run(String... args) {
 

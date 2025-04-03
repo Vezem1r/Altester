@@ -1,5 +1,6 @@
 package com.altester.core.dtos.core_service.student;
 
+import com.altester.core.model.subject.enums.AttemptStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,4 +23,5 @@ public class TestDTO {
     private Integer totalScore;
     private Integer bestScore;
     private int numberOfQuestions;
+    private AttemptStatus status;
 }

@@ -60,6 +60,8 @@ public class GroupActivityService {
             return false;
         }
 
+        checkAndUpdateGroupActivity(group);
+
         String currentSemester = semesterConfig.getCurrentSemester();
         int currentAcademicYear = semesterConfig.getCurrentAcademicYear();
 

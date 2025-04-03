@@ -53,6 +53,9 @@ public class TestAttemptServiceImpl implements TestAttemptService {
                 .orElse(null);
 
         if (activeAttempt != null) {
+            log.info("[RECONNECT ATTEMPT] User: {} is reconnecting to an existing attempt: {}",
+                    principal.getName(), activeAttempt.getId());
+
             if (validationService.isAttemptExpired(activeAttempt)) {
                 autoCompleteExpiredAttempt(activeAttempt);
                 throw new StateConflictException("attempt", "expired",

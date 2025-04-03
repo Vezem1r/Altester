@@ -59,6 +59,7 @@ public class StudentServiceImpl implements StudentService {
                 .name(student.getName())
                 .surname(student.getSurname())
                 .email(student.getEmail())
+                .isRegistered(student.isRegistered())
                 .currentGroups(studentMapper.mapGroupsToDTO(currentGroups, student, searchQuery))
                 .build();
     }

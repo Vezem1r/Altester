@@ -69,12 +69,25 @@ public class StudentMapper {
         }
 
         Integer bestScore = attempts.stream()
-                .filter(attempt -> attempt.getStatus() == AttemptStatus.COMPLETED ||
-                        attempt.getStatus() == AttemptStatus.REVIEWED)
+                .filter(attempt -> attempt.getStatus() == AttemptStatus.REVIEWED)
                 .map(Attempt::getScore)
                 .filter(Objects::nonNull)
                 .max(Integer::compareTo)
                 .orElse(null);
+
+        AttemptStatus status = attempts.stream()
+                .map(Attempt::getStatus)
+                .filter(attemptStatus -> attemptStatus == AttemptStatus.IN_PROGRESS)
+                .findFirst()
+                .orElseGet(() -> attempts.stream()
+                        .filter(attempt -> attempt.getStatus() == AttemptStatus.REVIEWED)
+                        .max(Comparator.comparingInt(attempt -> attempt.getScore() != null ? attempt.getScore() : 0))
+                        .map(Attempt::getStatus)
+                        .orElseGet(() -> attempts.stream()
+                                .map(Attempt::getStatus)
+                                .filter(attemptStatus -> attemptStatus == AttemptStatus.COMPLETED)
+                                .findFirst()
+                                .orElse(null)));
 
         int numberOfQuestions;
         if (test.getMaxQuestions() != null) {
@@ -94,6 +107,7 @@ public class StudentMapper {
                 .totalScore(test.getTotalScore())
                 .bestScore(bestScore)
                 .numberOfQuestions(numberOfQuestions)
+                .status(status)
                 .build();
     }
 
