@@ -23,19 +23,38 @@ public class AttemptAutoGrading {
         List<Option> selectedOptions = submission.getSelectedOptions();
         List<Option> allOptions = question.getOptions();
 
-        boolean allCorrectSelected = allOptions.stream()
+        List<Option> correctOptions = allOptions.stream()
                 .filter(Option::isCorrect)
-                .allMatch(selectedOptions::contains);
+                .toList();
 
-        boolean anyIncorrectSelected = selectedOptions.stream()
-                .anyMatch(option -> !option.isCorrect());
+        List<Option> selectedCorrectOptions = selectedOptions.stream()
+                .filter(Option::isCorrect)
+                .toList();
 
-        if (allCorrectSelected && !anyIncorrectSelected) {
+        List<Option> selectedIncorrectOptions = selectedOptions.stream()
+                .filter(option -> !option.isCorrect())
+                .toList();
+
+        int totalCorrectOptions = correctOptions.size();
+
+        if (selectedCorrectOptions.size() == totalCorrectOptions &&
+                selectedIncorrectOptions.isEmpty()) {
             submission.setScore(question.getScore());
             return question.getScore();
-        } else {
-            submission.setScore(0);
-            return 0;
         }
+
+        if (!selectedCorrectOptions.isEmpty() && selectedCorrectOptions.size() < totalCorrectOptions) {
+            double partialScore = (double) selectedCorrectOptions.size() / totalCorrectOptions * question.getScore();
+
+            if (!selectedIncorrectOptions.isEmpty()) {
+                partialScore = 0;
+            }
+
+            int finalScore = (int) Math.floor(partialScore);
+            submission.setScore(finalScore);
+            return finalScore;
+        }
+        submission.setScore(0);
+        return 0;
     }
 }
