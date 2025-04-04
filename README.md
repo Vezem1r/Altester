@@ -1,5 +1,4 @@
 Кеширование
-
 выбор тем на фронт енде.
 
 Some screenshots from front end

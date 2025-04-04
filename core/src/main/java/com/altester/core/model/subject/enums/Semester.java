@@ -12,5 +12,4 @@ public enum Semester {
     Semester(String displayName) {
         this.displayName = displayName;
     }
-
 }

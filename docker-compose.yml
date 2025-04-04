@@ -48,6 +48,21 @@ services:
     networks:
       - internal
 
+  notification-service:
+    container_name: notification-service_container
+    build:
+      context: ./notification-service
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      - internal
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./logs:/app/logs
+
 networks:
   internal:
     driver: bridge
