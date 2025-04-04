@@ -27,6 +27,10 @@ public class AccessDeniedException extends AlTesterException {
         return new AccessDeniedException("group", "access", null);
     }
 
+    public static AccessDeniedException attemptAccess() {
+        return new AccessDeniedException("attempt", "access", null);
+    }
+
     public static AccessDeniedException notAdmin() {
         return new AccessDeniedException("admin-only resource", "access", "Only administrators can perform this action");
     }
