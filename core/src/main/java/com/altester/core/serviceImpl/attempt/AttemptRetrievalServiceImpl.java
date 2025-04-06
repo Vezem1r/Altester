@@ -14,6 +14,7 @@ import com.altester.core.model.subject.*;
 import com.altester.core.model.subject.enums.AttemptStatus;
 import com.altester.core.repository.*;
 import com.altester.core.service.AttemptRetrievalService;
+import com.altester.core.service.NotificationDispatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ public class AttemptRetrievalServiceImpl implements AttemptRetrievalService {
     private final GroupRepository groupRepository;
     private final AttemptRepository attemptRepository;
     private final TestRepository testRepository;
+    private final NotificationDispatchService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -248,6 +250,15 @@ public class AttemptRetrievalServiceImpl implements AttemptRetrievalService {
         attempt.setScore(totalScore);
         attempt.setStatus(AttemptStatus.REVIEWED);
         attemptRepository.save(attempt);
+
+        notificationService.notifyTestGraded(attempt);
+
+        boolean hasFeedback = reviewSubmission.getQuestionReviews().stream()
+                .anyMatch(qr -> StringUtils.hasText(qr.getTeacherFeedback()));
+
+        if (hasFeedback) {
+            notificationService.notifyTeacherFeedback(attempt);
+        }
     }
 
     private StudentTestAttemptsResponseDTO processAttemptsForStudent(List<Attempt> attempts, String searchQuery) {

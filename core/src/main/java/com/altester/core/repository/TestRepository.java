@@ -55,4 +55,7 @@ public interface TestRepository extends JpaRepository<Test, Long> {
                                       @Param("searchQuery") String searchQuery,
                                       @Param("isActive") Boolean isActive,
                                       Pageable pageable);
+
+    @Query("SELECT COUNT(t) FROM Test t WHERE t.isOpen = true")
+    int countOpenTests();
 }

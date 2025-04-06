@@ -11,6 +11,7 @@ import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.TestRepository;
 import com.altester.core.repository.UserRepository;
+import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.service.TestService;
 import com.altester.core.serviceImpl.group.GroupActivityService;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class TestServiceImpl  implements TestService {
     private final TestDTOMapper testDTOMapper;
     private final TestAccessValidator testAccessValidator;
     private final GroupActivityService groupActivityService;
+    private final NotificationDispatchService notificationService;
 
     private User getCurrentUser(Principal principal) {
         return userRepository.findByUsername(principal.getName())
@@ -237,6 +239,12 @@ public class TestServiceImpl  implements TestService {
 
         Test savedTest = testRepository.save(test);
 
+        if (savedTest.isOpen()) {
+            for (Group group : selectedGroups) {
+                notificationService.notifyTestAssigned(savedTest, group);
+            }
+        }
+
         selectedGroups.forEach(group -> group.getTests().add(savedTest));
         groupRepository.saveAll(selectedGroups);
 
@@ -299,6 +307,19 @@ public class TestServiceImpl  implements TestService {
         }
 
         Test updatedTest = testRepository.save(existingTest);
+
+        boolean parametersChanged = !existingTest.getTitle().equals(updateTestDTO.getTitle()) ||
+                existingTest.getDuration() != updateTestDTO.getDuration() ||
+                !Objects.equals(existingTest.getStartTime(), updateTestDTO.getStartTime()) ||
+                !Objects.equals(existingTest.getEndTime(), updateTestDTO.getEndTime());
+
+        if (parametersChanged) {
+            List<Group> affectedGroups = testDTOMapper.findGroupsByTest(existingTest);
+            for (Group group : affectedGroups) {
+                notificationService.notifyTestParametersChanged(existingTest, group);
+            }
+        }
+
         return testDTOMapper.convertToTestPreviewDTO(updatedTest, currentUser);
     }
 
@@ -461,6 +482,7 @@ public class TestServiceImpl  implements TestService {
             return dto;
         });
     }
+
     @Override
     @Transactional
     public void toggleTestActivity(Long testId, Principal principal) {
@@ -479,6 +501,13 @@ public class TestServiceImpl  implements TestService {
         boolean newState = !test.isOpen();
         test.setOpen(newState);
         testRepository.save(test);
+
+        if (Boolean.TRUE.equals(newState)) {
+            List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
+            for (Group group : testGroups) {
+                notificationService.notifyTestAssigned(test, group);
+            }
+        }
 
         log.info("Test ID {} activity toggled to {} by user {}", testId, newState, currentUser.getUsername());
     }

@@ -1,37 +1,24 @@
-package com.altester.notification.model;
+package com.altester.notification.dto;
 
-import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "notifications")
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class Notification {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class NotificationDTO {
     private Long id;
-
     private String username;
-
     private String title;
-
-    @Column(length = 1000)
     private String message;
-
     private boolean read;
-
     private String type;
-
     private String actionUrl;
-
     private Long referenceId;
-
     private LocalDateTime createdAt;
 }

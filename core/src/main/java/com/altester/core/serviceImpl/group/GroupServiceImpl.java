@@ -12,6 +12,7 @@ import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.UserRepository;
 import com.altester.core.service.GroupService;
+import com.altester.core.service.NotificationDispatchService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +37,7 @@ public class GroupServiceImpl  implements GroupService {
     private final SemesterConfig semesterConfig;
     private final GroupActivityService groupActivityService;
     private final GroupDTOMapper groupMapper;
+    private final NotificationDispatchService notificationService;
 
     private Group getGroupById(long id) {
         return groupRepository.findById(id)
@@ -175,6 +177,8 @@ public class GroupServiceImpl  implements GroupService {
     public void updateGroup(Long id, CreateGroupDTO createGroupDTO) {
         Group group = getGroupById(id);
 
+        Set<User> originalStudents = new HashSet<>(group.getStudents());
+
         if (!groupActivityService.canModifyGroup(group)) {
             log.error("Cannot update inactive group {} from past semester", group.getName());
             throw StateConflictException.inactiveGroup(group.getName());
@@ -228,6 +232,15 @@ public class GroupServiceImpl  implements GroupService {
 
         groupRepository.save(group);
         log.info("Group '{}' updated successfully with {} students", group.getName(), students.size());
+
+        Set<User> newStudents = students.stream()
+                .filter(student -> !originalStudents.contains(student))
+                .collect(Collectors.toSet());
+
+        if (!newStudents.isEmpty()) {
+            newStudents.forEach(student ->
+                    notificationService.notifyNewStudentJoined(student, group));
+        }
     }
 
     @Override
@@ -278,6 +291,11 @@ public class GroupServiceImpl  implements GroupService {
         Group savedGroup = groupRepository.save(group);
         log.info("Group '{}' created successfully with {} students, active status: {}",
                 group.getName(), students.size(), group.isActive());
+
+        if (!students.isEmpty()) {
+            students.forEach(student ->
+                    notificationService.notifyNewStudentJoined(student, savedGroup));
+        }
 
         return savedGroup.getId();
     }
