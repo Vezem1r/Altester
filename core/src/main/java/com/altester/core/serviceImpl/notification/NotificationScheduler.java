@@ -9,7 +9,6 @@ import com.altester.core.repository.UserRepository;
 import com.altester.core.service.NotificationDispatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -17,7 +16,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
-@EnableScheduling
 @RequiredArgsConstructor
 @Slf4j
 public class NotificationScheduler {

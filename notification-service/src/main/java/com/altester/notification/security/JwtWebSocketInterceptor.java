@@ -40,13 +40,18 @@ public class JwtWebSocketInterceptor implements ChannelInterceptor {
             return message;
         }
 
-        if (StompCommand.CONNECT.equals(accessor.getCommand()) || StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
-            log.debug("Processing {} command", accessor.getCommand());
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            log.debug("Authentication already exists for command: {}", command);
+            return message;
+        }
+
+        if (StompCommand.CONNECT.equals(command) || StompCommand.SUBSCRIBE.equals(command)) {
+            log.debug("Processing {} command", command);
 
             List<String> authHeaders = accessor.getNativeHeader("Authorization");
 
             if (authHeaders == null || authHeaders.isEmpty()) {
-                log.warn("Missing Authorization header in WebSocket handshake");
+                log.warn("Missing Authorization header in WebSocket handshake for command: {}", command);
                 throw new SecurityException("Missing JWT token in Authorization header");
             }
 
@@ -79,10 +84,10 @@ public class JwtWebSocketInterceptor implements ChannelInterceptor {
                 SecurityContextHolder.getContext().setAuthentication(authToken);
                 accessor.setUser(authToken);
 
-                log.info("WebSocket connection authenticated for user: {}", username);
+                log.info("WebSocket connection authenticated for user: {} with command: {}", username, command);
 
             } catch (Exception e) {
-                log.error("WebSocket authentication error: {}", e.getMessage(), e);
+                log.error("WebSocket authentication error for command {}: {}", command, e.getMessage(), e);
                 throw new SecurityException("WebSocket authentication failed: " + e.getMessage());
             }
         }

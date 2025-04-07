@@ -54,6 +54,15 @@ public class AuthController {
         }
     }
 
+    @GetMapping("/validate-token")
+    public ResponseEntity<Map<String, Object>> validateToken() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("valid", true);
+        response.put("message", "Token is valid");
+
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/config")
     public ResponseEntity<Map<String, Object>> getAuthConfig() {
         Map<String, Object> config = new HashMap<>();

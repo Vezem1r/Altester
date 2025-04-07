@@ -2,6 +2,7 @@ package com.altester.notification.security;
 
 import java.io.IOException;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,6 +27,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
 
+    @Value("${INTERNAL_API_KEY}")
+    private String apiKey;
+
     @Override
     protected void doFilterInternal(
                                     @NonNull HttpServletRequest request,
@@ -35,6 +39,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
         final String username;
+
+        if (request.getRequestURI().startsWith("/internal/")) {
+            String requestApiKey = request.getHeader("x-api-key");
+
+            if (requestApiKey != null && requestApiKey.equals(apiKey)) {
+                filterChain.doFilter(request, response);
+            } else {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            }
+            return;
+        }
 
         if (request.getRequestURI().startsWith("/ws")) {
             filterChain.doFilter(request, response);

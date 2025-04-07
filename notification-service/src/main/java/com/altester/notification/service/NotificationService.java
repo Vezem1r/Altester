@@ -5,6 +5,10 @@ import com.altester.notification.dto.NotificationRequest;
 import com.altester.notification.model.Notification;
 import com.altester.notification.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,12 +48,6 @@ public class NotificationService {
                 .collect(Collectors.toList());
     }
 
-    public List<NotificationDTO> getUserNotifications(String username) {
-        return notificationRepository.findByUsernameOrderByCreatedAtDesc(username).stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
-    }
-
     public List<NotificationDTO> getUnreadNotifications(String username) {
         return notificationRepository.findByUsernameAndReadOrderByCreatedAtDesc(username, false).stream()
                 .map(this::mapToDTO)
@@ -63,7 +61,7 @@ public class NotificationService {
     @Transactional
     public NotificationDTO markAsRead(Long notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new IllegalArgumentException("Уведомление не найдено"));
+                .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
 
         notification.setRead(true);
         Notification savedNotification = notificationRepository.save(notification);
@@ -78,6 +76,28 @@ public class NotificationService {
         notificationRepository.saveAll(unreadNotifications);
 
         webSocketService.sendUnreadCount(username, 0);
+    }
+
+    public Page<NotificationDTO> searchNotifications(String username, String searchTerm, Boolean read, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            if (read != null) {
+                return notificationRepository.findByUsernameAndReadOrderByCreatedAtDesc(username, read, pageable)
+                        .map(this::mapToDTO);
+            } else {
+                return notificationRepository.findByUsernameOrderByCreatedAtDesc(username, pageable)
+                        .map(this::mapToDTO);
+            }
+        } else {
+            if (read != null) {
+                return notificationRepository.searchByUsernameAndReadAndTerm(username, read, searchTerm.trim(), pageable)
+                        .map(this::mapToDTO);
+            } else {
+                return notificationRepository.searchByUsernameAndTerm(username, searchTerm.trim(), pageable)
+                        .map(this::mapToDTO);
+            }
+        }
     }
 
     private NotificationDTO mapToDTO(Notification notification) {

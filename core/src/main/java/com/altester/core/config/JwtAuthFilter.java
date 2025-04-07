@@ -1,6 +1,10 @@
 package com.altester.core.config;
 
+import com.altester.core.exception.JwtAuthenticationException;
 import com.altester.core.serviceImpl.JwtService;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.security.SignatureException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,6 +22,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -28,6 +34,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
 
+    private final List<String> whitelistedPaths = Arrays.asList(
+            "/auth/signin",
+            "/auth/signup",
+            "/auth/verify",
+            "/auth/resend",
+            "/auth/ldap/signin",
+            "/auth/config",
+            "/password/"
+    );
+
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
@@ -36,14 +52,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         final String requestPath = request.getServletPath();
 
-        if (requestPath.equals("/auth/validate-token")) {
+        if (shouldSkipAuthentication(requestPath)) {
             filterChain.doFilter(request, response);
             return;
         }
 
         final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String username;
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
@@ -51,8 +65,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         try {
-            jwt = authHeader.substring(7);
-            username = jwtService.extractUsername(jwt);
+            String jwt = authHeader.substring(7);
+            String username = jwtService.extractUsername(jwt);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
@@ -62,17 +76,40 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                             userDetails, null, userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                } else {
+                    throw JwtAuthenticationException.invalidToken();
                 }
             }
 
             filterChain.doFilter(request, response);
-        } catch (Exception exception){
-            handlerExceptionResolver.resolveException(request, response, null, exception);
+        } catch (ExpiredJwtException e) {
+            log.debug("Token expired for request: {}", requestPath);
+            handlerExceptionResolver.resolveException(request, response, null,
+                    JwtAuthenticationException.expiredToken());
+        } catch (SignatureException | MalformedJwtException e) {
+            log.debug("Invalid token for request: {}", requestPath);
+            handlerExceptionResolver.resolveException(request, response, null,
+                    JwtAuthenticationException.invalidToken());
+        } catch (Exception e) {
+            log.error("Authentication error: {}", e.getMessage());
+            handlerExceptionResolver.resolveException(request, response, null,
+                    JwtAuthenticationException.malformedToken());
         }
+    }
+
+    private boolean shouldSkipAuthentication(String requestPath) {
+        return whitelistedPaths.stream()
+                .anyMatch(path -> {
+                    if (path.endsWith("/")) {
+                        return requestPath.startsWith(path);
+                    } else {
+                        return requestPath.equals(path);
+                    }
+                });
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return request.getServletPath().equals("/auth/validate-token");
+        return shouldSkipAuthentication(request.getServletPath());
     }
 }

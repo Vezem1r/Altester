@@ -14,7 +14,6 @@ import java.time.LocalDate;
 
 @Service
 @RequiredArgsConstructor
-@EnableScheduling
 @Slf4j
 public class GroupActivityService {
 
@@ -54,8 +53,6 @@ public class GroupActivityService {
 
     /**
      * Determines if a group belongs to a future semester relative to current date
-     * @param group Group to check
-     * @return true if group is in a future semester, false otherwise
      */
     public boolean isGroupInFuture(Group group) {
         if (group == null) {
@@ -95,8 +92,6 @@ public class GroupActivityService {
     /**
      * Checks if a group can be modified based on its activity status
      * Active groups and future groups can be modified
-     * @param group Group to check
-     * @return true if group can be modified, false otherwise
      */
     public boolean canModifyGroup(Group group) {
         if (group == null) {
@@ -112,10 +107,6 @@ public class GroupActivityService {
         return isGroupInFuture(group);
     }
 
-    /**
-     * Scheduled task to update activity status of all groups
-     * Runs daily at midnight
-     */
     @Scheduled(cron = "0 0 0 * * *")
     public void updateAllGroupStatuses() {
         log.info("Running scheduled group status update");

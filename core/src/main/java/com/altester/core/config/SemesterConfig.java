@@ -35,8 +35,6 @@ public class SemesterConfig {
         String currentSemester = getCurrentSemester();
         int currentAcademicYear = getCurrentAcademicYear();
 
-        log.info("Current semester is {}", semester.equals(currentSemester) ? "ACTIVE" : "INACTIVE");
-
         return semester.equals(currentSemester) && academicYear.equals(currentAcademicYear);
     }
 

@@ -1,16 +1,13 @@
 package com.altester.notification.controller;
 
 import com.altester.notification.dto.NotificationDTO;
-import com.altester.notification.dto.NotificationRequest;
 import com.altester.notification.service.NotificationService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/notifications")
@@ -19,20 +16,18 @@ public class NotificationController {
 
     private final NotificationService notificationService;
 
-    @GetMapping
-    public ResponseEntity<List<NotificationDTO>> getUserNotifications(Principal principal) {
-        return ResponseEntity.ok(notificationService.getUserNotifications(principal.getName()));
-    }
+    @GetMapping("/paginated")
+    public ResponseEntity<Page<NotificationDTO>> getPaginatedNotifications(
+            Principal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Boolean read) {
 
-    @GetMapping("/unread")
-    public ResponseEntity<List<NotificationDTO>> getUnreadNotifications(Principal principal) {
-        return ResponseEntity.ok(notificationService.getUnreadNotifications(principal.getName()));
-    }
+        Page<NotificationDTO> notifications = notificationService.searchNotifications(
+                principal.getName(), search, read, page, size);
 
-    @GetMapping("/unread/count")
-    public ResponseEntity<Map<String, Long>> getUnreadCount(Principal principal) {
-        long count = notificationService.getUnreadCount(principal.getName());
-        return ResponseEntity.ok(Map.of("count", count));
+        return ResponseEntity.ok(notifications);
     }
 
     @PutMapping("/{notificationId}/read")
@@ -44,10 +39,5 @@ public class NotificationController {
     public ResponseEntity<Void> markAllAsRead(Principal principal) {
         notificationService.markAllAsRead(principal.getName());
         return ResponseEntity.ok().build();
-    }
-
-    @PostMapping
-    public ResponseEntity<List<NotificationDTO>> createNotifications(@Valid @RequestBody NotificationRequest request) {
-        return ResponseEntity.ok(notificationService.createNotifications(request));
     }
 }

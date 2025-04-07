@@ -9,6 +9,9 @@ import com.altester.core.service.NotificationDispatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -26,6 +29,9 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
 
     @Value("${NOTIFICATION_SERVICE_URL}")
     private String notificationServiceUrl;
+
+    @Value("${INTERNAL_API_KEY}")
+    private String apiKey;
 
     @Override
     public void notifyTestAssigned(Test test, Group group) {
@@ -56,7 +62,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
                 .title("Test Graded")
                 .message("Your attempt for test '" + attempt.getTest().getTitle() + "' has been graded. Score: " + attempt.getScore())
                 .type("TEST_GRADED")
-                .actionUrl("/student/tests/" + attempt.getTest().getId() + "/attempts/" + attempt.getId())
+                .actionUrl("/student/attempt-review/" + attempt.getId())
                 .referenceId(attempt.getId())
                 .build();
 
@@ -70,7 +76,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
                 .title("Feedback Received")
                 .message("You have received feedback for test '" + attempt.getTest().getTitle() + "'")
                 .type("TEACHER_FEEDBACK")
-                .actionUrl("/student/tests/" + attempt.getTest().getId() + "/attempts/" + attempt.getId() + "/feedback")
+                .actionUrl("/student/attempt-review/" + attempt.getId())
                 .referenceId(attempt.getId())
                 .build();
 
@@ -162,9 +168,15 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
 
     private void sendNotification(NotificationRequest request) {
         try {
-            ResponseEntity<?> response = restTemplate.postForEntity(
-                    notificationServiceUrl + "/notifications",
-                    request,
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("x-api-key", apiKey);
+
+            HttpEntity<NotificationRequest> entity = new HttpEntity<>(request, headers);
+
+            ResponseEntity<?> response = restTemplate.exchange(
+                    notificationServiceUrl + "/internal/notifications",
+                    HttpMethod.POST,
+                    entity,
                     Object.class
             );
 
