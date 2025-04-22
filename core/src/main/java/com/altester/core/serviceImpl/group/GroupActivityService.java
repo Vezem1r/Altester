@@ -6,7 +6,6 @@ import com.altester.core.model.subject.enums.Semester;
 import com.altester.core.repository.GroupRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -37,6 +36,7 @@ public class GroupActivityService {
         );
 
         if (isActiveSemester != group.isActive()) {
+
             log.info("{} group {} as semester {} {} {} active",
                     isActiveSemester ? "Activating" : "Deactivating",
                     group.getName(),
@@ -58,8 +58,6 @@ public class GroupActivityService {
         if (group == null) {
             return false;
         }
-
-        checkAndUpdateGroupActivity(group);
 
         String currentSemester = semesterConfig.getCurrentSemester();
         int currentAcademicYear = semesterConfig.getCurrentAcademicYear();
