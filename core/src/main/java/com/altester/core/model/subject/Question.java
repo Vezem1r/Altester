@@ -35,6 +35,9 @@ public class Question {
     @Column(name = "position")
     private int position;
 
+    @Column(name = "correct_answer", length = 1000)
+    private String correctAnswer;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private QuestionType questionType;

@@ -95,6 +95,7 @@ public class QuestionServiceImpl implements QuestionService {
                 .imagePath(imagePath)
                 .score(createQuestionDTO.getScore())
                 .questionType(createQuestionDTO.getQuestionType())
+                .correctAnswer(createQuestionDTO.getCorrectAnswer())
                 .test(test)
                 .position(lastPosition + 1)
                 .build();
@@ -165,6 +166,7 @@ public class QuestionServiceImpl implements QuestionService {
 
         question.setImagePath(imagePath);
         question.setQuestionType(updateQuestionDTO.getQuestionType());
+        question.setCorrectAnswer(updateQuestionDTO.getCorrectAnswer());
 
         if (updateQuestionDTO.getOptions() != null) {
             optionRepository.deleteAll(question.getOptions());

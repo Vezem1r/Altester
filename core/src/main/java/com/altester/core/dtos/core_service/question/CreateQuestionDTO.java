@@ -27,5 +27,8 @@ public class CreateQuestionDTO {
     @NotNull(message = "Question type is required")
     private QuestionType questionType;
 
+    @Size(max = 1000, message = "Correct answer must be less than 1000 characters")
+    private String correctAnswer;
+
     private List<OptionDTO> options;
 }

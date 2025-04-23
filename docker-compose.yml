@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   auth-service:
     container_name: auth-service_container
@@ -23,6 +21,7 @@ services:
     environment:
       - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
       - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
+      - REDIS_HOST=${REDIS_HOST}
     depends_on:
       - auth-service
     networks:
@@ -48,6 +47,18 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - internal
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis_container
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    command: redis-server --save 60 1 --loglevel warning
 
   notification-service:
     container_name: notification-service_container
@@ -86,3 +97,4 @@ networks:
 volumes:
   postgres_data:
   question_images:
+  redis_data:

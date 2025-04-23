@@ -44,21 +44,20 @@ public class ChatService {
         User receiver = userRepository.findByUsername(receiverId)
                 .orElseThrow(() -> new ChatException("Receiver not found: " + receiverId));
 
-        if (sender.isTeacher()&& receiver.isStudent()) {
+        if (sender.isTeacher() && receiver.isStudent()) {
             return groupRepository.isStudentInTeacherGroup(senderId, receiverId);
         }
 
         if (sender.isStudent() && receiver.isTeacher()) {
             return groupRepository.isStudentInTeacherGroup(receiverId, senderId);
         }
-
         return true;
     }
 
     @Transactional
     public Conversation getOrCreateConversation(String participant1Id, String participant2Id) {
-        if (canUsersSendMessages(participant1Id, participant2Id) &&
-                canUsersSendMessages(participant2Id, participant1Id)) {
+        if (!canUsersSendMessages(participant1Id, participant2Id) ||
+                !canUsersSendMessages(participant2Id, participant1Id)) {
             throw new ChatException("Users cannot exchange messages");
         }
 
@@ -83,7 +82,7 @@ public class ChatService {
     public ChatMessageDTO sendMessage(String senderId, MessageRequest request) {
         String receiverId = request.getReceiverId();
 
-        if (canUsersSendMessages(senderId, receiverId)) {
+        if (!canUsersSendMessages(senderId, receiverId)) {
             throw new ChatException("You cannot send messages to this user");
         }
 
@@ -92,11 +91,11 @@ public class ChatService {
             conversation = conversationRepository.findById(request.getConversationId())
                     .orElseThrow(() -> new ChatException("Conversation not found"));
 
-            if (conversation.hasParticipant(senderId)) {
+            if (!conversation.hasParticipant(senderId)) {
                 throw new ChatException("You are not a participant in this conversation");
             }
 
-            if (conversation.hasParticipant(receiverId)) {
+            if (!conversation.hasParticipant(receiverId)) {
                 throw new ChatException("Receiver is not a participant in this conversation");
             }
         } else {
@@ -123,6 +122,7 @@ public class ChatService {
         return messageDTO;
     }
 
+    @Transactional(readOnly = true)
     public List<ConversationDTO> getConversationsForUser(String userId) {
         List<Conversation> conversations = conversationRepository.findConversationsForUser(userId);
 
@@ -131,6 +131,7 @@ public class ChatService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public Page<ConversationDTO> getPaginatedConversations(String userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "lastMessageTime"));
         Page<Conversation> conversationsPage = conversationRepository.findConversationsForUserPaginated(userId, pageable);
@@ -138,11 +139,12 @@ public class ChatService {
         return conversationsPage.map(conversation -> chatDTOMapper.mapToConversationDTO(conversation, userId));
     }
 
+    @Transactional(readOnly = true)
     public Page<ChatMessageDTO> getConversationMessages(String userId, Long conversationId, int page, int size) {
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new ChatException("Conversation not found"));
 
-        if (conversation.hasParticipant(userId)) {
+        if (!conversation.hasParticipant(userId)) {
             throw new ChatException("You are not a participant in this conversation");
         }
 
@@ -154,6 +156,7 @@ public class ChatService {
         return messagesPage.map(message -> chatDTOMapper.mapToChatMessageDTO(message, otherParticipantId));
     }
 
+    @Transactional(readOnly = true)
     public List<ChatMessageDTO> getUnreadMessages(String userId) {
         List<Conversation> conversations = conversationRepository.findConversationsForUser(userId);
 
@@ -172,7 +175,7 @@ public class ChatService {
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new ChatException("Conversation not found"));
 
-        if (conversation.hasParticipant(userId)) {
+        if (!conversation.hasParticipant(userId)) {
             throw new ChatException("You are not a participant in this conversation");
         }
 

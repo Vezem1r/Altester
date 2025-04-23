@@ -47,6 +47,7 @@ public class QuestionDTOMapper {
                 .imagePath(question.getImagePath())
                 .score(question.getScore())
                 .questionType(question.getQuestionType())
+                .correctAnswer(question.getCorrectAnswer())
                 .position(question.getPosition())
                 .options(options)
                 .build();

@@ -10,14 +10,16 @@ import com.altester.core.exception.StateConflictException;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
-import com.altester.core.model.subject.Subject;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.TestRepository;
 import com.altester.core.repository.UserRepository;
 import com.altester.core.service.AdminPageService;
+import com.altester.core.util.CacheablePage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -44,6 +46,7 @@ public class AdminPageServiceImpl implements AdminPageService {
     private final TestRepository testRepository;
     private final GroupRepository groupRepository;
     private final SubjectRepository subjectRepository;
+    private final UserMapper userMapper;
 
     private User getUserByUsername(String username) {
         return userRepository.findByUsername(username)
@@ -54,23 +57,38 @@ public class AdminPageServiceImpl implements AdminPageService {
     }
 
     @Override
+    @Cacheable(value = "students", key = "'page:' + #page +" +
+            "':search:' + (#searchQuery == null ? '' : #searchQuery) +" +
+            "':field:' + #searchField +" +
+            "':filter:' + #registrationFilter")
     public Page<UsersListDTO> getStudents(int page, String searchQuery, String searchField, String registrationFilter) {
+        log.debug("Getting students: page={}, searchQuery={}, searchField={}, filter={}",
+                page, searchQuery, searchField, registrationFilter);
+
         Specification<User> spec = createUserSpecification(RolesEnum.STUDENT, searchQuery, searchField, registrationFilter);
 
         PageRequest pageRequest = PageRequest.of(page, PAGE_SIZE, Sort.by(Sort.Direction.ASC, "isRegistered")
                 .and(Sort.by(Sort.Direction.ASC, "name")));
 
-        return userRepository.findAll(spec, pageRequest).map(this::convertToUsersListDTO);
+        Page<UsersListDTO> result = userRepository.findAll(spec, pageRequest).map(userMapper::convertToUsersListDTO);
+        return new CacheablePage<>(result);
     }
 
     @Override
+    @Cacheable(value = "teachers", key = "'page:' + #page +" +
+            "':search:' + (#searchQuery == null ? '' : #searchQuery) +" +
+            "':field:' + #searchField +" +
+            "':filter:' + #registrationFilter")
     public Page<UsersListDTO> getTeachers(int page, String searchQuery, String searchField, String registrationFilter) {
+        log.debug("Getting teachers: page={}, searchQuery={}, searchField={}, filter={}",
+                page, searchQuery, searchField, registrationFilter);
         Specification<User> spec = createUserSpecification(RolesEnum.TEACHER, searchQuery, searchField, registrationFilter);
 
         PageRequest pageRequest = PageRequest.of(page, PAGE_SIZE, Sort.by(Sort.Direction.ASC, "isRegistered")
                 .and(Sort.by(Sort.Direction.ASC, "name")));
 
-        return userRepository.findAll(spec, pageRequest).map(this::convertToUsersListDTO);
+        Page<UsersListDTO> result = userRepository.findAll(spec, pageRequest).map(userMapper::convertToUsersListDTO);
+        return new CacheablePage<>(result);
     }
 
     private Specification<User> createUserSpecification(RolesEnum role, String searchQuery, String searchField, String registrationFilter) {
@@ -116,6 +134,7 @@ public class AdminPageServiceImpl implements AdminPageService {
     }
 
     @Override
+    @Cacheable(value = "adminStats", key = "#username")
     public AdminPageDTO getPage(String username) {
         log.debug("Fetching admin page data for user: {}", username);
         getUserByUsername(username);
@@ -132,6 +151,7 @@ public class AdminPageServiceImpl implements AdminPageService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {"adminStats", "students", "teachers"}, allEntries = true)
     public void demoteToStudent(String username) {
         User user = getUserByUsername(username);
 
@@ -156,6 +176,7 @@ public class AdminPageServiceImpl implements AdminPageService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {"adminStats", "students", "teachers"}, allEntries = true)
     public void promoteToTeacher(String username) {
         User user = getUserByUsername(username);
 
@@ -180,6 +201,7 @@ public class AdminPageServiceImpl implements AdminPageService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {"adminStats", "students", "teachers"}, allEntries = true)
     public UsersListDTO updateUser(UpdateUser updateUser, String username) {
 
         User user = getUserByUsername(username);
@@ -205,45 +227,6 @@ public class AdminPageServiceImpl implements AdminPageService {
         User savedUser = userRepository.save(user);
 
         log.info("User {} (ID: {}) successfully updated", savedUser.getUsername(), savedUser.getId());
-        return convertToUsersListDTO(savedUser);
-    }
-
-    private UsersListDTO convertToUsersListDTO(User user) {
-        UsersListDTO dto = new UsersListDTO();
-        dto.setFirstName(user.getName());
-        dto.setLastName(user.getSurname());
-        dto.setEmail(user.getEmail());
-        dto.setUsername(user.getUsername());
-        dto.setLastLogin(user.getLastLogin());
-        dto.setRegistered(user.isRegistered());
-
-        List<Group> userGroups;
-        if (user.getRole() == RolesEnum.STUDENT) {
-            userGroups = groupRepository.findAllByStudentsContaining(user);
-        } else if (user.getRole() == RolesEnum.TEACHER) {
-            userGroups = groupRepository.findAllByTeacher(user);
-        } else {
-            userGroups = List.of();
-        }
-
-        List<Group> activeUserGroups = userGroups.stream()
-                .filter(Group::isActive)
-                .toList();
-
-        dto.setGroupNames(activeUserGroups.stream()
-                .map(Group::getName)
-                .toList());
-
-        List<String> subjectNames = activeUserGroups.stream()
-                .map(group -> subjectRepository.findByGroupsId(group.getId()))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .map(Subject::getShortName)
-                .distinct()
-                .toList();
-
-        dto.setSubjectShortNames(subjectNames);
-
-        return dto;
+        return userMapper.convertToUsersListDTO(savedUser);
     }
 }
