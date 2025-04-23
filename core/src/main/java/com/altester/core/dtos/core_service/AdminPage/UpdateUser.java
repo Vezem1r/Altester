@@ -1,4 +1,4 @@
-package com.altester.core.dtos.AdminPage;
+package com.altester.core.dtos.core_service.AdminPage;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

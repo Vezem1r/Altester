@@ -1,6 +1,9 @@
 package com.altester.core.controller.page;
 
-import com.altester.core.dtos.TeacherPage.*;
+import com.altester.core.dtos.core_service.TeacherPage.ListTeacherGroupDTO;
+import com.altester.core.dtos.core_service.TeacherPage.MoveStudentRequest;
+import com.altester.core.dtos.core_service.TeacherPage.TeacherPageDTO;
+import com.altester.core.dtos.core_service.TeacherPage.TeacherStudentsDTO;
 import com.altester.core.service.TeacherPageService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;

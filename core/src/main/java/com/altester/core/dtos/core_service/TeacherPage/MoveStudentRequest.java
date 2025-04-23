@@ -1,4 +1,4 @@
-package com.altester.core.dtos.TeacherPage;
+package com.altester.core.dtos.core_service.TeacherPage;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

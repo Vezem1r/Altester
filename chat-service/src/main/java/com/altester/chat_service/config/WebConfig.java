@@ -1,4 +1,4 @@
-package com.altester.notification.config;
+package com.altester.chat_service.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

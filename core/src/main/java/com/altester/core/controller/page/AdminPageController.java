@@ -1,8 +1,8 @@
 package com.altester.core.controller.page;
 
-import com.altester.core.dtos.AdminPage.AdminPageDTO;
-import com.altester.core.dtos.AdminPage.UpdateUser;
-import com.altester.core.dtos.AdminPage.UsersListDTO;
+import com.altester.core.dtos.core_service.AdminPage.AdminPageDTO;
+import com.altester.core.dtos.core_service.AdminPage.UpdateUser;
+import com.altester.core.dtos.core_service.AdminPage.UsersListDTO;
 import com.altester.core.service.AdminPageService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;

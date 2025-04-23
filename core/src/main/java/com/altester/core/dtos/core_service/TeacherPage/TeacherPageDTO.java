@@ -1,4 +1,4 @@
-package com.altester.core.dtos.TeacherPage;
+package com.altester.core.dtos.core_service.TeacherPage;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

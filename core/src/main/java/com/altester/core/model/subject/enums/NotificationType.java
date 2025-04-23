@@ -1,4 +1,4 @@
-package com.altester.notification.model.enums;
+package com.altester.core.model.subject.enums;
 
 public enum NotificationType {
     // Student
@@ -8,7 +8,6 @@ public enum NotificationType {
     TEST_PARAMETERS_CHANGED,
 
     // Teacher
-    GROUP_PERFORMANCE,
     NEW_STUDENT_JOINED,
     ADMIN_TEST_CHANGED,
 

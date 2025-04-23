@@ -1,6 +1,6 @@
-package com.altester.notification.config;
+package com.altester.chat_service.config;
 
-import com.altester.notification.security.JwtWebSocketInterceptor;
+import com.altester.chat_service.security.JwtWebSocketInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -35,12 +35,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws")
+        registry.addEndpoint("/ws-chat")
                 .setAllowedOrigins(getAllowedOrigins().toArray(new String[0]))
                 .setAllowedOriginPatterns("*")
                 .withSockJS();
 
-        registry.addEndpoint("/ws")
+        registry.addEndpoint("/ws-chat")
                 .setAllowedOrigins(getAllowedOrigins().toArray(new String[0]))
                 .setAllowedOriginPatterns("*");
     }

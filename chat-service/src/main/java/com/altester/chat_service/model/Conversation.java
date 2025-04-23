@@ -28,7 +28,7 @@ public class Conversation {
     @Column(name = "participant1_id", nullable = false)
     private String participant1Id;
 
-    @Column(name = "participant1_id", nullable = false)
+    @Column(name = "participant2_id", nullable = false)
     private String participant2Id;
 
     @Column(nullable = false)

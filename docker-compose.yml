@@ -56,11 +56,26 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
+      - core
     networks:
       - internal
     ports:
       - "8082:8082"
+    volumes:
+      - ./logs:/app/logs
+
+  chat-service:
+    container_name: chat-service_container
+    build:
+      context: ./chat-service
+    env_file:
+      - .env
+    depends_on:
+      - core
+    networks:
+      - internal
+    ports:
+      - "8083:8083"
     volumes:
       - ./logs:/app/logs
 

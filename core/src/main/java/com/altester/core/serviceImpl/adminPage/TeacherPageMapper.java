@@ -1,6 +1,6 @@
 package com.altester.core.serviceImpl.adminPage;
 
-import com.altester.core.dtos.TeacherPage.*;
+import com.altester.core.dtos.core_service.TeacherPage.*;
 import com.altester.core.dtos.core_service.subject.SubjectGroupDTO;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.Group;

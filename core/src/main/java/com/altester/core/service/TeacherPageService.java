@@ -1,6 +1,9 @@
 package com.altester.core.service;
 
-import com.altester.core.dtos.TeacherPage.*;
+import com.altester.core.dtos.core_service.TeacherPage.ListTeacherGroupDTO;
+import com.altester.core.dtos.core_service.TeacherPage.MoveStudentRequest;
+import com.altester.core.dtos.core_service.TeacherPage.TeacherPageDTO;
+import com.altester.core.dtos.core_service.TeacherPage.TeacherStudentsDTO;
 import org.springframework.data.domain.Page;
 
 import java.security.Principal;

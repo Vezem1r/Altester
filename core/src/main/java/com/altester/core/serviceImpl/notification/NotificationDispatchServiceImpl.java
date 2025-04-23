@@ -5,6 +5,7 @@ import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.Attempt;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Test;
+import com.altester.core.model.subject.enums.NotificationType;
 import com.altester.core.service.NotificationDispatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,7 +48,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
                 .usernames(studentUsernames)
                 .title("New Test")
                 .message("You have been assigned a new test '" + test.getTitle() + "' in group '" + group.getName() + "'")
-                .type("NEW_TEST_ASSIGNED")
+                .type(NotificationType.NEW_TEST_ASSIGNED.toString())
                 .actionUrl("/student/tests/" + test.getId())
                 .referenceId(test.getId())
                 .build();
@@ -61,7 +62,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
                 .usernames(Collections.singletonList(attempt.getStudent().getUsername()))
                 .title("Test Graded")
                 .message("Your attempt for test '" + attempt.getTest().getTitle() + "' has been graded. Score: " + attempt.getScore())
-                .type("TEST_GRADED")
+                .type(NotificationType.TEST_GRADED.toString())
                 .actionUrl("/student/attempt-review/" + attempt.getId())
                 .referenceId(attempt.getId())
                 .build();
@@ -75,7 +76,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
                 .usernames(Collections.singletonList(attempt.getStudent().getUsername()))
                 .title("Feedback Received")
                 .message("You have received feedback for test '" + attempt.getTest().getTitle() + "'")
-                .type("TEACHER_FEEDBACK")
+                .type(NotificationType.TEACHER_FEEDBACK.toString())
                 .actionUrl("/student/attempt-review/" + attempt.getId())
                 .referenceId(attempt.getId())
                 .build();
@@ -97,7 +98,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
                 .usernames(studentUsernames)
                 .title("Test Parameters Changed")
                 .message("Parameters for test '" + test.getTitle() + "' have been updated")
-                .type("TEST_PARAMETERS_CHANGED")
+                .type(NotificationType.TEST_PARAMETERS_CHANGED.toString())
                 .actionUrl("/student/tests/" + test.getId())
                 .referenceId(test.getId())
                 .build();
@@ -115,7 +116,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
                 .usernames(Collections.singletonList(group.getTeacher().getUsername()))
                 .title("New Student in Group")
                 .message(student.getName() + " " + student.getSurname() + " has joined your group '" + group.getName() + "'")
-                .type("NEW_STUDENT_JOINED")
+                .type(NotificationType.NEW_STUDENT_JOINED.toString())
                 .actionUrl("/teacher/groups/" + group.getId() + "/students")
                 .referenceId(group.getId())
                 .build();
@@ -137,7 +138,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
                 .usernames(adminUsernames)
                 .title("System Warning")
                 .message("Test '" + test.getTitle() + "' does not contain any questions")
-                .type("SYSTEM_WARNING")
+                .type(NotificationType.SYSTEM_WARNING.toString())
                 .actionUrl("/admin/tests/" + test.getId())
                 .referenceId(test.getId())
                 .build();
@@ -159,7 +160,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
                 .usernames(adminUsernames)
                 .title("System Usage Statistics")
                 .message("Weekly report: " + activeTests + " active tests, " + activeUsers + " active users, " + submissions + " submitted answers")
-                .type("USAGE_STATISTICS")
+                .type(NotificationType.USAGE_STATISTICS.toString())
                 .actionUrl("/admin/statistics")
                 .build();
 

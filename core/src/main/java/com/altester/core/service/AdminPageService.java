@@ -1,8 +1,8 @@
 package com.altester.core.service;
 
-import com.altester.core.dtos.AdminPage.AdminPageDTO;
-import com.altester.core.dtos.AdminPage.UpdateUser;
-import com.altester.core.dtos.AdminPage.UsersListDTO;
+import com.altester.core.dtos.core_service.AdminPage.AdminPageDTO;
+import com.altester.core.dtos.core_service.AdminPage.UpdateUser;
+import com.altester.core.dtos.core_service.AdminPage.UsersListDTO;
 import com.altester.core.exception.ResourceNotFoundException;
 import org.springframework.data.domain.Page;
 
