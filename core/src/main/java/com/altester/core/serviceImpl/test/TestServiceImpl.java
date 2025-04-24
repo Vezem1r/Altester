@@ -41,6 +41,7 @@ public class TestServiceImpl  implements TestService {
     private final GroupActivityService groupActivityService;
     private final NotificationDispatchService notificationService;
     private final CacheService cacheService;
+    private final TestGroupSelectionService groupSelection;
 
     private User getCurrentUser(Principal principal) {
         return userRepository.findByUsername(principal.getName())
@@ -58,86 +59,10 @@ public class TestServiceImpl  implements TestService {
                 });
     }
 
-    /**
-     * Identifies and returns valid groups for test assignment based on user role and permissions.
-     * Administrators can assign tests to any active group or by subject.
-     * Teachers can only assign tests to their own active groups.
-     * Inactive groups are silently skipped when using subjectId.
-     */
-    private List<Group> findValidGroupsForTest(User currentUser, CreateTestDTO createTestDTO) {
-        List<Group> selectedGroups = new ArrayList<>();
-        List<Group> invalidGroups = new ArrayList<>();
-
-        if (currentUser.getRole() == RolesEnum.ADMIN) {
-            if (createTestDTO.getSubjectId() != null) {
-                Subject subject = subjectRepository.findById(createTestDTO.getSubjectId())
-                        .orElseThrow(() -> ResourceNotFoundException.subject(createTestDTO.getSubjectId()));
-
-                if (subject.getGroups() != null && !subject.getGroups().isEmpty()) {
-                    for (Group group : subject.getGroups()) {
-                        if (groupActivityService.canModifyGroup(group)) {
-                            selectedGroups.add(group);
-                        } else {
-                            log.warn("Skipping inactive group {} from subject {}", group.getName(), subject.getShortName());
-                        }
-                    }
-                }
-            } else if (createTestDTO.getGroupIds() != null && !createTestDTO.getGroupIds().isEmpty()) {
-                for (Long groupId : createTestDTO.getGroupIds()) {
-                    Group group = groupRepository.findById(groupId)
-                            .orElseThrow(() -> ResourceNotFoundException.group(groupId));
-
-                    if (groupActivityService.canModifyGroup(group)) {
-                        selectedGroups.add(group);
-                    } else {
-                        invalidGroups.add(group);
-                    }
-                }
-
-                if (!invalidGroups.isEmpty()) {
-                    String invalidGroupNames = invalidGroups.stream()
-                            .map(Group::getName)
-                            .collect(Collectors.joining(", "));
-                    throw StateConflictException.inactiveGroup(invalidGroupNames);
-                }
-            }
-        } else if (currentUser.getRole() == RolesEnum.TEACHER) {
-            if (createTestDTO.getGroupIds() != null && !createTestDTO.getGroupIds().isEmpty()) {
-                List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
-
-                for (Long groupId : createTestDTO.getGroupIds()) {
-                    Group group = groupRepository.findById(groupId)
-                            .orElseThrow(() -> ResourceNotFoundException.group(groupId));
-
-                    if (teacherGroups.contains(group)) {
-                        if (groupActivityService.canModifyGroup(group)) {
-                            selectedGroups.add(group);
-                        } else {
-                            invalidGroups.add(group);
-                        }
-                    }
-                }
-
-                if (!invalidGroups.isEmpty()) {
-                    String invalidGroupNames = invalidGroups.stream()
-                            .map(Group::getName)
-                            .collect(Collectors.joining(", "));
-                    throw StateConflictException.inactiveGroup(invalidGroupNames);
-                }
-            }
-        }
-
-        if (selectedGroups.isEmpty()) {
-            throw ValidationException.groupValidation("No valid groups selected for test assignment");
-        }
-
-        return selectedGroups;
-    }
-
     @Override
     @Transactional
     public void toggleTeacherEditPermission(Long testId, Principal principal) {
-        log.info("User {} is attempting to toggle teacher edit permission for test with ID {}", principal.getName(), testId);
+        log.debug("User {} is attempting to toggle teacher edit permission for test with ID {}", principal.getName(), testId);
 
         User currentUser = getCurrentUser(principal);
 
@@ -154,6 +79,27 @@ public class TestServiceImpl  implements TestService {
         cacheService.clearTestRelatedCaches();
 
         log.info("Teacher edit permission for test ID {} toggled to {} by admin {}", testId, newState, currentUser.getUsername());
+    }
+
+    @Override
+    @Transactional
+    public void toggleAiEvaluation(Long testId, Principal principal) {
+        log.debug("User {} is attempting to toggle AI evaluation for test with ID {}", principal.getName(), testId);
+
+        User currentUser = getCurrentUser(principal);
+        Test test = getTestById(testId);
+
+        if (currentUser.getRole() == RolesEnum.TEACHER && !test.isAllowTeacherEdit()) {
+            throw AccessDeniedException.testEdit();
+        }
+
+        boolean newState = !test.isAiEvaluation();
+        test.setAiEvaluation(newState);
+        testRepository.save(test);
+
+        cacheService.clearTestRelatedCaches();
+
+        log.info("Ai evaluation changed for test ID {} toggled to {} by user {}", testId, newState, currentUser.getUsername());
     }
 
     @Override
@@ -251,8 +197,9 @@ public class TestServiceImpl  implements TestService {
         test.setCreatedByAdmin(currentUser.getRole() == RolesEnum.ADMIN);
         test.setAllowTeacherEdit(currentUser.getRole() == RolesEnum.TEACHER);
         test.setMaxQuestions(createTestDTO.getMaxQuestions());
+        test.setAiEvaluation(true);
 
-        List<Group> selectedGroups = findValidGroupsForTest(currentUser, createTestDTO);
+        List<Group> selectedGroups = groupSelection.findValidGroupsForTest(currentUser, createTestDTO);
 
         Test savedTest = testRepository.save(test);
 
@@ -290,7 +237,7 @@ public class TestServiceImpl  implements TestService {
         if (updateTestDTO.getSubjectId() != null ||
                 (updateTestDTO.getGroupIds() != null && !updateTestDTO.getGroupIds().isEmpty())) {
 
-            List<Group> newSelectedGroups = findValidGroupsForTest(currentUser, updateTestDTO);
+            List<Group> newSelectedGroups = groupSelection.findValidGroupsForTest(currentUser, updateTestDTO);
 
             List<Group> currentGroups = testDTOMapper.findGroupsByTest(existingTest);
 

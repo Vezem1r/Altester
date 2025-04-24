@@ -1,7 +1,6 @@
 package com.altester.core.serviceImpl.teacherPage;
 
 import com.altester.core.dtos.core_service.TeacherPage.*;
-import com.altester.core.dtos.core_service.subject.SubjectGroupDTO;
 import com.altester.core.exception.*;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.Group;
@@ -15,10 +14,7 @@ import com.altester.core.serviceImpl.group.GroupActivityService;
 import com.altester.core.util.CacheablePage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -30,7 +26,6 @@ import org.springframework.util.StringUtils;
 import java.security.Principal;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -45,6 +40,9 @@ public class TeacherPageServiceImpl implements TeacherPageService {
     private final SubjectRepository subjectRepository;
     private final GroupActivityService groupActivityService;
     private final TeacherPageMapper teacherPageMapper;
+    private final TeacherGroupService teacherGroupService;
+    private final TeacherStudentService teacherStudentService;
+    private final TeacherStudentMoveValidator moveValidator;
 
     private User getTeacherFromPrincipal(Principal principal) {
         String username = principal.getName();
@@ -101,11 +99,11 @@ public class TeacherPageServiceImpl implements TeacherPageService {
                 .toList();
         log.debug("Found {} active groups", activeGroups.size());
 
-        List<TeacherStudentsDTO> students = getUniqueStudentsWithGroups(activeGroups);
+        List<TeacherStudentsDTO> students = teacherStudentService.getUniqueStudentsWithGroups(activeGroups);
         log.debug("Found {} unique students across all active groups", students.size());
 
         if (StringUtils.hasText(searchQuery)) {
-            students = filterStudentsBySearch(students, searchQuery);
+            students = teacherStudentService.filterStudentsBySearch(students, searchQuery);
             log.debug("{} students match the search criteria", students.size());
         }
 
@@ -129,44 +127,6 @@ public class TeacherPageServiceImpl implements TeacherPageService {
         return new CacheablePage<>(result);
     }
 
-    private List<TeacherStudentsDTO> getUniqueStudentsWithGroups(List<Group> activeGroups) {
-
-        return activeGroups.stream()
-                .flatMap(group -> {
-                    log.trace("Processing students from group: {} (id: {})", group.getName(), group.getId());
-                    return group.getStudents().stream()
-                            .collect(Collectors.toMap(
-                                    student -> student,
-                                    student -> new SubjectGroupDTO(group.getId(), group.getName()),
-                                    (existing, replacement) -> existing
-                            ))
-                            .keySet().stream()
-                            .map(student -> {
-                                List<SubjectGroupDTO> subjectGroups = activeGroups.stream()
-                                        .filter(g -> g.getStudents().contains(student))
-                                        .map(g -> new SubjectGroupDTO(g.getId(), g.getName()))
-                                        .toList();
-
-                                log.trace("Student {} belongs to {} groups", student.getUsername(), subjectGroups.size());
-                                return teacherPageMapper.toTeacherStudentsDTO(student, subjectGroups);
-                            });
-                })
-                .toList();
-    }
-
-    private List<TeacherStudentsDTO> filterStudentsBySearch(List<TeacherStudentsDTO> students, String searchQuery) {
-        String searchLower = searchQuery.toLowerCase();
-        log.debug("Filtering {} students with search term: '{}'", students.size(), searchQuery);
-
-        return students.stream()
-                .filter(student ->
-                        (student.getFirstName() != null && student.getFirstName().toLowerCase().contains(searchLower)) ||
-                                (student.getLastName() != null && student.getLastName().toLowerCase().contains(searchLower)) ||
-                                (student.getUsername() != null && student.getUsername().toLowerCase().contains(searchLower))
-                )
-                .toList();
-    }
-
     @Override
     @Cacheable(value = "teacherGroups",
             key = "#principal.name + ':page:' + #page + ':size:' + #size + ':search:' + " +
@@ -182,16 +142,16 @@ public class TeacherPageServiceImpl implements TeacherPageService {
         List<Group> teacherGroups = groupRepository.findByTeacher(teacher);
         log.debug("Found {} total groups", teacherGroups.size());
 
-        List<Group> filteredGroups = filterGroupsByStatus(teacherGroups, statusFilter);
+        List<Group> filteredGroups = teacherGroupService.filterGroupsByStatus(teacherGroups, statusFilter);
         log.debug("{} groups match the status criteria", filteredGroups.size());
 
         if (StringUtils.hasText(searchQuery)) {
-            filteredGroups = filterGroupsByName(filteredGroups, searchQuery);
+            filteredGroups = teacherGroupService.filterGroupsByName(filteredGroups, searchQuery);
             log.debug("{} groups match both status and name criteria", filteredGroups.size());
         }
 
         log.debug("Converting {} filtered groups to DTOs", filteredGroups.size());
-        List<ListTeacherGroupDTO> groupDTOs = convertGroupsToDTOs(filteredGroups);
+        List<ListTeacherGroupDTO> groupDTOs = teacherGroupService.convertGroupsToDTOs(filteredGroups);
 
         int start = (int) pageable.getOffset();
         int end = Math.min((start + pageable.getPageSize()), groupDTOs.size());
@@ -211,69 +171,6 @@ public class TeacherPageServiceImpl implements TeacherPageService {
                 result.getNumber() + 1, result.getTotalPages(), result.getNumberOfElements());
 
         return new CacheablePage<>(result);
-    }
-
-    private List<Group> filterGroupsByStatus(List<Group> groups, String statusFilter) {
-        if (!StringUtils.hasText(statusFilter)) {
-            return groups;
-        }
-
-        log.debug("Filtering {} groups by status: {}", groups.size(), statusFilter);
-        return groups.stream()
-                .filter(group -> {
-                    boolean isInFuture = groupActivityService.isGroupInFuture(group);
-                    boolean matches = switch (statusFilter.toLowerCase()) {
-                        case "active" -> group.isActive() && !isInFuture;
-                        case "inactive" -> !group.isActive() && !isInFuture;
-                        case "future" -> isInFuture;
-                        default -> true;
-                    };
-
-                    if (matches) {
-                        log.trace("Group {} (id: {}) matches status filter '{}'",
-                                group.getName(), group.getId(), statusFilter);
-                    }
-
-                    return matches;
-                })
-                .toList();
-    }
-
-    private List<Group> filterGroupsByName(List<Group> groups, String searchQuery) {
-        String searchLower = searchQuery.toLowerCase();
-        log.debug("Filtering {} groups by name containing: '{}'", groups.size(), searchQuery);
-
-        return groups.stream()
-                .filter(group -> {
-                    boolean matches = group.getName() != null &&
-                            group.getName().toLowerCase().contains(searchLower);
-
-                    if (matches) {
-                        log.trace("Group {} (id: {}) matches name search '{}'",
-                                group.getName(), group.getId(), searchQuery);
-                    }
-
-                    return matches;
-                })
-                .toList();
-    }
-
-    private List<ListTeacherGroupDTO> convertGroupsToDTOs(List<Group> groups) {
-
-        return groups.stream()
-                .map(group -> {
-                    String subjectName = subjectRepository.findByGroupsContaining(group)
-                            .map(subject -> {
-                                log.trace("Group belongs to subject: {}", subject.getName());
-                                return subject.getShortName() + " " + subject.getName();
-                            })
-                            .orElse("Unknown Subject");
-
-                    boolean isInFuture = groupActivityService.isGroupInFuture(group);
-
-                    return teacherPageMapper.toListTeacherGroupDTO(group, subjectName, isInFuture);
-                })
-                .toList();
     }
 
     @Override
@@ -297,9 +194,9 @@ public class TeacherPageServiceImpl implements TeacherPageService {
                         return ResourceNotFoundException.group(request.getToGroupId());
                     });
 
-            validateGroupsForMove(teacher, fromGroup, toGroup);
+            moveValidator.validateGroupsForMove(teacher, fromGroup, toGroup);
 
-            Subject subject = validateSubjectsMatch(fromGroup, toGroup);
+            Subject subject = moveValidator.validateSubjectsMatch(fromGroup, toGroup);
 
             User student = userRepository.findByUsername(request.getStudentUsername())
                     .orElseThrow(() -> {
@@ -307,10 +204,9 @@ public class TeacherPageServiceImpl implements TeacherPageService {
                         return ResourceNotFoundException.user(request.getStudentUsername(), "Student not found");
                     });
 
-            validateStudentForMove(student, fromGroup, subject, request.getFromGroupId(), teacher);
+            moveValidator.validateStudentForMove(student, fromGroup, subject, request.getFromGroupId(), teacher);
 
             fromGroup.getStudents().remove(student);
-
             toGroup.getStudents().add(student);
 
             groupRepository.save(fromGroup);
@@ -328,81 +224,6 @@ public class TeacherPageServiceImpl implements TeacherPageService {
         } catch (Exception e) {
             log.error("Unexpected error occurred while moving student between groups", e);
             throw new RuntimeException("Unexpected error occurred while moving student between groups", e);
-        }
-    }
-
-    private void validateGroupsForMove(User teacher, Group fromGroup, Group toGroup) {
-        boolean isFromGroupInFuture = groupActivityService.isGroupInFuture(fromGroup);
-        boolean isToGroupInFuture = groupActivityService.isGroupInFuture(toGroup);
-
-        if ((isFromGroupInFuture && !isToGroupInFuture) || (!isFromGroupInFuture && isToGroupInFuture)) {
-            log.error("Source group {} and target group {} are not in same semester", fromGroup.getName(), toGroup.getName());
-            throw StateConflictException.differentSemesters(fromGroup.getName(), toGroup.getName());
-        }
-
-        boolean isFromGroupActive = groupActivityService.checkAndUpdateGroupActivity(fromGroup);
-        boolean isToGroupActive = groupActivityService.checkAndUpdateGroupActivity(toGroup);
-
-        if (!isFromGroupActive && !isFromGroupInFuture) {
-            log.error("Source group {} (ID: {}) is inactive and not in the future", fromGroup.getName(), fromGroup.getId());
-            throw StateConflictException.inactiveGroup(fromGroup.getName());
-        }
-
-        if (!isToGroupActive && !isToGroupInFuture) {
-            log.error("Target group {} (ID: {}) is inactive and not in the future", toGroup.getName(), toGroup.getId());
-            throw StateConflictException.inactiveGroup(toGroup.getName());
-        }
-
-        if (!fromGroup.getTeacher().equals(teacher) || !toGroup.getTeacher().equals(teacher)) {
-            log.error("Teacher {} does not own both groups (IDs: {} and {})", teacher.getUsername(), fromGroup.getId(), toGroup.getId());
-            throw ValidationException.groupValidation("You can only move students within your own groups");
-        }
-    }
-
-    private Subject validateSubjectsMatch(Group fromGroup, Group toGroup) {
-        Optional<Subject> fromSubject = subjectRepository.findByGroupsContaining(fromGroup);
-        Optional<Subject> toSubject = subjectRepository.findByGroupsContaining(toGroup);
-
-        if (fromSubject.isEmpty()) {
-            log.error("Source group {} does not belong to any subject", fromGroup.getName());
-            throw ValidationException.groupValidation("Source group does not belong to any subject");
-        }
-
-        if (toSubject.isEmpty()) {
-            log.error("Target group {} does not belong to any subject", toGroup.getName());
-            throw ValidationException.groupValidation("Target group does not belong to any subject");
-        }
-
-        if (!fromSubject.get().equals(toSubject.get())) {
-            log.error("Groups belong to different subjects: {} and {}",
-                    fromSubject.get().getName(), toSubject.get().getName());
-            throw ValidationException.groupValidation("Groups must belong to the same subject");
-        }
-
-        return fromSubject.get();
-    }
-
-    private void validateStudentForMove(User student, Group fromGroup, Subject subject, Long fromGroupId, User teacher) {
-        if (!fromGroup.getStudents().contains(student)) {
-            log.error("Student {} is not in source group {}", student.getUsername(), fromGroup.getName());
-            throw ValidationException.groupValidation("Student is not in the source group");
-        }
-
-        List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student)
-                .stream()
-                .filter(g -> subject.getGroups().contains(g))
-                .filter(g -> g.getTeacher().equals(teacher))
-                .toList();
-
-        log.debug("Student is in {} active groups for subject {}",
-                studentActiveGroups.size(), subject.getName());
-
-        if (studentActiveGroups.size() > 1 &&
-                studentActiveGroups.stream().anyMatch(g -> g.getId() != fromGroupId)) {
-            log.error("Student {} is already in multiple active groups of subject {}",
-                    student.getUsername(), subject.getName());
-            throw StateConflictException.multipleActiveGroups(
-                    "Student is already in multiple active groups of this subject");
         }
     }
 }

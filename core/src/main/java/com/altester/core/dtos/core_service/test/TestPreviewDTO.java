@@ -23,6 +23,7 @@ public class TestPreviewDTO {
     private LocalDateTime endTime;
     private boolean isCreatedByAdmin;
     private Boolean allowTeacherEdit;
+    private Boolean AiEvaluate;
     private int totalQuestions;
     private int totalScore;
     private Integer maxQuestions;

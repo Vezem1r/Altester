@@ -4,7 +4,6 @@ import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
 import com.altester.core.dtos.core_service.subject.SubjectDTO;
 import com.altester.core.dtos.core_service.subject.UpdateGroupsDTO;
 import com.altester.core.util.CacheablePage;
-import org.springframework.data.domain.Page;
 
 public interface SubjectService {
     void createSubject(CreateSubjectDTO createSubjectDTO);

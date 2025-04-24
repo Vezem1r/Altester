@@ -5,13 +5,11 @@ import com.altester.core.exception.AccessDeniedException;
 import com.altester.core.exception.ResourceNotFoundException;
 import com.altester.core.exception.StateConflictException;
 import com.altester.core.model.auth.User;
-import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.*;
 import com.altester.core.model.subject.enums.AttemptStatus;
 import com.altester.core.model.subject.enums.Semester;
 import com.altester.core.repository.*;
 import com.altester.core.service.StudentService;
-import com.altester.core.serviceImpl.group.GroupActivityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -29,9 +27,10 @@ public class StudentServiceImpl implements StudentService {
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
     private final AttemptRepository attemptRepository;
-    private final GroupActivityService groupActivityService;
     private final TestRepository testRepository;
     private final StudentMapper studentMapper;
+    private final StudentGroupFilterService groupFilterService;
+    private final StudentAccessValidator accessValidator;
 
     @Override
     @Cacheable(value = "studentDashboard",
@@ -40,7 +39,7 @@ public class StudentServiceImpl implements StudentService {
         log.info("Getting dashboard for student with searchQuery: {}, groupId: {}", searchQuery, groupId);
 
         User student = getUserFromPrincipal(principal);
-        ensureStudentRole(student);
+        accessValidator.ensureStudentRole(student);
 
         List<Group> allStudentGroups = groupRepository.findAllByStudentId(student.getId());
 
@@ -55,7 +54,7 @@ public class StudentServiceImpl implements StudentService {
             allStudentGroups = Collections.singletonList(selectedGroup);
         }
 
-        List<Group> currentGroups = filterCurrentGroups(allStudentGroups);
+        List<Group> currentGroups = groupFilterService.filterCurrentGroups(allStudentGroups);
 
         return StudentDashboardResponse.builder()
                 .username(student.getUsername())
@@ -72,21 +71,21 @@ public class StudentServiceImpl implements StudentService {
             key = "#principal.name + ':year:' + (#academicYear == null ? '0' : #academicYear) + " +
                     "':semester:' + (#semester == null ? '' : #semester) + ':search:' + (#searchQuery == null ? '' : #searchQuery)")
     public AcademicHistoryResponse getAcademicHistory(Principal principal, Integer academicYear,
-            Semester semester, String searchQuery) {
+                                                      Semester semester, String searchQuery) {
         log.info("Getting academic history for student with academicYear: {}, semester: {}, searchQuery: {}",
                 academicYear, semester, searchQuery);
 
         User student = getUserFromPrincipal(principal);
-        ensureStudentRole(student);
+        accessValidator.ensureStudentRole(student);
 
         List<Group> allStudentGroups = groupRepository.findAllByStudentId(student.getId());
 
-        List<Group> pastGroups = filterPastGroups(allStudentGroups);
+        List<Group> pastGroups = groupFilterService.filterPastGroups(allStudentGroups);
 
-        Map<String, List<Group>> groupedByPeriod = groupByPeriod(pastGroups);
+        Map<String, List<Group>> groupedByPeriod = groupFilterService.groupByPeriod(pastGroups);
 
         if (academicYear != null || semester != null) {
-            groupedByPeriod = filterGroupsByPeriod(groupedByPeriod, academicYear, semester);
+            groupedByPeriod = groupFilterService.filterGroupsByPeriod(groupedByPeriod, academicYear, semester);
         }
 
         return AcademicHistoryResponse.builder()
@@ -103,7 +102,7 @@ public class StudentServiceImpl implements StudentService {
         log.info("Getting attempts for student for test: {}", testId);
 
         User student = getUserFromPrincipal(principal);
-        ensureStudentRole(student);
+        accessValidator.ensureStudentRole(student);
 
         Test test = testRepository.findById(testId)
                 .orElseThrow(() -> ResourceNotFoundException.test(testId));
@@ -112,7 +111,7 @@ public class StudentServiceImpl implements StudentService {
             throw new StateConflictException("test", "closed", "Cannot access attempts for a closed test");
         }
 
-        validateStudentTestAccess(student, test);
+        accessValidator.validateStudentTestAccess(student, test);
 
         List<Attempt> attempts = attemptRepository.findByTestAndStudent(test, student);
 
@@ -136,12 +135,12 @@ public class StudentServiceImpl implements StudentService {
         log.info("Getting detailed review for attempt: {}", attemptId);
 
         User student = getUserFromPrincipal(principal);
-        ensureStudentRole(student);
+        accessValidator.ensureStudentRole(student);
 
         Attempt attempt = attemptRepository.findById(attemptId)
                 .orElseThrow(() -> new ResourceNotFoundException("Attempt", attemptId.toString(), null));
 
-        validateAttemptOwnership(attempt, student);
+        accessValidator.validateAttemptOwnership(attempt, student);
 
         Test test = attempt.getTest();
 
@@ -188,11 +187,11 @@ public class StudentServiceImpl implements StudentService {
         log.info("Getting available academic periods for student");
 
         User student = getUserFromPrincipal(principal);
-        ensureStudentRole(student);
+        accessValidator.ensureStudentRole(student);
 
         List<Group> allStudentGroups = groupRepository.findAllByStudentId(student.getId());
 
-        List<Group> pastGroups = filterPastGroups(allStudentGroups);
+        List<Group> pastGroups = groupFilterService.filterPastGroups(allStudentGroups);
 
         Set<AcademicPeriod> uniquePeriods = new HashSet<>();
 
@@ -219,72 +218,8 @@ public class StudentServiceImpl implements StudentService {
                 .build();
     }
 
-    private List<Group> filterCurrentGroups(List<Group> groups) {
-        List<Group> currentGroups = new ArrayList<>();
-
-        for (Group group : groups) {
-            groupActivityService.checkAndUpdateGroupActivity(group);
-
-            if (group.isActive() && !groupActivityService.isGroupInFuture(group)) {
-                currentGroups.add(group);
-            }
-        }
-
-        return currentGroups;
-    }
-
-    private List<Group> filterPastGroups(List<Group> groups) {
-        List<Group> pastGroups = new ArrayList<>();
-
-        for (Group group : groups) {
-            groupActivityService.checkAndUpdateGroupActivity(group);
-
-            if (!group.isActive() && !groupActivityService.isGroupInFuture(group)) {
-                pastGroups.add(group);
-            }
-        }
-
-        return pastGroups;
-    }
-
-    private Map<String, List<Group>> groupByPeriod(List<Group> groups) {
-        Map<String, List<Group>> groupedByPeriod = new HashMap<>();
-
-        for (Group group : groups) {
-            String key = group.getAcademicYear() + "-" + group.getSemester().toString();
-            groupedByPeriod.computeIfAbsent(key, k -> new ArrayList<>()).add(group);
-        }
-
-        return groupedByPeriod;
-    }
-
-    private Map<String, List<Group>> filterGroupsByPeriod(Map<String, List<Group>> groupedByPeriod,
-            Integer academicYear, Semester semester) {
-
-        if (academicYear == null && semester == null) {
-            return groupedByPeriod;
-        }
-
-        Map<String, List<Group>> filtered = new HashMap<>();
-
-        for (Map.Entry<String, List<Group>> entry : groupedByPeriod.entrySet()) {
-            String[] parts = entry.getKey().split("-");
-            Integer year = Integer.parseInt(parts[0]);
-            Semester sem = Semester.valueOf(parts[1]);
-
-            boolean yearMatches = academicYear == null || year.equals(academicYear);
-            boolean semesterMatches = semester == null || sem.equals(semester);
-
-            if (yearMatches && semesterMatches) {
-                filtered.put(entry.getKey(), entry.getValue());
-            }
-        }
-
-        return filtered;
-    }
-
     private List<AcademicHistoryDTO> buildAcademicHistory(Map<String, List<Group>> pastGroupsByPeriod,
-            User student, String searchQuery) {
+                                                          User student, String searchQuery) {
 
         List<AcademicHistoryDTO> history = new ArrayList<>();
 
@@ -313,32 +248,8 @@ public class StudentServiceImpl implements StudentService {
         return history;
     }
 
-    private void validateAttemptOwnership(Attempt attempt, User student) {
-        if (!Objects.equals(attempt.getStudent().getId(), student.getId())) {
-            throw AccessDeniedException.testAccess();
-        }
-    }
-
     private User getUserFromPrincipal(Principal principal) {
         return userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> ResourceNotFoundException.user(principal.getName()));
-    }
-
-    private void ensureStudentRole(User user) {
-        if (user.getRole() != RolesEnum.STUDENT) {
-            throw AccessDeniedException.roleConflict();
-        }
-    }
-
-    private void validateStudentTestAccess(User student, Test test) {
-        List<Group> studentGroups = groupRepository.findAllByStudentId(student.getId());
-
-        boolean isTestInStudentGroup = studentGroups.stream()
-                .anyMatch(group -> group.getTests().stream()
-                        .anyMatch(t -> t.getId() == test.getId()));
-
-        if (!isTestInStudentGroup) {
-            throw AccessDeniedException.testAccess();
-        }
     }
 }

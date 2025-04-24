@@ -39,6 +39,7 @@ public class TestDTOMapper {
                 .totalScore(test.getTotalScore())
                 .maxAttempts(test.getMaxAttempts())
                 .allowTeacherEdit(test.isAllowTeacherEdit())
+                .AiEvaluate(test.isAiEvaluation())
                 .build();
     }
 
@@ -87,6 +88,7 @@ public class TestDTOMapper {
                 .totalQuestions(test.getQuestions().size())
                 .totalScore(test.getTotalScore())
                 .associatedGroups(associatedGroups)
+                .AiEvaluate(test.isAiEvaluation())
                 .maxQuestions(test.getMaxQuestions())
                 .questions(questions);
 
@@ -118,6 +120,7 @@ public class TestDTOMapper {
                 .position(question.getPosition())
                 .questionType(question.getQuestionType())
                 .options(options)
+                .correctAnswer(question.getCorrectAnswer())
                 .build();
     }
 

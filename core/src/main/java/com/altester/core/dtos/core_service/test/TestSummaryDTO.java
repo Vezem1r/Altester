@@ -22,5 +22,6 @@ public class TestSummaryDTO {
     private int totalScore;
     private Integer maxAttempts;
     private Boolean allowTeacherEdit;
+    private Boolean AiEvaluate;
     private List<GroupSummaryDTO> associatedGroups;
 }

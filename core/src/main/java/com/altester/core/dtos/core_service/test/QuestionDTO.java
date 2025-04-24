@@ -19,5 +19,6 @@ public class QuestionDTO {
     private int score;
     private int position;
     private QuestionType questionType;
+    private String correctAnswer;
     private List<OptionDTO> options;
 }

@@ -5,7 +5,6 @@ import com.altester.core.dtos.core_service.TeacherPage.MoveStudentRequest;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherPageDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherStudentsDTO;
 import com.altester.core.util.CacheablePage;
-import org.springframework.data.domain.Page;
 
 import java.security.Principal;
 

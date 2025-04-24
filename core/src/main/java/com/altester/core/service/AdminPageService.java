@@ -5,7 +5,6 @@ import com.altester.core.dtos.core_service.AdminPage.UpdateUser;
 import com.altester.core.dtos.core_service.AdminPage.UsersListDTO;
 import com.altester.core.exception.ResourceNotFoundException;
 import com.altester.core.util.CacheablePage;
-import org.springframework.data.domain.Page;
 
 public interface AdminPageService {
 

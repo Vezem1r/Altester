@@ -2,7 +2,6 @@ package com.altester.core.service;
 
 import com.altester.core.dtos.core_service.test.*;
 import com.altester.core.util.CacheablePage;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.security.Principal;
@@ -14,6 +13,8 @@ public interface TestService {
      * Only administrators can perform this action.
      */
     void toggleTeacherEditPermission(Long testId, Principal principal);
+
+    void toggleAiEvaluation(Long testId, Principal principal);
 
     CacheablePage<TestSummaryDTO> getAllTestsForAdmin(Pageable pageable, Principal principal, String searchQuery, Boolean isActive);
 
