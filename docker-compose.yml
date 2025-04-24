@@ -31,6 +31,20 @@ services:
     volumes:
       - question_images:/app/question-images
 
+  ai-grading-service:
+    container_name: ai-grading-service_container
+    build:
+      context: ./ai-grading-service
+    env_file:
+      - .env
+    depends_on:
+      - core
+      - db
+    networks:
+      internal:
+    volumes:
+      - ./logs:/app/logs
+
   db:
     image: postgres:15
     container_name: postgres_container
