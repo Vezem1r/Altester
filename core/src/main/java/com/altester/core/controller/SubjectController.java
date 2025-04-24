@@ -4,6 +4,7 @@ import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
 import com.altester.core.dtos.core_service.subject.SubjectDTO;
 import com.altester.core.dtos.core_service.subject.UpdateGroupsDTO;
 import com.altester.core.service.SubjectService;
+import com.altester.core.util.CacheablePage;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -67,7 +68,7 @@ public class SubjectController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String searchQuery) {
-        Page<SubjectDTO> subjects = subjectService.getAllSubjects(page, size, searchQuery);
+        CacheablePage<SubjectDTO> subjects = subjectService.getAllSubjects(page, size, searchQuery);
         log.debug("Retrieved {} subjects with search query: {}", subjects.getTotalElements(), searchQuery);
         return ResponseEntity.ok(subjects);
     }

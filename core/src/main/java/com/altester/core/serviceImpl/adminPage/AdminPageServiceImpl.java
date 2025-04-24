@@ -61,7 +61,7 @@ public class AdminPageServiceImpl implements AdminPageService {
             "':search:' + (#searchQuery == null ? '' : #searchQuery) +" +
             "':field:' + #searchField +" +
             "':filter:' + #registrationFilter")
-    public Page<UsersListDTO> getStudents(int page, String searchQuery, String searchField, String registrationFilter) {
+    public CacheablePage<UsersListDTO> getStudents(int page, String searchQuery, String searchField, String registrationFilter) {
         log.debug("Getting students: page={}, searchQuery={}, searchField={}, filter={}",
                 page, searchQuery, searchField, registrationFilter);
 
@@ -79,7 +79,7 @@ public class AdminPageServiceImpl implements AdminPageService {
             "':search:' + (#searchQuery == null ? '' : #searchQuery) +" +
             "':field:' + #searchField +" +
             "':filter:' + #registrationFilter")
-    public Page<UsersListDTO> getTeachers(int page, String searchQuery, String searchField, String registrationFilter) {
+    public CacheablePage<UsersListDTO> getTeachers(int page, String searchQuery, String searchField, String registrationFilter) {
         log.debug("Getting teachers: page={}, searchQuery={}, searchField={}, filter={}",
                 page, searchQuery, searchField, registrationFilter);
         Specification<User> spec = createUserSpecification(RolesEnum.TEACHER, searchQuery, searchField, registrationFilter);

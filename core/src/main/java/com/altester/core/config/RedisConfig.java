@@ -1,6 +1,8 @@
 package com.altester.core.config;
 
 import com.altester.core.dtos.core_service.AdminPage.AdminPageDTO;
+import com.altester.core.dtos.core_service.subject.GroupDTO;
+import com.altester.core.dtos.core_service.subject.GroupStudentsResponseDTO;
 import com.altester.core.util.CacheablePage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
@@ -57,6 +59,7 @@ public class RedisConfig {
     public CacheManager cacheManager(RedisConnectionFactory redisConnectionFactory) {
         Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
 
+        // Admin page caches
         cacheConfigurations.put("students", createCacheConfiguration(
                 new JsonRedisSerializer<>(CacheablePage.class)));
 
@@ -65,6 +68,29 @@ public class RedisConfig {
 
         cacheConfigurations.put("adminStats", createCacheConfiguration(
                 new JsonRedisSerializer<>(AdminPageDTO.class)));
+
+        // Group service caches
+        cacheConfigurations.put("groups", createCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
+
+        cacheConfigurations.put("group", createCacheConfiguration(
+                new JsonRedisSerializer<>(GroupDTO.class)));
+
+        cacheConfigurations.put("groupStudents", createCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
+
+        cacheConfigurations.put("groupTeachers", createCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
+
+        cacheConfigurations.put("groupStudentsWithCategories", createCacheConfiguration(
+                new JsonRedisSerializer<>(GroupStudentsResponseDTO.class)));
+
+        cacheConfigurations.put("groupStudentsNotInGroup", createCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
+
+        // Subject service caches
+        cacheConfigurations.put("subjects", createCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
 
         RedisCacheConfiguration defaultConfig = createCacheConfiguration(
                 new JsonRedisSerializer<>(Object.class));

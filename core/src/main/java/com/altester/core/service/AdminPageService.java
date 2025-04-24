@@ -4,6 +4,7 @@ import com.altester.core.dtos.core_service.AdminPage.AdminPageDTO;
 import com.altester.core.dtos.core_service.AdminPage.UpdateUser;
 import com.altester.core.dtos.core_service.AdminPage.UsersListDTO;
 import com.altester.core.exception.ResourceNotFoundException;
+import com.altester.core.util.CacheablePage;
 import org.springframework.data.domain.Page;
 
 public interface AdminPageService {
@@ -14,7 +15,7 @@ public interface AdminPageService {
      * @param registrationFilter Filter by registration status ("ldap", "registered", or null for all)
      * @return Paginated list of UsersListDTO objects
      */
-    Page<UsersListDTO> getStudents(int page, String searchQuery, String searchField, String registrationFilter);
+    CacheablePage<UsersListDTO> getStudents(int page, String searchQuery, String searchField, String registrationFilter);
 
     /**
      * @param searchQuery Optional search text to filter teachers
@@ -22,7 +23,7 @@ public interface AdminPageService {
      * @param registrationFilter Filter by registration status ("ldap", "registered", or null for all)
      * @return Paginated list of UsersListDTO objects
      */
-    Page<UsersListDTO> getTeachers(int page, String searchQuery, String searchField, String registrationFilter);
+    CacheablePage<UsersListDTO> getTeachers(int page, String searchQuery, String searchField, String registrationFilter);
 
     /**
      * Retrieves admin page data with system statistics

@@ -3,6 +3,7 @@ package com.altester.core.service;
 import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
 import com.altester.core.dtos.core_service.subject.SubjectDTO;
 import com.altester.core.dtos.core_service.subject.UpdateGroupsDTO;
+import com.altester.core.util.CacheablePage;
 import org.springframework.data.domain.Page;
 
 public interface SubjectService {
@@ -11,5 +12,5 @@ public interface SubjectService {
     void deleteSubject(long subjectId);
     void updateGroups(UpdateGroupsDTO updateGroupsDTO);
     void updateGroup(long subjectId, long groupId);
-    Page<SubjectDTO> getAllSubjects(int page, int size, String searchQuery);
+    CacheablePage<SubjectDTO> getAllSubjects(int page, int size, String searchQuery);
 }

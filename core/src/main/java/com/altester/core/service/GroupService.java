@@ -2,6 +2,7 @@ package com.altester.core.service;
 
 import com.altester.core.dtos.core_service.subject.*;
 import com.altester.core.exception.*;
+import com.altester.core.util.CacheablePage;
 import org.springframework.data.domain.Page;
 
 public interface GroupService {
@@ -18,8 +19,8 @@ public interface GroupService {
      * @param subjectId Filter for groups associated with a specific subject
      * @return Paginated list of GroupsResponse objects
      */
-    Page<GroupsResponse> getAllGroups(int page, int size, String searchQuery, String activityFilter,
-                                      Boolean available, Long subjectId);
+    CacheablePage<GroupsResponse> getAllGroups(int page, int size, String searchQuery, String activityFilter,
+                                               Boolean available, Long subjectId);
 
     /**
      * Updates an existing group with new information if allowed by activity rules
@@ -40,9 +41,9 @@ public interface GroupService {
      */
     Long createGroup(CreateGroupDTO createGroupDTO);
 
-    Page<CreateGroupUserListDTO> getAllStudents(int page, int size, String searchQuery);
+    CacheablePage<CreateGroupUserListDTO> getAllStudents(int page, int size, String searchQuery);
 
-    Page<GroupUserList> getAllTeachers(int page, int size, String searchQuery);
+    CacheablePage<GroupUserList> getAllTeachers(int page, int size, String searchQuery);
 
     /**
      * Gets current group members and available students categorized for management screens
@@ -63,6 +64,6 @@ public interface GroupService {
      * @param hideStudentsInSameSubject Whether to hide students already in the same subject
      * @return Paginated list of CreateGroupUserListDTO objects
      */
-    Page<CreateGroupUserListDTO> getAllStudentsNotInGroup(
+    CacheablePage<CreateGroupUserListDTO> getAllStudentsNotInGroup(
             int page, int size, Long groupId, String searchQuery, boolean hideStudentsInSameSubject);
 }

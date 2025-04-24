@@ -13,9 +13,14 @@ import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.service.SubjectService;
 import com.altester.core.serviceImpl.group.GroupActivityService;
+import com.altester.core.util.CacheablePage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -36,17 +41,26 @@ public class SubjectServiceImpl implements SubjectService {
     private final GroupActivityService groupActivityService;
 
     @Override
-    public Page<SubjectDTO> getAllSubjects(int page, int size, String searchQuery) {
+    @Cacheable(value = "subjects",
+            key = "'page:' + #page +" + "':size:' + #size +" + "':query:' + (#searchQuery == null ? '' : #searchQuery)")
+    public CacheablePage<SubjectDTO> getAllSubjects(int page, int size, String searchQuery) {
         Pageable pageable = PageRequest.of(page, size);
 
+        Page<Subject> subjectsPage;
         if (!StringUtils.hasText(searchQuery)) {
-            return subjectRepository.findAll(pageable).map(this::convertToSubjectDTO);
+            subjectsPage = subjectRepository.findAll(pageable);
         } else {
-            return subjectRepository
+            subjectsPage = subjectRepository
                     .findByNameContainingIgnoreCaseOrShortNameContainingIgnoreCase(
-                            searchQuery, searchQuery, pageable)
-                    .map(this::convertToSubjectDTO);
+                            searchQuery, searchQuery, pageable);
         }
+
+        List<SubjectDTO> content = subjectsPage.getContent().stream()
+                .map(this::convertToSubjectDTO)
+                .toList();
+
+        Page<SubjectDTO> result = new PageImpl<>(content, pageable, subjectsPage.getTotalElements());
+        return new CacheablePage<>(result);
     }
 
     private SubjectDTO convertToSubjectDTO(Subject subject) {
@@ -66,6 +80,7 @@ public class SubjectServiceImpl implements SubjectService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "subjects", allEntries = true)
     public void updateSubject(CreateSubjectDTO createSubjectDTO, long subjectId) {
         if (createSubjectDTO == null) {
             throw new IllegalArgumentException("Subject data cannot be null");
@@ -94,6 +109,7 @@ public class SubjectServiceImpl implements SubjectService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {"subjects", "adminStats"}, allEntries = true)
     public void deleteSubject(long subjectId) {
         Subject subject = subjectRepository.findById(subjectId).orElseThrow(() -> {
             log.error("Subject with id {} not found", subjectId);
@@ -111,6 +127,7 @@ public class SubjectServiceImpl implements SubjectService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {"subjects", "adminStats"}, allEntries = true)
     public void createSubject(CreateSubjectDTO createSubjectDTO) {
         if (createSubjectDTO == null) {
             throw new IllegalArgumentException("Subject data cannot be null");
@@ -136,6 +153,14 @@ public class SubjectServiceImpl implements SubjectService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "subjects", allEntries = true),
+            @CacheEvict(value = "groups", allEntries = true),
+            @CacheEvict(value = "groupStudents", allEntries = true),
+            @CacheEvict(value = "groupTeachers", allEntries = true),
+            @CacheEvict(value = "groupStudentsWithCategories", allEntries = true),
+            @CacheEvict(value = "groupStudentsNotInGroup", allEntries = true)
+    })
     public void updateGroups(UpdateGroupsDTO updateGroupsDTO) {
         if (updateGroupsDTO == null || updateGroupsDTO.getGroupIds() == null) {
             throw new IllegalArgumentException("Update groups data cannot be null");
@@ -236,6 +261,15 @@ public class SubjectServiceImpl implements SubjectService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "subjects", allEntries = true),
+            @CacheEvict(value = "groups", allEntries = true),
+            @CacheEvict(value = "group", key = "'id:' + #groupId"),
+            @CacheEvict(value = "groupStudents", allEntries = true),
+            @CacheEvict(value = "groupTeachers", allEntries = true),
+            @CacheEvict(value = "groupStudentsWithCategories", allEntries = true),
+            @CacheEvict(value = "groupStudentsNotInGroup", allEntries = true)
+    })
     public void updateGroup(long subjectId, long groupId) {
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() -> {

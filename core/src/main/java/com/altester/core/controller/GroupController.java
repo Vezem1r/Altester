@@ -2,6 +2,7 @@ package com.altester.core.controller;
 
 import com.altester.core.dtos.core_service.subject.*;
 import com.altester.core.service.GroupService;
+import com.altester.core.util.CacheablePage;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -69,7 +70,7 @@ public class GroupController {
         log.debug("Fetching groups with page={}, size={}, searchQuery={}, activityFilter={}, available={}, subjectId={}",
                 page, size, searchQuery, activityFilter, available, subjectId);
 
-        Page<GroupsResponse> groups = groupService.getAllGroups(page, size, searchQuery, activityFilter, available, subjectId);
+        CacheablePage<GroupsResponse> groups = groupService.getAllGroups(page, size, searchQuery, activityFilter, available, subjectId);
 
         log.debug("Retrieved {} groups", groups.getTotalElements());
         return ResponseEntity.ok(groups);
@@ -82,7 +83,7 @@ public class GroupController {
             @RequestParam(required = false) String searchQuery) {
         log.debug("Fetching all teachers with page={}, size={}, searchQuery={}", page, size, searchQuery);
 
-        Page<GroupUserList> teachers = groupService.getAllTeachers(page, size, searchQuery);
+        CacheablePage<GroupUserList> teachers = groupService.getAllTeachers(page, size, searchQuery);
 
         log.debug("Retrieved {} teachers", teachers.getTotalElements());
         return ResponseEntity.ok(teachers);
@@ -100,7 +101,7 @@ public class GroupController {
 
         if (groupId == null) {
             log.info("Request for students without groupId. Returning all students.");
-            Page<CreateGroupUserListDTO> allStudents = groupService.getAllStudents(page, size, searchQuery);
+            CacheablePage<CreateGroupUserListDTO> allStudents = groupService.getAllStudents(page, size, searchQuery);
 
             GroupStudentsResponseDTO result = GroupStudentsResponseDTO.builder()
                     .currentMembers(List.of())

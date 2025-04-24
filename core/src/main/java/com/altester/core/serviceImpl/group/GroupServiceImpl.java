@@ -6,16 +6,19 @@ import com.altester.core.exception.*;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
-import com.altester.core.model.subject.Subject;
 import com.altester.core.model.subject.enums.Semester;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.UserRepository;
 import com.altester.core.service.GroupService;
 import com.altester.core.service.NotificationDispatchService;
+import com.altester.core.util.CacheablePage;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -29,7 +32,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class GroupServiceImpl  implements GroupService {
+public class GroupServiceImpl implements GroupService {
 
     private final GroupRepository groupRepository;
     private final UserRepository userRepository;
@@ -38,6 +41,9 @@ public class GroupServiceImpl  implements GroupService {
     private final GroupActivityService groupActivityService;
     private final GroupDTOMapper groupMapper;
     private final NotificationDispatchService notificationService;
+    private final GroupFilterService groupsFilter;
+    private final GroupStudentService studentService;
+    private final GroupPaginationUtils paginationUtils;
 
     private Group getGroupById(long id) {
         return groupRepository.findById(id)
@@ -57,6 +63,14 @@ public class GroupServiceImpl  implements GroupService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "groups", allEntries = true),
+            @CacheEvict(value = "group", key = "'id:' + #id"),
+            @CacheEvict(value = "subjects", allEntries = true),
+            @CacheEvict(value = "groupStudents", allEntries = true),
+            @CacheEvict(value = "groupTeachers", allEntries = true),
+            @CacheEvict(value = "adminStats", allEntries = true)
+    })
     public void deleteGroup(long id) {
         Group group = getGroupById(id);
 
@@ -75,6 +89,7 @@ public class GroupServiceImpl  implements GroupService {
     }
 
     @Override
+    @Cacheable(value = "group", key = "'id:' + #id")
     public GroupDTO getGroup(long id) {
         Group group = getGroupById(id);
 
@@ -88,92 +103,33 @@ public class GroupServiceImpl  implements GroupService {
     }
 
     @Override
-    public Page<GroupsResponse> getAllGroups(int page, int size, String searchQuery, String activityFilter,
-                                             Boolean available, Long subjectId) {
-        Pageable pageable = PageRequest.of(page, size);
+    @Cacheable(value = "groups",
+            key = "'page:' + #page + ':size:' + #size + ':search:' + " +
+                    "(#searchQuery == null ? '' : #searchQuery) + ':activity:' +" +
+                    "(#activityFilter == null ? '' : #activityFilter) + ':available:' +" +
+                    "(#available == null ? 'false' : #available) +" +
+                    "':subject:' + (#subjectId == null ? '0' : #subjectId)")
+    public CacheablePage<GroupsResponse> getAllGroups(int page, int size, String searchQuery, String activityFilter,
+                                                      Boolean available, Long subjectId) {
 
+        Pageable pageable = PageRequest.of(page, size);
         List<Group> groups = groupRepository.findAll();
 
-        if (StringUtils.hasText(searchQuery)) {
-            String searchLower = searchQuery.toLowerCase();
-            groups = groups.stream()
-                    .filter(group ->
-                            (group.getName() != null && group.getName().toLowerCase().contains(searchLower)) ||
-                                    (group.getTeacher() != null && group.getTeacher().getUsername() != null &&
-                                            group.getTeacher().getUsername().toLowerCase().contains(searchLower)) ||
-                                    (group.getSemester() != null && group.getSemester().toString().toLowerCase().contains(searchLower))
-                    )
-                    .collect(Collectors.toList());
-        }
+        groups = groupsFilter.applySearchFilter(groups, searchQuery);
+        groups = groupsFilter.applyActivityFilter(groups, activityFilter);
+        groups = groupsFilter.applyAvailabilityAndSubjectFilter(groups, available, subjectId);
 
-        if (StringUtils.hasText(activityFilter)) {
-            groups = groups.stream()
-                    .filter(group -> {
-                        boolean isInFuture = groupActivityService.isGroupInFuture(group);
-
-                        return switch (activityFilter) {
-                            case "active" -> group.isActive() && !isInFuture;
-                            case "inactive" -> !group.isActive() && !isInFuture;
-                            case "future" -> isInFuture;
-                            default -> true;
-                        };
-                    })
-                    .collect(Collectors.toList());
-        }
-
-        if (available != null && available) {
-            List<Subject> allSubjects = subjectRepository.findAll();
-            Set<Long> groupsInSubjects = allSubjects.stream()
-                    .flatMap(subject -> subject.getGroups().stream())
-                    .map(Group::getId)
-                    .collect(Collectors.toSet());
-
-            groups = groups.stream()
-                    .filter(group -> !groupsInSubjects.contains(group.getId()))
-                    .filter(group -> group.isActive() || groupActivityService.isGroupInFuture(group))
-                    .collect(Collectors.toList());
-        } else if (subjectId != null) {
-            Optional<Subject> subjectOpt = subjectRepository.findById(subjectId);
-            if (subjectOpt.isPresent()) {
-                Subject subject = subjectOpt.get();
-                Set<Long> groupsIds = subject.getGroups().stream()
-                        .map(Group::getId)
-                        .collect(Collectors.toSet());
-
-                groups = groups.stream()
-                        .filter(group -> groupsIds.contains(group.getId()))
-                        .filter(group -> group.isActive() || groupActivityService.isGroupInFuture(group))
-                        .collect(Collectors.toList());
-            } else {
-                log.warn("Subject with ID {} not found", subjectId);
-                groups = new ArrayList<>();
-            }
-        }
-
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), groups.size());
-
-        if (start > groups.size()) {
-            return new PageImpl<>(Collections.emptyList(), pageable, groups.size());
-        }
-
-        List<Group> pagedGroups = groups.subList(start, end);
-
-        List<GroupsResponse> groupResponses = pagedGroups.stream()
-                .map(group -> {
-                    Optional<Subject> subject = subjectRepository.findByGroupsId(group.getId());
-                    String subjectName = subject.isPresent() ? subject.get().getShortName() : "No subject";
-
-                    boolean isInFuture = groupActivityService.isGroupInFuture(group);
-                    return groupMapper.toGroupsResponse(group, subjectName, isInFuture);
-                })
-                .collect(Collectors.toList());
-
-        return new PageImpl<>(groupResponses, pageable, groups.size());
+        return paginationUtils.paginateAndMapGroups(groups, pageable);
     }
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "groups", allEntries = true),
+            @CacheEvict(value = "group", key = "'id:' + #id"),
+            @CacheEvict(value = "subjects", allEntries = true),
+            @CacheEvict(value = "groupStudents", allEntries = true)
+    })
     public void updateGroup(Long id, CreateGroupDTO createGroupDTO) {
         Group group = getGroupById(id);
 
@@ -245,6 +201,12 @@ public class GroupServiceImpl  implements GroupService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "groups", allEntries = true),
+            @CacheEvict(value = "groupStudents", allEntries = true),
+            @CacheEvict(value = "groupTeachers", allEntries = true),
+            @CacheEvict(value = "adminStats", allEntries = true)
+    })
     public Long createGroup(CreateGroupDTO createGroupDTO) {
         if (groupRepository.findByName(createGroupDTO.getGroupName()).isPresent()) {
             log.error("Group with name '{}' already exists", createGroupDTO.getGroupName());
@@ -301,58 +263,27 @@ public class GroupServiceImpl  implements GroupService {
     }
 
     @Override
-    public Page<CreateGroupUserListDTO> getAllStudents(int page, int size, String searchQuery) {
-
-        Pageable pageable = PageRequest.of(page, size);
-
-        Page<User> studentsPage;
-
-        if (StringUtils.hasText(searchQuery)) {
-            String searchLower = searchQuery.toLowerCase();
-            List<User> allStudents = userRepository.findAllByRole(RolesEnum.STUDENT);
-
-            List<User> filteredStudents = allStudents.stream()
-                    .filter(student -> {
-                        String fullName = (student.getName() + " " + student.getSurname()).toLowerCase();
-                        String username = student.getUsername() != null ? student.getUsername().toLowerCase() : "";
-
-                        return fullName.contains(searchLower) || username.contains(searchLower);
-                    })
-                    .collect(Collectors.toList());
-
-            int start = (int) pageable.getOffset();
-            int end = Math.min((start + pageable.getPageSize()), filteredStudents.size());
-
-            if (start > filteredStudents.size()) {
-                return new PageImpl<>(Collections.emptyList(), pageable, filteredStudents.size());
-            }
-
-            List<User> pagedStudents = filteredStudents.subList(start, end);
-            studentsPage = new PageImpl<>(pagedStudents, pageable, filteredStudents.size());
-        } else {
-            studentsPage = userRepository.findByRole(RolesEnum.STUDENT, pageable);
-        }
-
-        List<CreateGroupUserListDTO> students = studentsPage.getContent().stream()
-                .map(student -> {
-                    List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
-
-                    List<String> subjectNames = studentActiveGroups.stream()
-                            .map(group -> subjectRepository.findByGroupsContaining(group)
-                                    .map(Subject::getShortName)
-                                    .orElse("Group has no subject"))
-                            .distinct()
-                            .toList();
-
-                    return groupMapper.toCreateGroupUserListDTO(student, subjectNames);
-                })
-                .toList();
-
-        return new PageImpl<>(students, pageable, studentsPage.getTotalElements());
+    public CacheablePage<CreateGroupUserListDTO> getAllStudents(int page, int size, String searchQuery) {
+        return studentService.getAllStudents(page, size, searchQuery);
     }
 
     @Override
-    public Page<GroupUserList> getAllTeachers(int page, int size, String searchQuery) {
+    public GroupStudentsResponseDTO getGroupStudentsWithCategories(
+            int page, int size, Long groupId, String searchQuery, boolean includeCurrentMembers, boolean hideStudentsInSameSubject) {
+        return studentService.getGroupStudentsWithCategories(
+                page, size, groupId, searchQuery, includeCurrentMembers, hideStudentsInSameSubject);
+    }
+
+    @Override
+    public CacheablePage<CreateGroupUserListDTO> getAllStudentsNotInGroup(
+            int page, int size, Long groupId, String searchQuery, boolean hideStudentsInSameSubject) {
+        return studentService.getAllStudentsNotInGroup(page, size, groupId, searchQuery, hideStudentsInSameSubject);
+    }
+
+    @Override
+    @Cacheable(value = "groupTeachers",
+            key = "'page:' + #page + ':size:' + #size + ':search:' + (#searchQuery == null ? '' : #searchQuery)")
+    public CacheablePage<GroupUserList> getAllTeachers(int page, int size, String searchQuery) {
         Pageable pageable = PageRequest.of(page, size);
 
         Page<User> teachersPage;
@@ -374,7 +305,8 @@ public class GroupServiceImpl  implements GroupService {
             int end = Math.min((start + pageable.getPageSize()), filteredTeachers.size());
 
             if (start > filteredTeachers.size()) {
-                return new PageImpl<>(Collections.emptyList(), pageable, filteredTeachers.size());
+                Page<GroupUserList> emptyPage = new PageImpl<>(Collections.emptyList(), pageable, filteredTeachers.size());
+                return new CacheablePage<>(emptyPage);
             }
 
             List<User> pagedTeachers = filteredTeachers.subList(start, end);
@@ -383,149 +315,7 @@ public class GroupServiceImpl  implements GroupService {
             teachersPage = userRepository.findByRole(RolesEnum.TEACHER, pageable);
         }
 
-        return teachersPage.map(groupMapper::toGroupUserList);
-    }
-
-    @Override
-    public GroupStudentsResponseDTO getGroupStudentsWithCategories(
-            int page, int size, Long groupId, String searchQuery, boolean includeCurrentMembers, boolean hideStudentsInSameSubject) {
-
-        if (groupId == null) {
-            throw ValidationException.invalidParameter("groupId", "Group ID is required");
-        }
-
-        Group group = getGroupById(groupId);
-
-        List<String> subjectNames = group.getStudents().stream()
-                .flatMap(student -> getStudentSubjects(student).stream())
-                .distinct()
-                .collect(Collectors.toList());
-
-        List<CreateGroupUserListDTO> currentMembers = groupMapper.mapAndSortCurrentMembers(
-                group.getStudents(), subjectNames);
-
-        Page<CreateGroupUserListDTO> availableStudents =
-                includeCurrentMembers ? getAllStudents(page, size, searchQuery) :
-                        getAllStudentsNotInGroup(page, size, groupId, searchQuery, hideStudentsInSameSubject);
-
-        return GroupStudentsResponseDTO.builder()
-                .currentMembers(currentMembers)
-                .availableStudents(availableStudents)
-                .build();
-    }
-
-    @Override
-    public Page<CreateGroupUserListDTO> getAllStudentsNotInGroup(
-            int page, int size, Long groupId, String searchQuery, boolean hideStudentsInSameSubject) {
-
-        Pageable pageable = PageRequest.of(page, size);
-
-        Group group = getGroupById(groupId);
-
-        Set<Long> studentsInGroupIds = group.getStudents().stream()
-                .map(User::getId)
-                .collect(Collectors.toSet());
-
-        Subject subject;
-        Set<Long> studentsInSubjectIds = new HashSet<>();
-
-        Optional<Subject> subjectOptional = subjectRepository.findByGroupsContaining(group);
-        if (subjectOptional.isPresent()) {
-            subject = subjectOptional.get();
-
-            studentsInSubjectIds = subject.getGroups().stream()
-                    .filter(g -> g.getId() != group.getId())
-                    .flatMap(g -> g.getStudents().stream())
-                    .map(User::getId)
-                    .collect(Collectors.toSet());
-        } else {
-            subject = null;
-        }
-
-        List<User> allStudents = userRepository.findAllByRole(RolesEnum.STUDENT);
-        List<User> filteredStudents;
-
-        if (StringUtils.hasText(searchQuery)) {
-            String searchLower = searchQuery.toLowerCase();
-
-            Set<Long> finalStudentsInSubjectIds1 = studentsInSubjectIds;
-            filteredStudents = allStudents.stream()
-                    .filter(student -> !studentsInGroupIds.contains(student.getId()))
-                    .filter(student -> !hideStudentsInSameSubject || !finalStudentsInSubjectIds1.contains(student.getId()))
-                    .filter(student -> {
-                        String fullName = (student.getName() + " " + student.getSurname()).toLowerCase();
-                        String username = student.getUsername() != null ? student.getUsername().toLowerCase() : "";
-
-                        return fullName.contains(searchLower) || username.contains(searchLower);
-                    })
-                    .collect(Collectors.toList());
-        } else {
-            Set<Long> finalStudentsInSubjectIds3 = studentsInSubjectIds;
-            filteredStudents = allStudents.stream()
-                    .filter(student -> !studentsInGroupIds.contains(student.getId()))
-                    .filter(student -> !hideStudentsInSameSubject || !finalStudentsInSubjectIds3.contains(student.getId()))
-                    .collect(Collectors.toList());
-        }
-
-        if (!studentsInSubjectIds.isEmpty() && !hideStudentsInSameSubject) {
-            Set<Long> finalStudentsInSubjectIds2 = studentsInSubjectIds;
-            filteredStudents.sort((a, b) -> {
-                boolean aInSubject = finalStudentsInSubjectIds2.contains(a.getId());
-                boolean bInSubject = finalStudentsInSubjectIds2.contains(b.getId());
-                return Boolean.compare(bInSubject, aInSubject);
-            });
-        }
-
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), filteredStudents.size());
-
-        Page<User> studentsPage;
-        if (start >= filteredStudents.size()) {
-            studentsPage = new PageImpl<>(Collections.emptyList(), pageable, filteredStudents.size());
-        } else {
-            List<User> pagedStudents = filteredStudents.subList(start, end);
-            studentsPage = new PageImpl<>(pagedStudents, pageable, filteredStudents.size());
-        }
-
-        Set<Long> finalStudentsInSubjectIds = studentsInSubjectIds;
-        Subject finalSubject = subject;
-        List<CreateGroupUserListDTO> resultList = studentsPage.getContent().stream()
-                .map(student -> {
-                    List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
-
-                    List<String> subjectNames = studentActiveGroups.stream()
-                            .map(g -> subjectRepository.findByGroupsContaining(g)
-                                    .map(Subject::getShortName)
-                                    .orElse("Group has no subject"))
-                            .distinct()
-                            .toList();
-
-                    CreateGroupUserListDTO dto = groupMapper.toCreateGroupUserListDTO(student, subjectNames);
-
-                    if (finalSubject != null && finalStudentsInSubjectIds.contains(student.getId())) {
-                        groupMapper.enrichWithSubjectInfo(
-                                dto,
-                                true,
-                                finalSubject.getName(),
-                                finalSubject.getShortName()
-                        );
-                    }
-
-                    return dto;
-                })
-                .toList();
-
-        return new PageImpl<>(resultList, pageable, filteredStudents.size());
-    }
-
-    private List<String> getStudentSubjects(User student) {
-        List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
-
-        return studentActiveGroups.stream()
-                .map(group -> subjectRepository.findByGroupsContaining(group)
-                        .map(Subject::getShortName)
-                        .orElse("Group has no subject"))
-                .distinct()
-                .collect(Collectors.toList());
+        Page<GroupUserList> resultPage = teachersPage.map(groupMapper::toGroupUserList);
+        return new CacheablePage<>(resultPage);
     }
 }

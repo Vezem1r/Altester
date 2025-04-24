@@ -4,6 +4,7 @@ import com.altester.core.dtos.core_service.AdminPage.AdminPageDTO;
 import com.altester.core.dtos.core_service.AdminPage.UpdateUser;
 import com.altester.core.dtos.core_service.AdminPage.UsersListDTO;
 import com.altester.core.service.AdminPageService;
+import com.altester.core.util.CacheablePage;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -67,11 +68,7 @@ public class AdminPageController {
                     message = "searchField must be one of: all, name, firstName, lastName, email, username") String searchField,
             @RequestParam(defaultValue = "all") @Pattern(regexp = "^(all|ldap|registered)$",
                     message = "registrationFilter must be one of: all, ldap, registered") String registrationFilter) {
-        log.debug("Fetching students list for page {} with search: {}, field: {}, registrationFilter: {}",
-                page, searchQuery, searchField, registrationFilter);
-        Page<UsersListDTO> students = adminPageService.getStudents(page, searchQuery, searchField, registrationFilter);
-        log.debug("Successfully fetched {} students from page {}/{}",
-                students.getNumberOfElements(), page, students.getTotalPages() - 1);
+        CacheablePage<UsersListDTO> students = adminPageService.getStudents(page, searchQuery, searchField, registrationFilter);
         return ResponseEntity.ok(students);
     }
 
@@ -83,11 +80,7 @@ public class AdminPageController {
                     message = "searchField must be one of: all, name, firstName, lastName, email, username") String searchField,
             @RequestParam(defaultValue = "all") @Pattern(regexp = "^(all|ldap|registered)$",
                     message = "registrationFilter must be one of: all, ldap, registered") String registrationFilter) {
-        log.debug("Fetching teachers list for page {} with search: {}, field: {}, registrationFilter: {}",
-                page, searchQuery, searchField, registrationFilter);
-        Page<UsersListDTO> teachers = adminPageService.getTeachers(page, searchQuery, searchField, registrationFilter);
-        log.debug("Successfully fetched {} teachers from page {}/{}",
-                teachers.getNumberOfElements(), page, teachers.getTotalPages() - 1);
+        CacheablePage<UsersListDTO> teachers = adminPageService.getTeachers(page, searchQuery, searchField, registrationFilter);
         return ResponseEntity.ok(teachers);
     }
 }

@@ -2,12 +2,14 @@ package com.altester.core.dtos.core_service.subject;
 
 import com.altester.core.model.subject.enums.Semester;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 public class GroupsResponse {
     private Long id;
     private String name;
