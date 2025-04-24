@@ -14,6 +14,7 @@ import com.altester.core.service.StudentService;
 import com.altester.core.serviceImpl.group.GroupActivityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.security.Principal;
@@ -33,6 +34,8 @@ public class StudentServiceImpl implements StudentService {
     private final StudentMapper studentMapper;
 
     @Override
+    @Cacheable(value = "studentDashboard",
+            key = "#principal.name + ':search:' + (#searchQuery == null ? '' : #searchQuery) + ':groupId:' + (#groupId == null ? '0' : #groupId)")
     public StudentDashboardResponse getStudentDashboard(Principal principal, String searchQuery, Long groupId) {
         log.info("Getting dashboard for student with searchQuery: {}, groupId: {}", searchQuery, groupId);
 
@@ -65,6 +68,9 @@ public class StudentServiceImpl implements StudentService {
     }
 
     @Override
+    @Cacheable(value = "academicHistory",
+            key = "#principal.name + ':year:' + (#academicYear == null ? '0' : #academicYear) + " +
+                    "':semester:' + (#semester == null ? '' : #semester) + ':search:' + (#searchQuery == null ? '' : #searchQuery)")
     public AcademicHistoryResponse getAcademicHistory(Principal principal, Integer academicYear,
             Semester semester, String searchQuery) {
         log.info("Getting academic history for student with academicYear: {}, semester: {}, searchQuery: {}",
@@ -92,6 +98,7 @@ public class StudentServiceImpl implements StudentService {
     }
 
     @Override
+    @Cacheable(value = "studentTestAttempts", key = "#principal.name + ':testId:' + #testId")
     public StudentAttemptsResponse getStudentTestAttempts(Principal principal, Long testId) {
         log.info("Getting attempts for student for test: {}", testId);
 
@@ -124,6 +131,7 @@ public class StudentServiceImpl implements StudentService {
     }
 
     @Override
+    @Cacheable(value = "attemptReview", key = "#principal.name + ':attemptId:' + #attemptId")
     public AttemptReviewDTO getAttemptReview(Principal principal, Long attemptId) {
         log.info("Getting detailed review for attempt: {}", attemptId);
 
@@ -175,6 +183,7 @@ public class StudentServiceImpl implements StudentService {
     }
 
     @Override
+    @Cacheable(value = "availablePeriods", key = "#principal.name")
     public AvailablePeriodsResponse getAvailablePeriods(Principal principal) {
         log.info("Getting available academic periods for student");
 

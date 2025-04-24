@@ -69,7 +69,9 @@ public class GroupServiceImpl implements GroupService {
             @CacheEvict(value = "subjects", allEntries = true),
             @CacheEvict(value = "groupStudents", allEntries = true),
             @CacheEvict(value = "groupTeachers", allEntries = true),
-            @CacheEvict(value = "adminStats", allEntries = true)
+            @CacheEvict(value = "adminStats", allEntries = true),
+            @CacheEvict(value = "studentDashboard", allEntries = true),
+            @CacheEvict(value = "teacherDashboard", allEntries = true)
     })
     public void deleteGroup(long id) {
         Group group = getGroupById(id);
@@ -128,7 +130,10 @@ public class GroupServiceImpl implements GroupService {
             @CacheEvict(value = "groups", allEntries = true),
             @CacheEvict(value = "group", key = "'id:' + #id"),
             @CacheEvict(value = "subjects", allEntries = true),
-            @CacheEvict(value = "groupStudents", allEntries = true)
+            @CacheEvict(value = "groupStudents", allEntries = true),
+            @CacheEvict(value = "studentDashboard", allEntries = true),
+            @CacheEvict(value = "students", allEntries = true),
+            @CacheEvict(value = "teachers", allEntries = true)
     })
     public void updateGroup(Long id, CreateGroupDTO createGroupDTO) {
         Group group = getGroupById(id);
@@ -205,7 +210,10 @@ public class GroupServiceImpl implements GroupService {
             @CacheEvict(value = "groups", allEntries = true),
             @CacheEvict(value = "groupStudents", allEntries = true),
             @CacheEvict(value = "groupTeachers", allEntries = true),
-            @CacheEvict(value = "adminStats", allEntries = true)
+            @CacheEvict(value = "adminStats", allEntries = true),
+            @CacheEvict(value = "studentDashboard", allEntries = true),
+            @CacheEvict(value = "students", allEntries = true),
+            @CacheEvict(value = "teachers", allEntries = true)
     })
     public Long createGroup(CreateGroupDTO createGroupDTO) {
         if (groupRepository.findByName(createGroupDTO.getGroupName()).isPresent()) {

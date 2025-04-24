@@ -17,6 +17,9 @@ import com.altester.core.service.AttemptRetrievalService;
 import com.altester.core.service.NotificationDispatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -38,6 +41,8 @@ public class AttemptRetrievalServiceImpl implements AttemptRetrievalService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "testAttemptsForTeacher",
+            key = "#principal.name + ':testId:' + #testId + ':search:' + (#searchQuery == null ? '' : #searchQuery)")
     public List<TestAttemptsForGroupDTO> getTestAttemptsForTeacher(
             Principal principal, Long testId, String searchQuery) {
         log.info("Teacher {} requesting attempts for test {}, search query: {}",
@@ -62,6 +67,8 @@ public class AttemptRetrievalServiceImpl implements AttemptRetrievalService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "testAttemptsForAdmin",
+            key = "#principal.name + ':testId:' + #testId + ':search:' + (#searchQuery == null ? '' : #searchQuery)")
     public List<TestAttemptsForGroupDTO> getTestAttemptsForAdmin(
             Principal principal, Long testId, String searchQuery) {
         log.info("Admin {} requesting attempts for test {}, search query: {}",
@@ -86,6 +93,8 @@ public class AttemptRetrievalServiceImpl implements AttemptRetrievalService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "studentAttemptsForTeacher",
+            key = "#principal.name + ':username:' + #username + ':search:' + (#searchQuery == null ? '' : #searchQuery)")
     public StudentTestAttemptsResponseDTO getStudentAttemptsForTeacher(
             Principal principal, String username, String searchQuery) {
         log.info("Teacher {} requesting attempts for student with username {}, search query: {}",
@@ -119,6 +128,8 @@ public class AttemptRetrievalServiceImpl implements AttemptRetrievalService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "studentAttemptsForAdmin",
+            key = "#principal.name + ':username:' + #username + ':search:' + (#searchQuery == null ? '' : #searchQuery)")
     public StudentTestAttemptsResponseDTO getStudentAttemptsForAdmin(
             Principal principal, String username, String searchQuery) {
         log.info("Admin {} requesting attempts for student with username {}, search query: {}",
@@ -142,6 +153,7 @@ public class AttemptRetrievalServiceImpl implements AttemptRetrievalService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "attemptReview", key = "'admin-teacher:' + #principal.name + ':attemptId:' + #attemptId")
     public AttemptReviewDTO getAttemptReview(Principal principal, Long attemptId) {
         log.info("{} requesting review for attempt {}", principal.getName(), attemptId);
 
@@ -219,6 +231,14 @@ public class AttemptRetrievalServiceImpl implements AttemptRetrievalService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "testAttemptsForTeacher", allEntries = true),
+            @CacheEvict(value = "testAttemptsForAdmin", allEntries = true),
+            @CacheEvict(value = "studentAttemptsForTeacher", allEntries = true),
+            @CacheEvict(value = "studentAttemptsForAdmin", allEntries = true),
+            @CacheEvict(value = "attemptReview", key = "'admin-teacher:' + #principal.name + ':attemptId:' + #attemptId"),
+            @CacheEvict(value = "attemptReview", key = "#principal.name + ':attemptId:' + #attemptId")
+    })
     public void submitAttemptReview(Principal principal, Long attemptId, AttemptReviewSubmissionDTO reviewSubmission) {
         log.info("{} submitting review for attempt {}", principal.getName(), attemptId);
 

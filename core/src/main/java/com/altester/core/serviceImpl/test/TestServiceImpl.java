@@ -242,7 +242,8 @@ public class TestServiceImpl  implements TestService {
             @CacheEvict(value = "tests", allEntries = true),
             @CacheEvict(value = "testsBySubject", allEntries = true),
             @CacheEvict(value = "testsByGroup", allEntries = true),
-            @CacheEvict(value = "adminStats", allEntries = true)
+            @CacheEvict(value = "adminStats", allEntries = true),
+            @CacheEvict(value = "studentDashboard", allEntries = true)
     })
     public TestPreviewDTO createTest(CreateTestDTO createTestDTO, Principal principal) {
         log.info("Creating new test with title: {}", createTestDTO.getTitle());

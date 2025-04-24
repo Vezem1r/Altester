@@ -1,7 +1,11 @@
 package com.altester.core.config;
 
 import com.altester.core.dtos.core_service.AdminPage.AdminPageDTO;
+import com.altester.core.dtos.core_service.TeacherPage.TeacherPageDTO;
+import com.altester.core.dtos.core_service.attempt.AttemptStatusResponse;
 import com.altester.core.dtos.core_service.question.QuestionDetailsDTO;
+import com.altester.core.dtos.core_service.retrieval.StudentTestAttemptsResponseDTO;
+import com.altester.core.dtos.core_service.student.*;
 import com.altester.core.dtos.core_service.subject.GroupDTO;
 import com.altester.core.dtos.core_service.subject.GroupStudentsResponseDTO;
 import com.altester.core.dtos.core_service.test.TestPreviewDTO;
@@ -24,6 +28,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Configuration
@@ -120,6 +125,40 @@ public class RedisConfig {
 
         cacheConfigurations.put("question", createCacheConfiguration(
                 new JsonRedisSerializer<>(QuestionDetailsDTO.class)));
+
+        // TestAttemptService caches
+        cacheConfigurations.put("attemptStatus", createCacheConfiguration(
+                new JsonRedisSerializer<>(AttemptStatusResponse.class)));
+
+        // TeacherPageService caches
+        cacheConfigurations.put("teacherPage", createCacheConfiguration(
+                new JsonRedisSerializer<>(TeacherPageDTO.class)));
+        cacheConfigurations.put("teacherStudents", createCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
+        cacheConfigurations.put("teacherGroups", createCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
+
+        // StudentService caches
+        cacheConfigurations.put("studentDashboard", createCacheConfiguration(
+                new JsonRedisSerializer<>(StudentDashboardResponse.class)));
+        cacheConfigurations.put("academicHistory", createCacheConfiguration(
+                new JsonRedisSerializer<>(AcademicHistoryResponse.class)));
+        cacheConfigurations.put("availablePeriods", createCacheConfiguration(
+                new JsonRedisSerializer<>(AvailablePeriodsResponse.class)));
+        cacheConfigurations.put("studentTestAttempts", createCacheConfiguration(
+                new JsonRedisSerializer<>(StudentAttemptsResponse.class)));
+        cacheConfigurations.put("attemptReview", createCacheConfiguration(
+                new JsonRedisSerializer<>(AttemptReviewDTO.class)));
+
+        // AttemptRetrievalService caches
+        cacheConfigurations.put("testAttemptsForTeacher", createCacheConfiguration(
+                new JsonRedisSerializer<>(List.class)));
+        cacheConfigurations.put("testAttemptsForAdmin", createCacheConfiguration(
+                new JsonRedisSerializer<>(List.class)));
+        cacheConfigurations.put("studentAttemptsForTeacher", createCacheConfiguration(
+                new JsonRedisSerializer<>(StudentTestAttemptsResponseDTO.class)));
+        cacheConfigurations.put("studentAttemptsForAdmin", createCacheConfiguration(
+                new JsonRedisSerializer<>(StudentTestAttemptsResponseDTO.class)));
 
         return RedisCacheManager.builder(redisConnectionFactory)
                 .cacheDefaults(defaultConfig)

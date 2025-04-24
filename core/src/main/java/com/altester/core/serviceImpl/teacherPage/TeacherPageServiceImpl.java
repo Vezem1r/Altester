@@ -11,8 +11,12 @@ import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.UserRepository;
 import com.altester.core.service.TeacherPageService;
 import com.altester.core.serviceImpl.group.GroupActivityService;
+import com.altester.core.util.CacheablePage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -50,6 +54,7 @@ public class TeacherPageServiceImpl implements TeacherPageService {
     }
 
     @Override
+    @Cacheable(value = "teacherPage", key = "#principal.name")
     public TeacherPageDTO getPage(Principal principal) {
         log.info("Fetching teacher page data for {}", principal.getName());
         User teacher = getTeacherFromPrincipal(principal);
@@ -78,7 +83,10 @@ public class TeacherPageServiceImpl implements TeacherPageService {
     }
 
     @Override
-    public Page<TeacherStudentsDTO> getStudents(Principal principal, int page, int size, String searchQuery) {
+    @Cacheable(value = "teacherStudents",
+            key = "#principal.name + ':page:' + #page + ':size:' + #size + ':search:' + " +
+                    "(#searchQuery == null ? '' : #searchQuery)")
+    public CacheablePage<TeacherStudentsDTO> getStudents(Principal principal, int page, int size, String searchQuery) {
         log.info("Fetching paginated students list for teacher {} (page: {}, size: {}, search: {})",
                 principal.getName(), page, size, searchQuery);
 
@@ -115,7 +123,7 @@ public class TeacherPageServiceImpl implements TeacherPageService {
         log.info("Returning page {} of {} with {} students",
                 result.getNumber() + 1, result.getTotalPages(), result.getNumberOfElements());
 
-        return result;
+        return new CacheablePage<>(result);
     }
 
     private List<TeacherStudentsDTO> getUniqueStudentsWithGroups(List<Group> activeGroups) {
@@ -157,7 +165,11 @@ public class TeacherPageServiceImpl implements TeacherPageService {
     }
 
     @Override
-    public Page<ListTeacherGroupDTO> getGroups(Principal principal, int page, int size, String searchQuery, String statusFilter) {
+    @Cacheable(value = "teacherGroups",
+            key = "#principal.name + ':page:' + #page + ':size:' + #size + ':search:' + " +
+                    "(#searchQuery == null ? '' : #searchQuery) + ':status:' + " +
+                    "(#statusFilter == null ? '' : #statusFilter)")
+    public CacheablePage<ListTeacherGroupDTO> getGroups(Principal principal, int page, int size, String searchQuery, String statusFilter) {
         log.info("Fetching paginated groups list for teacher {} (page: {}, size: {}, search: {}, status: {})",
                 principal.getName(), page, size, searchQuery, statusFilter);
 
@@ -195,7 +207,7 @@ public class TeacherPageServiceImpl implements TeacherPageService {
         log.info("Returning page {} of {} with {} groups",
                 result.getNumber() + 1, result.getTotalPages(), result.getNumberOfElements());
 
-        return result;
+        return new CacheablePage<>(result);
     }
 
     private List<Group> filterGroupsByStatus(List<Group> groups, String statusFilter) {
@@ -263,6 +275,12 @@ public class TeacherPageServiceImpl implements TeacherPageService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "teacherPage", key = "#principal.name"),
+            @CacheEvict(value = "teacherStudents", allEntries = true),
+            @CacheEvict(value = "teacherGroups", allEntries = true),
+            @CacheEvict(value = "studentDashboard", allEntries = true)
+    })
     public void moveStudentBetweenGroups(Principal principal, MoveStudentRequest request) {
         log.info("Processing request to move student {} from group {} to group {}",
                 request.getStudentUsername(), request.getFromGroupId(), request.getToGroupId());
