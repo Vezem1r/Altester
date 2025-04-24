@@ -42,57 +42,62 @@ public class GroupStudentService {
                 });
     }
 
-    @Cacheable(value = "groupStudents",
-            key = "'page:' + #page + ':size:' + #size + ':search:' + (#searchQuery == null ? '' : #searchQuery)")
+    @Cacheable(
+            value = "groupStudents",
+            key = "'page:' + #page + ':size:' + #size + ':search:' + (#searchQuery == null ? '' : #searchQuery)"
+    )
     public CacheablePage<CreateGroupUserListDTO> getAllStudents(int page, int size, String searchQuery) {
         Pageable pageable = PageRequest.of(page, size);
+        Page<User> studentsPage = getFilteredStudentsPage(pageable, searchQuery);
 
-        Page<User> studentsPage;
-
-        if (StringUtils.hasText(searchQuery)) {
-            String searchLower = searchQuery.toLowerCase();
-            List<User> allStudents = userRepository.findAllByRole(RolesEnum.STUDENT);
-
-            List<User> filteredStudents = allStudents.stream()
-                    .filter(student -> {
-                        String fullName = (student.getName() + " " + student.getSurname()).toLowerCase();
-                        String username = student.getUsername() != null ? student.getUsername().toLowerCase() : "";
-
-                        return fullName.contains(searchLower) || username.contains(searchLower);
-                    })
-                    .collect(Collectors.toList());
-
-            int start = (int) pageable.getOffset();
-            int end = Math.min((start + pageable.getPageSize()), filteredStudents.size());
-
-            if (start > filteredStudents.size()) {
-                Page<CreateGroupUserListDTO> emptyPage = new PageImpl<>(Collections.emptyList(), pageable, filteredStudents.size());
-                return new CacheablePage<>(emptyPage);
-            }
-
-            List<User> pagedStudents = filteredStudents.subList(start, end);
-            studentsPage = new PageImpl<>(pagedStudents, pageable, filteredStudents.size());
-        } else {
-            studentsPage = userRepository.findByRole(RolesEnum.STUDENT, pageable);
-        }
-
-        List<CreateGroupUserListDTO> students = studentsPage.getContent().stream()
-                .map(student -> {
-                    List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
-
-                    List<String> subjectNames = studentActiveGroups.stream()
-                            .map(group -> subjectRepository.findByGroupsContaining(group)
-                                    .map(Subject::getShortName)
-                                    .orElse("Group has no subject"))
-                            .distinct()
-                            .toList();
-
-                    return groupMapper.toCreateGroupUserListDTO(student, subjectNames);
-                })
+        List<CreateGroupUserListDTO> studentDTOs = studentsPage.getContent().stream()
+                .map(this::mapStudentToDTO)
                 .toList();
 
-        Page<CreateGroupUserListDTO> resultPage = new PageImpl<>(students, pageable, studentsPage.getTotalElements());
+        Page<CreateGroupUserListDTO> resultPage = new PageImpl<>(studentDTOs, pageable, studentsPage.getTotalElements());
         return new CacheablePage<>(resultPage);
+    }
+
+    private Page<User> getFilteredStudentsPage(Pageable pageable, String searchQuery) {
+        if (!StringUtils.hasText(searchQuery)) {
+            return userRepository.findByRole(RolesEnum.STUDENT, pageable);
+        }
+
+        String searchLower = searchQuery.toLowerCase();
+        List<User> allStudents = userRepository.findAllByRole(RolesEnum.STUDENT);
+
+        List<User> filtered = allStudents.stream()
+                .filter(student -> matchesSearch(student, searchLower))
+                .toList();
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), filtered.size());
+
+        if (start >= filtered.size()) {
+            return new PageImpl<>(Collections.emptyList(), pageable, filtered.size());
+        }
+
+        List<User> paged = filtered.subList(start, end);
+        return new PageImpl<>(paged, pageable, filtered.size());
+    }
+
+    private boolean matchesSearch(User student, String searchLower) {
+        String fullName = (student.getName() + " " + student.getSurname()).toLowerCase();
+        String username = student.getUsername() != null ? student.getUsername().toLowerCase() : "";
+        return fullName.contains(searchLower) || username.contains(searchLower);
+    }
+
+    private CreateGroupUserListDTO mapStudentToDTO(User student) {
+        List<Group> activeGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
+
+        List<String> subjectNames = activeGroups.stream()
+                .map(group -> subjectRepository.findByGroupsContaining(group)
+                        .map(Subject::getShortName)
+                        .orElse("Group has no subject"))
+                .distinct()
+                .toList();
+
+        return groupMapper.toCreateGroupUserListDTO(student, subjectNames);
     }
 
     @Cacheable(value = "groupStudentsWithCategories",
