@@ -12,13 +12,13 @@ import com.altester.core.model.subject.Subject;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.service.SubjectService;
+import com.altester.core.serviceImpl.CacheService;
 import com.altester.core.serviceImpl.group.GroupActivityService;
 import com.altester.core.util.CacheablePage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -39,6 +39,7 @@ public class SubjectServiceImpl implements SubjectService {
     private final SubjectRepository subjectRepository;
     private final GroupRepository groupRepository;
     private final GroupActivityService groupActivityService;
+    private final CacheService cacheService;
 
     @Override
     @Cacheable(value = "subjects",
@@ -80,7 +81,6 @@ public class SubjectServiceImpl implements SubjectService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "subjects", allEntries = true)
     public void updateSubject(CreateSubjectDTO createSubjectDTO, long subjectId) {
         if (createSubjectDTO == null) {
             throw new IllegalArgumentException("Subject data cannot be null");
@@ -104,6 +104,9 @@ public class SubjectServiceImpl implements SubjectService {
         subject.setModified(LocalDateTime.now());
 
         subjectRepository.save(subject);
+
+        cacheService.clearSubjectRelatedCaches();
+
         log.info("Subject with id {} updated successfully", subjectId);
     }
 
@@ -118,6 +121,7 @@ public class SubjectServiceImpl implements SubjectService {
 
         try {
             subjectRepository.delete(subject);
+            cacheService.clearAllCaches();
             log.info("Subject with id {} deleted successfully", subjectId);
         } catch (Exception e) {
             log.error("Error during subject delete: {}", e.getMessage(), e);
@@ -148,19 +152,12 @@ public class SubjectServiceImpl implements SubjectService {
                 .build();
 
         subjectRepository.save(subject);
+        cacheService.clearAllCaches();
         log.info("Subject with short name {} created", shortName);
     }
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "subjects", allEntries = true),
-            @CacheEvict(value = "groups", allEntries = true),
-            @CacheEvict(value = "groupStudents", allEntries = true),
-            @CacheEvict(value = "groupTeachers", allEntries = true),
-            @CacheEvict(value = "groupStudentsWithCategories", allEntries = true),
-            @CacheEvict(value = "groupStudentsNotInGroup", allEntries = true)
-    })
     public void updateGroups(UpdateGroupsDTO updateGroupsDTO) {
         if (updateGroupsDTO == null || updateGroupsDTO.getGroupIds() == null) {
             throw new IllegalArgumentException("Update groups data cannot be null");
@@ -194,6 +191,11 @@ public class SubjectServiceImpl implements SubjectService {
         }
 
         updateSubjectGroups(subject, validGroupsList);
+
+        cacheService.clearSubjectRelatedCaches();
+        cacheService.clearStudentRelatedCaches();
+        cacheService.clearAdminRelatedCaches();
+        cacheService.clearTestRelatedCaches();
     }
 
     private void updateSubjectGroups(Subject subject, List<Group> validGroupsList) {
@@ -261,15 +263,6 @@ public class SubjectServiceImpl implements SubjectService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "subjects", allEntries = true),
-            @CacheEvict(value = "groups", allEntries = true),
-            @CacheEvict(value = "group", key = "'id:' + #groupId"),
-            @CacheEvict(value = "groupStudents", allEntries = true),
-            @CacheEvict(value = "groupTeachers", allEntries = true),
-            @CacheEvict(value = "groupStudentsWithCategories", allEntries = true),
-            @CacheEvict(value = "groupStudentsNotInGroup", allEntries = true)
-    })
     public void updateGroup(long subjectId, long groupId) {
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() -> {
@@ -295,6 +288,12 @@ public class SubjectServiceImpl implements SubjectService {
                 subject.getGroups().add(group);
                 subject.setModified(LocalDateTime.now());
                 subjectRepository.save(subject);
+
+                cacheService.clearSubjectRelatedCaches();
+                cacheService.clearStudentRelatedCaches();
+                cacheService.clearAdminRelatedCaches();
+                cacheService.clearTestRelatedCaches();
+
                 log.info("Group {} added to subject {}", group.getName(), subject.getName());
             } else {
                 log.warn("Group {} is already assigned to subject {}", group.getName(), subject.getName());

@@ -13,13 +13,12 @@ import com.altester.core.repository.TestRepository;
 import com.altester.core.repository.UserRepository;
 import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.service.TestService;
+import com.altester.core.serviceImpl.CacheService;
 import com.altester.core.serviceImpl.group.GroupActivityService;
 import com.altester.core.util.CacheablePage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -41,6 +40,7 @@ public class TestServiceImpl  implements TestService {
     private final TestAccessValidator testAccessValidator;
     private final GroupActivityService groupActivityService;
     private final NotificationDispatchService notificationService;
+    private final CacheService cacheService;
 
     private User getCurrentUser(Principal principal) {
         return userRepository.findByUsername(principal.getName())
@@ -136,11 +136,6 @@ public class TestServiceImpl  implements TestService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "tests", allEntries = true),
-            @CacheEvict(value = "test", key = "'id:' + #testId"),
-            @CacheEvict(value = "testSummary", key = "'id:' + #testId")
-    })
     public void toggleTeacherEditPermission(Long testId, Principal principal) {
         log.info("User {} is attempting to toggle teacher edit permission for test with ID {}", principal.getName(), testId);
 
@@ -155,6 +150,8 @@ public class TestServiceImpl  implements TestService {
         boolean newState = !test.isAllowTeacherEdit();
         test.setAllowTeacherEdit(newState);
         testRepository.save(test);
+
+        cacheService.clearTestRelatedCaches();
 
         log.info("Teacher edit permission for test ID {} toggled to {} by admin {}", testId, newState, currentUser.getUsername());
     }
@@ -238,13 +235,6 @@ public class TestServiceImpl  implements TestService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "tests", allEntries = true),
-            @CacheEvict(value = "testsBySubject", allEntries = true),
-            @CacheEvict(value = "testsByGroup", allEntries = true),
-            @CacheEvict(value = "adminStats", allEntries = true),
-            @CacheEvict(value = "studentDashboard", allEntries = true)
-    })
     public TestPreviewDTO createTest(CreateTestDTO createTestDTO, Principal principal) {
         log.info("Creating new test with title: {}", createTestDTO.getTitle());
 
@@ -275,18 +265,13 @@ public class TestServiceImpl  implements TestService {
         selectedGroups.forEach(group -> group.getTests().add(savedTest));
         groupRepository.saveAll(selectedGroups);
 
+        cacheService.clearAllCaches();
+
         return testDTOMapper.convertToTestPreviewDTO(savedTest, currentUser);
     }
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "tests", allEntries = true),
-            @CacheEvict(value = "test", key = "'id:' + #testId"),
-            @CacheEvict(value = "testSummary", key = "'id:' + #testId"),
-            @CacheEvict(value = "testsBySubject", allEntries = true),
-            @CacheEvict(value = "testsByGroup", allEntries = true)
-    })
     public TestPreviewDTO updateTest(CreateTestDTO updateTestDTO, Long testId, Principal principal) {
         log.info("Updating test with ID: {}", testId);
 
@@ -354,20 +339,13 @@ public class TestServiceImpl  implements TestService {
             }
         }
 
+        cacheService.clearAllCaches();
+
         return testDTOMapper.convertToTestPreviewDTO(updatedTest, currentUser);
     }
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "tests", allEntries = true),
-            @CacheEvict(value = "test", key = "'id:' + #testId"),
-            @CacheEvict(value = "testSummary", key = "'id:' + #testId"),
-            @CacheEvict(value = "testsBySubject", allEntries = true),
-            @CacheEvict(value = "testsByGroup", allEntries = true),
-            @CacheEvict(value = "questions", allEntries = true),
-            @CacheEvict(value = "adminStats", allEntries = true)
-    })
     public void deleteTest(Long testId, Principal principal) {
         log.info("Deleting test with ID: {}", testId);
 
@@ -386,6 +364,8 @@ public class TestServiceImpl  implements TestService {
             if (!testAccessValidator.hasTestGroupAssociation(currentUser, existingTest, teacherGroups)) {
                 throw AccessDeniedException.testAccess();
             }
+
+            cacheService.clearAllCaches();
 
             performTestDeletion(existingTest);
         } else {
@@ -541,13 +521,6 @@ public class TestServiceImpl  implements TestService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "tests", allEntries = true),
-            @CacheEvict(value = "test", key = "'id:' + #testId"),
-            @CacheEvict(value = "testSummary", key = "'id:' + #testId"),
-            @CacheEvict(value = "testsBySubject", allEntries = true),
-            @CacheEvict(value = "testsByGroup", allEntries = true)
-    })
     public void toggleTestActivity(Long testId, Principal principal) {
         log.info("User {} is attempting to toggle activity for test with ID {}", principal.getName(), testId);
 
@@ -564,6 +537,10 @@ public class TestServiceImpl  implements TestService {
         boolean newState = !test.isOpen();
         test.setOpen(newState);
         testRepository.save(test);
+
+        cacheService.clearTestRelatedCaches();
+        cacheService.clearStudentRelatedCaches();
+        cacheService.clearTeacherRelatedCaches();
 
         if (Boolean.TRUE.equals(newState)) {
             List<Group> testGroups = testDTOMapper.findGroupsByTest(test);

@@ -15,10 +15,10 @@ import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.TestRepository;
 import com.altester.core.repository.UserRepository;
 import com.altester.core.service.AdminPageService;
+import com.altester.core.serviceImpl.CacheService;
 import com.altester.core.util.CacheablePage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -47,6 +47,7 @@ public class AdminPageServiceImpl implements AdminPageService {
     private final GroupRepository groupRepository;
     private final SubjectRepository subjectRepository;
     private final UserMapper userMapper;
+    private final CacheService cacheService;
 
     private User getUserByUsername(String username) {
         return userRepository.findByUsername(username)
@@ -151,7 +152,6 @@ public class AdminPageServiceImpl implements AdminPageService {
 
     @Override
     @Transactional
-    @CacheEvict(value = {"adminStats", "students", "teachers"}, allEntries = true)
     public void demoteToStudent(String username) {
         User user = getUserByUsername(username);
 
@@ -171,12 +171,15 @@ public class AdminPageServiceImpl implements AdminPageService {
         user.setRole(RolesEnum.STUDENT);
         userRepository.save(user);
 
+        cacheService.clearAdminRelatedCaches();
+        cacheService.clearStudentRelatedCaches();
+        cacheService.clearTeacherRelatedCaches();
+
         log.info("User {} (ID: {}) successfully promoted to STUDENT", user.getUsername(), user.getId());
     }
 
     @Override
     @Transactional
-    @CacheEvict(value = {"adminStats", "students", "teachers"}, allEntries = true)
     public void promoteToTeacher(String username) {
         User user = getUserByUsername(username);
 
@@ -196,12 +199,15 @@ public class AdminPageServiceImpl implements AdminPageService {
         user.setRole(RolesEnum.TEACHER);
         userRepository.save(user);
 
+        cacheService.clearAdminRelatedCaches();
+        cacheService.clearTeacherRelatedCaches();
+        cacheService.clearStudentRelatedCaches();
+
         log.info("User {} (ID: {}) successfully promoted to TEACHER", user.getUsername(), user.getId());
     }
 
     @Override
     @Transactional
-    @CacheEvict(value = {"adminStats", "students", "teachers"}, allEntries = true)
     public UsersListDTO updateUser(UpdateUser updateUser, String username) {
 
         User user = getUserByUsername(username);
@@ -225,6 +231,10 @@ public class AdminPageServiceImpl implements AdminPageService {
         user.setUsername(updateUser.getUsername());
 
         User savedUser = userRepository.save(user);
+
+        cacheService.clearAdminRelatedCaches();
+        cacheService.clearStudentRelatedCaches();
+        cacheService.clearTeacherRelatedCaches();
 
         log.info("User {} (ID: {}) successfully updated", savedUser.getUsername(), savedUser.getId());
         return userMapper.convertToUsersListDTO(savedUser);

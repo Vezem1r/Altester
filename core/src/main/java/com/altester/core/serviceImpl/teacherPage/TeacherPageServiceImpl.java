@@ -10,10 +10,12 @@ import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.UserRepository;
 import com.altester.core.service.TeacherPageService;
+import com.altester.core.serviceImpl.CacheService;
 import com.altester.core.serviceImpl.group.GroupActivityService;
 import com.altester.core.util.CacheablePage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -37,6 +39,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TeacherPageServiceImpl implements TeacherPageService {
 
+    private final CacheService cacheService;
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
     private final SubjectRepository subjectRepository;
@@ -275,12 +278,6 @@ public class TeacherPageServiceImpl implements TeacherPageService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "teacherPage", key = "#principal.name"),
-            @CacheEvict(value = "teacherStudents", allEntries = true),
-            @CacheEvict(value = "teacherGroups", allEntries = true),
-            @CacheEvict(value = "studentDashboard", allEntries = true)
-    })
     public void moveStudentBetweenGroups(Principal principal, MoveStudentRequest request) {
         log.info("Processing request to move student {} from group {} to group {}",
                 request.getStudentUsername(), request.getFromGroupId(), request.getToGroupId());
@@ -318,6 +315,9 @@ public class TeacherPageServiceImpl implements TeacherPageService {
 
             groupRepository.save(fromGroup);
             groupRepository.save(toGroup);
+
+            cacheService.clearTeacherRelatedCaches();
+            cacheService.clearStudentRelatedCaches();
 
             log.info("Successfully moved student {} from group {} to group {}",
                     student.getUsername(), fromGroup.getName(), toGroup.getName());

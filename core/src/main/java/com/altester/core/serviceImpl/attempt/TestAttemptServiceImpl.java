@@ -10,11 +10,10 @@ import com.altester.core.model.subject.enums.AttemptStatus;
 import com.altester.core.model.subject.enums.QuestionType;
 import com.altester.core.repository.*;
 import com.altester.core.service.TestAttemptService;
+import com.altester.core.serviceImpl.CacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +31,7 @@ public class TestAttemptServiceImpl implements TestAttemptService {
     private final TestRepository testRepository;
     private final AttemptRepository attemptRepository;
     private final QuestionRepository questionRepository;
+    private final CacheService cacheService;
 
     private final TestAttemptDTOMapper dtoMapper;
     private final TestAttemptValidation validationService;
@@ -40,10 +40,6 @@ public class TestAttemptServiceImpl implements TestAttemptService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "attemptStatus", allEntries = true),
-            @CacheEvict(value = "studentTestAttempts", key = "#principal.name + ':testId:' + #request.testId")
-    })
     public SingleQuestionResponse startAttempt(Principal principal, StartAttemptRequest request) {
         log.info("[START ATTEMPT] User: {} is starting a new attempt for test: {}", principal.getName(), request.getTestId());
 
@@ -92,6 +88,9 @@ public class TestAttemptServiceImpl implements TestAttemptService {
 
         attempt = attemptRepository.save(attempt);
 
+        cacheService.clearAttemptRelatedCaches();
+        cacheService.clearStudentRelatedCaches();
+
         List<Question> questionsForTest = questionService.getQuestionsForTest(test);
         return dtoMapper.getQuestionByNumber(attempt, 1, questionsForTest);
     }
@@ -132,7 +131,6 @@ public class TestAttemptServiceImpl implements TestAttemptService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "attemptStatus", key = "#principal.name + ':attemptId:' + #request.attemptId")
     public void saveAnswer(Principal principal, SaveAnswerRequest request) {
         log.info("[SAVE ANSWER] User: {} is saving answer for attempt: {}, question: {}",
                 principal.getName(), request.getAttemptId(), request.getAnswer().getQuestionId());
@@ -180,11 +178,11 @@ public class TestAttemptServiceImpl implements TestAttemptService {
         }
 
         attemptRepository.save(attempt);
+        cacheService.clearAttemptRelatedCaches();
     }
 
     @Override
     @Transactional
-    @CacheEvict(value = "attemptStatus", key = "#principal.name + ':attemptId:' + #request.attemptId")
     public SingleQuestionResponse nextQuestion(Principal principal, NextQuestionRequest request) {
         log.info("[NEXT QUESTION] User: {} is moving to next question for attempt: {}, current question: {}",
                 principal.getName(), request.getAttemptId(), request.getCurrentQuestionNumber());
@@ -222,12 +220,12 @@ public class TestAttemptServiceImpl implements TestAttemptService {
                     "Already at the last question");
         }
 
+        cacheService.clearAttemptRelatedCaches();
         return dtoMapper.getQuestionByNumber(attempt, nextQuestionNumber, questionsForTest);
     }
 
     @Override
     @Transactional
-    @CacheEvict(value = "attemptStatus", key = "#principal.name + ':attemptId:' + #request.attemptId")
     public SingleQuestionResponse previousQuestion(Principal principal, PreviousQuestionRequest request) {
         log.info("[PREVIOUS QUESTION] User: {} is moving to previous question for attempt: {}, current question: {}",
                 principal.getName(), request.getAttemptId(), request.getCurrentQuestionNumber());
@@ -265,19 +263,14 @@ public class TestAttemptServiceImpl implements TestAttemptService {
         }
 
         List<Question> questionsForTest = questionService.getQuestionsForTest(attempt.getTest());
+
+        cacheService.clearAttemptRelatedCaches();
+
         return dtoMapper.getQuestionByNumber(attempt, prevQuestionNumber, questionsForTest);
     }
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "attemptStatus", key = "#principal.name + ':attemptId:' + #request.attemptId"),
-            @CacheEvict(value = "studentTestAttempts", key = "#principal.name + ':testId:' + '*'"),
-            @CacheEvict(value = "testAttemptsForTeacher", allEntries = true),
-            @CacheEvict(value = "testAttemptsForAdmin", allEntries = true),
-            @CacheEvict(value = "studentAttemptsForTeacher", allEntries = true),
-            @CacheEvict(value = "studentAttemptsForAdmin", allEntries = true)
-    })
     public AttemptResultResponse completeAttempt(Principal principal, CompleteAttemptRequest request) {
         log.info("[COMPLETE ATTEMPT] User: {} is completing attempt: {}",
                 principal.getName(), request.getAttemptId());
@@ -314,6 +307,11 @@ public class TestAttemptServiceImpl implements TestAttemptService {
 
         List<Question> questionsForTest = questionService.getQuestionsForTest(test);
         int answeredQuestions = attempt.getSubmissions() != null ? attempt.getSubmissions().size() : 0;
+
+        cacheService.clearAttemptRelatedCaches();
+        cacheService.clearStudentRelatedCaches();
+        cacheService.clearTeacherRelatedCaches();
+        cacheService.clearAdminRelatedCaches();
 
         return AttemptResultResponse.builder()
                 .attemptId(attempt.getId())

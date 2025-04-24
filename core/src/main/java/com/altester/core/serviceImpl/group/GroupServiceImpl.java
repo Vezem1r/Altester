@@ -12,13 +12,12 @@ import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.UserRepository;
 import com.altester.core.service.GroupService;
 import com.altester.core.service.NotificationDispatchService;
+import com.altester.core.serviceImpl.CacheService;
 import com.altester.core.util.CacheablePage;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -44,6 +43,7 @@ public class GroupServiceImpl implements GroupService {
     private final GroupFilterService groupsFilter;
     private final GroupStudentService studentService;
     private final GroupPaginationUtils paginationUtils;
+    private final CacheService cacheService;
 
     private Group getGroupById(long id) {
         return groupRepository.findById(id)
@@ -63,16 +63,6 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "groups", allEntries = true),
-            @CacheEvict(value = "group", key = "'id:' + #id"),
-            @CacheEvict(value = "subjects", allEntries = true),
-            @CacheEvict(value = "groupStudents", allEntries = true),
-            @CacheEvict(value = "groupTeachers", allEntries = true),
-            @CacheEvict(value = "adminStats", allEntries = true),
-            @CacheEvict(value = "studentDashboard", allEntries = true),
-            @CacheEvict(value = "teacherDashboard", allEntries = true)
-    })
     public void deleteGroup(long id) {
         Group group = getGroupById(id);
 
@@ -83,6 +73,9 @@ public class GroupServiceImpl implements GroupService {
 
         try {
             groupRepository.deleteById(id);
+
+            cacheService.clearAllCaches();
+
             log.info("Group with id {} successfully deleted", id);
         } catch (Exception e) {
             log.error("Error deleting group with id: {}, {}", id, e.getMessage());
@@ -126,15 +119,6 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "groups", allEntries = true),
-            @CacheEvict(value = "group", key = "'id:' + #id"),
-            @CacheEvict(value = "subjects", allEntries = true),
-            @CacheEvict(value = "groupStudents", allEntries = true),
-            @CacheEvict(value = "studentDashboard", allEntries = true),
-            @CacheEvict(value = "students", allEntries = true),
-            @CacheEvict(value = "teachers", allEntries = true)
-    })
     public void updateGroup(Long id, CreateGroupDTO createGroupDTO) {
         Group group = getGroupById(id);
 
@@ -192,6 +176,11 @@ public class GroupServiceImpl implements GroupService {
         group.setActive(isActive);
 
         groupRepository.save(group);
+
+        cacheService.clearGroupRelatedCaches();
+        cacheService.clearStudentRelatedCaches();
+        cacheService.clearTeacherRelatedCaches();
+
         log.info("Group '{}' updated successfully with {} students", group.getName(), students.size());
 
         Set<User> newStudents = students.stream()
@@ -206,15 +195,6 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "groups", allEntries = true),
-            @CacheEvict(value = "groupStudents", allEntries = true),
-            @CacheEvict(value = "groupTeachers", allEntries = true),
-            @CacheEvict(value = "adminStats", allEntries = true),
-            @CacheEvict(value = "studentDashboard", allEntries = true),
-            @CacheEvict(value = "students", allEntries = true),
-            @CacheEvict(value = "teachers", allEntries = true)
-    })
     public Long createGroup(CreateGroupDTO createGroupDTO) {
         if (groupRepository.findByName(createGroupDTO.getGroupName()).isPresent()) {
             log.error("Group with name '{}' already exists", createGroupDTO.getGroupName());
@@ -259,6 +239,9 @@ public class GroupServiceImpl implements GroupService {
                 .build();
 
         Group savedGroup = groupRepository.save(group);
+
+        cacheService.clearAllCaches();
+
         log.info("Group '{}' created successfully with {} students, active status: {}",
                 group.getName(), students.size(), group.isActive());
 

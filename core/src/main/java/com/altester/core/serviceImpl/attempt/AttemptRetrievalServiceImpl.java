@@ -15,11 +15,10 @@ import com.altester.core.model.subject.enums.AttemptStatus;
 import com.altester.core.repository.*;
 import com.altester.core.service.AttemptRetrievalService;
 import com.altester.core.service.NotificationDispatchService;
+import com.altester.core.serviceImpl.CacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -38,6 +37,7 @@ public class AttemptRetrievalServiceImpl implements AttemptRetrievalService {
     private final AttemptRepository attemptRepository;
     private final TestRepository testRepository;
     private final NotificationDispatchService notificationService;
+    private final CacheService cacheService;
 
     @Override
     @Transactional(readOnly = true)
@@ -231,14 +231,6 @@ public class AttemptRetrievalServiceImpl implements AttemptRetrievalService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "testAttemptsForTeacher", allEntries = true),
-            @CacheEvict(value = "testAttemptsForAdmin", allEntries = true),
-            @CacheEvict(value = "studentAttemptsForTeacher", allEntries = true),
-            @CacheEvict(value = "studentAttemptsForAdmin", allEntries = true),
-            @CacheEvict(value = "attemptReview", key = "'admin-teacher:' + #principal.name + ':attemptId:' + #attemptId"),
-            @CacheEvict(value = "attemptReview", key = "#principal.name + ':attemptId:' + #attemptId")
-    })
     public void submitAttemptReview(Principal principal, Long attemptId, AttemptReviewSubmissionDTO reviewSubmission) {
         log.info("{} submitting review for attempt {}", principal.getName(), attemptId);
 
@@ -270,6 +262,11 @@ public class AttemptRetrievalServiceImpl implements AttemptRetrievalService {
         attempt.setScore(totalScore);
         attempt.setStatus(AttemptStatus.REVIEWED);
         attemptRepository.save(attempt);
+
+        cacheService.clearAttemptRelatedCaches();
+        cacheService.clearTeacherRelatedCaches();
+        cacheService.clearStudentRelatedCaches();
+        cacheService.clearAdminRelatedCaches();
 
         notificationService.notifyTestGraded(attempt);
 

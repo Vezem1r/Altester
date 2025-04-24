@@ -12,14 +12,13 @@ import com.altester.core.model.subject.Question;
 import com.altester.core.model.subject.Test;
 import com.altester.core.repository.*;
 import com.altester.core.service.QuestionService;
+import com.altester.core.serviceImpl.CacheService;
 import com.altester.core.serviceImpl.test.TestAccessValidator;
 import com.altester.core.serviceImpl.test.TestDTOMapper;
 import com.altester.core.serviceImpl.group.GroupActivityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -42,6 +41,7 @@ public class QuestionServiceImpl implements QuestionService {
     private final GroupActivityService groupActivityService;
     private final ImageService imageService;
     private final QuestionValidator questionValidator;
+    private final CacheService cacheService;
 
     private User getCurrentUser(Principal principal) {
         return userRepository.findByUsername(principal.getName())
@@ -69,11 +69,6 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "questions", allEntries = true),
-            @CacheEvict(value = "test", key = "'id:' + #testId"),
-            @CacheEvict(value = "testSummary", allEntries = true)
-    })
     public QuestionDetailsDTO addQuestion(Long testId, CreateQuestionDTO createQuestionDTO,
                                           Principal principal, MultipartFile image) {
         log.info("User {} is attempting to add a question to test with ID {}", principal.getName(), testId);
@@ -122,18 +117,15 @@ public class QuestionServiceImpl implements QuestionService {
             });
         }
 
+        cacheService.clearQuestionRelatedCaches();
+        cacheService.clearTestRelatedCaches();
+
         log.info("Question with ID {} added to test with ID {}", savedQuestion.getId(), testId);
         return questionDTOMapper.convertToQuestionDetailsDTO(savedQuestion);
     }
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "questions", allEntries = true),
-            @CacheEvict(value = "question", key = "'id:' + #questionId"),
-            @CacheEvict(value = "test", allEntries = true),
-            @CacheEvict(value = "testSummary", allEntries = true)
-    })
     public QuestionDetailsDTO updateQuestion(Long questionId, UpdateQuestionDTO updateQuestionDTO,
                                              Principal principal, MultipartFile image) {
         log.info("User {} is attempting to update question with ID {}", principal.getName(), questionId);
@@ -199,6 +191,10 @@ public class QuestionServiceImpl implements QuestionService {
         }
 
         Question updatedQuestion = questionRepository.save(question);
+
+        cacheService.clearQuestionRelatedCaches();
+        cacheService.clearTestRelatedCaches();
+
         log.info("Question with ID {} updated", questionId);
 
         return questionDTOMapper.convertToQuestionDetailsDTO(updatedQuestion);
@@ -206,12 +202,6 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "questions", allEntries = true),
-            @CacheEvict(value = "question", key = "'id:' + #questionId"),
-            @CacheEvict(value = "test", allEntries = true),
-            @CacheEvict(value = "testSummary", allEntries = true)
-    })
     public void deleteQuestion(Long questionId, Principal principal) {
         log.info("User {} is attempting to delete question with ID {}", principal.getName(), questionId);
 
@@ -234,6 +224,9 @@ public class QuestionServiceImpl implements QuestionService {
                 Integer.MAX_VALUE
         );
 
+        cacheService.clearQuestionRelatedCaches();
+        cacheService.clearTestRelatedCaches();
+
         log.info("Question with ID {} deleted", questionId);
     }
 
@@ -254,12 +247,6 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "questions", allEntries = true),
-            @CacheEvict(value = "question", key = "'id:' + #questionId"),
-            @CacheEvict(value = "test", allEntries = true),
-            @CacheEvict(value = "testSummary", allEntries = true)
-    })
     public void changeQuestionPosition(Long questionId, int newPosition, Principal principal) {
         log.info("User {} is attempting to change position of question ID {} to position {}",
                 principal.getName(), questionId, newPosition);
@@ -290,6 +277,9 @@ public class QuestionServiceImpl implements QuestionService {
 
         question.setPosition(newPosition);
         questionRepository.save(question);
+
+        cacheService.clearQuestionRelatedCaches();
+        cacheService.clearTestRelatedCaches();
 
         log.info("Question ID {} position changed from {} to {}", questionId, oldPosition, newPosition);
     }
