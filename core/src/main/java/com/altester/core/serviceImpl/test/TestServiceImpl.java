@@ -14,8 +14,12 @@ import com.altester.core.repository.UserRepository;
 import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.service.TestService;
 import com.altester.core.serviceImpl.group.GroupActivityService;
+import com.altester.core.util.CacheablePage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -132,6 +136,11 @@ public class TestServiceImpl  implements TestService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "tests", allEntries = true),
+            @CacheEvict(value = "test", key = "'id:' + #testId"),
+            @CacheEvict(value = "testSummary", key = "'id:' + #testId")
+    })
     public void toggleTeacherEditPermission(Long testId, Principal principal) {
         log.info("User {} is attempting to toggle teacher edit permission for test with ID {}", principal.getName(), testId);
 
@@ -152,7 +161,11 @@ public class TestServiceImpl  implements TestService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<TestSummaryDTO> getAllTestsForAdmin(Pageable pageable, Principal principal, String searchQuery, Boolean isActive) {
+    @Cacheable(value = "tests",
+            key = "'admin:page:' + #pageable.pageNumber + ':size:' + #pageable.pageSize + ':search:' + " +
+                    "(#searchQuery == null ? '' : #searchQuery) + ':active:' + " +
+                    "(#isActive == null ? '' : #isActive)")
+    public CacheablePage<TestSummaryDTO> getAllTestsForAdmin(Pageable pageable, Principal principal, String searchQuery, Boolean isActive) {
         log.debug("Getting all tests for admin with search query: {}, isActive: {}", searchQuery, isActive);
 
         User currentUser = getCurrentUser(principal);
@@ -163,7 +176,7 @@ public class TestServiceImpl  implements TestService {
 
         Page<Test> testsPage = testRepository.findAllWithFilters(searchQuery, isActive, pageable);
 
-        return testsPage.map(test -> {
+        Page<TestSummaryDTO> resultPage = testsPage.map(test -> {
             TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
 
             List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
@@ -178,11 +191,17 @@ public class TestServiceImpl  implements TestService {
             dto.setAssociatedGroups(groupDTOs);
             return dto;
         });
+        return new CacheablePage<>(resultPage);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<TestSummaryDTO> getTeacherTests(Pageable pageable, Principal principal, String searchQuery,
+    @Cacheable(value = "tests",
+            key = "'teacher:' + #principal.name + ':page:' + #pageable.pageNumber + ':size:' + #pageable.pageSize + ':search:' + " +
+                    "(#searchQuery == null ? '' : #searchQuery) + ':active:' + " +
+                    "(#isActive == null ? '' : #isActive) + ':edit:' + " +
+                    "(#allowTeacherEdit == null ? '' : #allowTeacherEdit)")
+    public CacheablePage<TestSummaryDTO> getTeacherTests(Pageable pageable, Principal principal, String searchQuery,
                                                 Boolean isActive, Boolean allowTeacherEdit) {
         log.debug("Getting tests for teacher with searchQuery: '{}', isActive: {}, allowTeacherEdit: {}",
                 searchQuery, isActive, allowTeacherEdit);
@@ -196,7 +215,7 @@ public class TestServiceImpl  implements TestService {
         Page<Test> testsPage = testRepository.findByTeacherWithFilters(
                 currentUser.getId(), searchQuery, isActive, allowTeacherEdit, pageable);
 
-        return testsPage.map(test -> {
+        Page<TestSummaryDTO> resultPage = testsPage.map(test -> {
             TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
 
             List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
@@ -214,10 +233,17 @@ public class TestServiceImpl  implements TestService {
             dto.setAssociatedGroups(groupDTOs);
             return dto;
         });
+        return new CacheablePage<>(resultPage);
     }
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "tests", allEntries = true),
+            @CacheEvict(value = "testsBySubject", allEntries = true),
+            @CacheEvict(value = "testsByGroup", allEntries = true),
+            @CacheEvict(value = "adminStats", allEntries = true)
+    })
     public TestPreviewDTO createTest(CreateTestDTO createTestDTO, Principal principal) {
         log.info("Creating new test with title: {}", createTestDTO.getTitle());
 
@@ -253,6 +279,13 @@ public class TestServiceImpl  implements TestService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "tests", allEntries = true),
+            @CacheEvict(value = "test", key = "'id:' + #testId"),
+            @CacheEvict(value = "testSummary", key = "'id:' + #testId"),
+            @CacheEvict(value = "testsBySubject", allEntries = true),
+            @CacheEvict(value = "testsByGroup", allEntries = true)
+    })
     public TestPreviewDTO updateTest(CreateTestDTO updateTestDTO, Long testId, Principal principal) {
         log.info("Updating test with ID: {}", testId);
 
@@ -325,6 +358,15 @@ public class TestServiceImpl  implements TestService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "tests", allEntries = true),
+            @CacheEvict(value = "test", key = "'id:' + #testId"),
+            @CacheEvict(value = "testSummary", key = "'id:' + #testId"),
+            @CacheEvict(value = "testsBySubject", allEntries = true),
+            @CacheEvict(value = "testsByGroup", allEntries = true),
+            @CacheEvict(value = "questions", allEntries = true),
+            @CacheEvict(value = "adminStats", allEntries = true)
+    })
     public void deleteTest(Long testId, Principal principal) {
         log.info("Deleting test with ID: {}", testId);
 
@@ -366,6 +408,7 @@ public class TestServiceImpl  implements TestService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "testSummary", key = "'id:' + #testId")
     public TestSummaryDTO getTestSummary(Long testId, Principal principal) {
         log.debug("Getting test summary for test ID: {}", testId);
 
@@ -404,6 +447,7 @@ public class TestServiceImpl  implements TestService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "test", key = "'id:' + #testId")
     public TestPreviewDTO getTestPreview(Long testId, Principal principal) {
         log.debug("Getting test preview for test ID: {}", testId);
 
@@ -417,7 +461,11 @@ public class TestServiceImpl  implements TestService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<TestSummaryDTO> getTestsBySubject(Long subjectId, Principal principal, String searchQuery,
+    @Cacheable(value = "testsBySubject",
+            key = "'subject:' + #subjectId + ':page:' + #pageable.pageNumber + ':size:' + #pageable.pageSize + ':search:' + " +
+                    "(#searchQuery == null ? '' : #searchQuery) + ':active:' + " +
+                    "(#isActive == null ? '' : #isActive)")
+    public CacheablePage<TestSummaryDTO> getTestsBySubject(Long subjectId, Principal principal, String searchQuery,
                                                   Boolean isActive, Pageable pageable) {
         log.debug("Getting tests for subject ID: {} with search query: {}, isActive: {}", subjectId, searchQuery, isActive);
 
@@ -433,7 +481,7 @@ public class TestServiceImpl  implements TestService {
                 ? groupRepository.findByTeacher(currentUser)
                 : Collections.emptyList();
 
-        return testsPage.map(test -> {
+        Page<TestSummaryDTO> resultPage = testsPage.map(test -> {
             TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
 
             List<Group> testGroups = testDTOMapper.findGroupsByTest(test).stream()
@@ -452,10 +500,16 @@ public class TestServiceImpl  implements TestService {
             dto.setAssociatedGroups(groupDTOs);
             return dto;
         });
+
+        return new CacheablePage<>(resultPage);
     }
     @Override
     @Transactional(readOnly = true)
-    public Page<TestSummaryDTO> getTestsByGroup(Long groupId, Principal principal, String searchQuery,
+    @Cacheable(value = "testsByGroup",
+            key = "'group:' + #groupId + ':page:' + #pageable.pageNumber + ':size:' + #pageable.pageSize + ':search:' + " +
+                    "(#searchQuery == null ? '' : #searchQuery) + ':active:' + " +
+                    "(#isActive == null ? '' : #isActive)")
+    public CacheablePage<TestSummaryDTO> getTestsByGroup(Long groupId, Principal principal, String searchQuery,
                                                 Boolean isActive, Pageable pageable) {
         log.debug("Getting tests for group ID: {} with search query: {}, isActive: {}", groupId, searchQuery, isActive);
 
@@ -469,7 +523,7 @@ public class TestServiceImpl  implements TestService {
         Page<Test> testsPage = testRepository.findByGroupWithFilters(
                 groupId, searchQuery, isActive, pageable);
 
-        return testsPage.map(test -> {
+        Page<TestSummaryDTO> resultPage = testsPage.map(test -> {
             TestSummaryDTO dto = testDTOMapper.convertToTestSummaryDTO(test);
 
             List<GroupSummaryDTO> groupDTOs = new ArrayList<>();
@@ -481,10 +535,18 @@ public class TestServiceImpl  implements TestService {
             dto.setAssociatedGroups(groupDTOs);
             return dto;
         });
+        return new CacheablePage<>(resultPage);
     }
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "tests", allEntries = true),
+            @CacheEvict(value = "test", key = "'id:' + #testId"),
+            @CacheEvict(value = "testSummary", key = "'id:' + #testId"),
+            @CacheEvict(value = "testsBySubject", allEntries = true),
+            @CacheEvict(value = "testsByGroup", allEntries = true)
+    })
     public void toggleTestActivity(Long testId, Principal principal) {
         log.info("User {} is attempting to toggle activity for test with ID {}", principal.getName(), testId);
 

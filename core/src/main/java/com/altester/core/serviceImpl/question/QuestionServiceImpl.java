@@ -17,6 +17,9 @@ import com.altester.core.serviceImpl.test.TestDTOMapper;
 import com.altester.core.serviceImpl.group.GroupActivityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -66,6 +69,11 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "questions", allEntries = true),
+            @CacheEvict(value = "test", key = "'id:' + #testId"),
+            @CacheEvict(value = "testSummary", allEntries = true)
+    })
     public QuestionDetailsDTO addQuestion(Long testId, CreateQuestionDTO createQuestionDTO,
                                           Principal principal, MultipartFile image) {
         log.info("User {} is attempting to add a question to test with ID {}", principal.getName(), testId);
@@ -120,6 +128,12 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "questions", allEntries = true),
+            @CacheEvict(value = "question", key = "'id:' + #questionId"),
+            @CacheEvict(value = "test", allEntries = true),
+            @CacheEvict(value = "testSummary", allEntries = true)
+    })
     public QuestionDetailsDTO updateQuestion(Long questionId, UpdateQuestionDTO updateQuestionDTO,
                                              Principal principal, MultipartFile image) {
         log.info("User {} is attempting to update question with ID {}", principal.getName(), questionId);
@@ -192,6 +206,12 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "questions", allEntries = true),
+            @CacheEvict(value = "question", key = "'id:' + #questionId"),
+            @CacheEvict(value = "test", allEntries = true),
+            @CacheEvict(value = "testSummary", allEntries = true)
+    })
     public void deleteQuestion(Long questionId, Principal principal) {
         log.info("User {} is attempting to delete question with ID {}", principal.getName(), questionId);
 
@@ -219,6 +239,7 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "question", key = "'id:' + #questionId")
     public QuestionDetailsDTO getQuestion(Long questionId, Principal principal) {
         log.info("User {} is attempting to get question with ID {}", principal.getName(), questionId);
 
@@ -233,6 +254,12 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "questions", allEntries = true),
+            @CacheEvict(value = "question", key = "'id:' + #questionId"),
+            @CacheEvict(value = "test", allEntries = true),
+            @CacheEvict(value = "testSummary", allEntries = true)
+    })
     public void changeQuestionPosition(Long questionId, int newPosition, Principal principal) {
         log.info("User {} is attempting to change position of question ID {} to position {}",
                 principal.getName(), questionId, newPosition);

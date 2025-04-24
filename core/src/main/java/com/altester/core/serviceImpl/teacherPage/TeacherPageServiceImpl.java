@@ -1,4 +1,4 @@
-package com.altester.core.serviceImpl.adminPage;
+package com.altester.core.serviceImpl.teacherPage;
 
 import com.altester.core.dtos.core_service.TeacherPage.*;
 import com.altester.core.dtos.core_service.subject.SubjectGroupDTO;

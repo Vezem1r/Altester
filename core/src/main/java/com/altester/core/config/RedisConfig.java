@@ -1,8 +1,11 @@
 package com.altester.core.config;
 
 import com.altester.core.dtos.core_service.AdminPage.AdminPageDTO;
+import com.altester.core.dtos.core_service.question.QuestionDetailsDTO;
 import com.altester.core.dtos.core_service.subject.GroupDTO;
 import com.altester.core.dtos.core_service.subject.GroupStudentsResponseDTO;
+import com.altester.core.dtos.core_service.test.TestPreviewDTO;
+import com.altester.core.dtos.core_service.test.TestSummaryDTO;
 import com.altester.core.util.CacheablePage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
@@ -94,6 +97,29 @@ public class RedisConfig {
 
         RedisCacheConfiguration defaultConfig = createCacheConfiguration(
                 new JsonRedisSerializer<>(Object.class));
+
+        // Test service caches
+        cacheConfigurations.put("tests", createCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
+
+        cacheConfigurations.put("test", createCacheConfiguration(
+                new JsonRedisSerializer<>(TestPreviewDTO.class)));
+
+        cacheConfigurations.put("testSummary", createCacheConfiguration(
+                new JsonRedisSerializer<>(TestSummaryDTO.class)));
+
+        cacheConfigurations.put("testsBySubject", createCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
+
+        cacheConfigurations.put("testsByGroup", createCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
+
+        // Question service caches
+        cacheConfigurations.put("questions", createCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
+
+        cacheConfigurations.put("question", createCacheConfiguration(
+                new JsonRedisSerializer<>(QuestionDetailsDTO.class)));
 
         return RedisCacheManager.builder(redisConnectionFactory)
                 .cacheDefaults(defaultConfig)

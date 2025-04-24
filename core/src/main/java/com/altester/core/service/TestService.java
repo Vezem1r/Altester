@@ -1,6 +1,7 @@
 package com.altester.core.service;
 
 import com.altester.core.dtos.core_service.test.*;
+import com.altester.core.util.CacheablePage;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -14,9 +15,9 @@ public interface TestService {
      */
     void toggleTeacherEditPermission(Long testId, Principal principal);
 
-    Page<TestSummaryDTO> getAllTestsForAdmin(Pageable pageable, Principal principal, String searchQuery, Boolean isActive);
+    CacheablePage<TestSummaryDTO> getAllTestsForAdmin(Pageable pageable, Principal principal, String searchQuery, Boolean isActive);
 
-    Page<TestSummaryDTO> getTeacherTests(Pageable pageable, Principal principal, String searchQuery, Boolean isActive, Boolean allowTeacherEdit);
+    CacheablePage<TestSummaryDTO> getTeacherTests(Pageable pageable, Principal principal, String searchQuery, Boolean isActive, Boolean allowTeacherEdit);
 
     /**
      * Creates a new test with the provided details and associates it with the selected groups.
@@ -42,10 +43,10 @@ public interface TestService {
 
     TestPreviewDTO getTestPreview(Long testId, Principal principal);
 
-    Page<TestSummaryDTO> getTestsBySubject(Long subjectId, Principal principal, String searchQuery,
+    CacheablePage<TestSummaryDTO> getTestsBySubject(Long subjectId, Principal principal, String searchQuery,
                                            Boolean isActive, Pageable pageable);
 
-    Page<TestSummaryDTO> getTestsByGroup(Long groupId, Principal principal, String searchQuery,
+    CacheablePage<TestSummaryDTO> getTestsByGroup(Long groupId, Principal principal, String searchQuery,
                                          Boolean isActive, Pageable pageable);
 
     /**
