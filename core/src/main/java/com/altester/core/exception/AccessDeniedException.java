@@ -15,6 +15,8 @@ public class AccessDeniedException extends AlTesterException {
         this.action = action;
     }
 
+    public static AccessDeniedException apiKeyAccess() {return new AccessDeniedException("apiKey", "access", "You have to be the owner of API Key");}
+
     public static AccessDeniedException testAccess() {
         return new AccessDeniedException("test", "access", null);
     }

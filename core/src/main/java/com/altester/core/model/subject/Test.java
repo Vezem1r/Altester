@@ -56,6 +56,10 @@ public class Test {
     @Column
     private boolean AiEvaluation = true;
 
+    @ManyToOne
+    @JoinColumn(name = "api_key_id")
+    private ApiKey apiKey;
+
     @OneToMany(mappedBy = "test", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Question> questions = new HashSet<>();
 
