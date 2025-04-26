@@ -38,9 +38,8 @@ public interface ApiKeyService {
      * @param id The ID of the API key to update
      * @param request The updated API key data
      * @param principal The authenticated user
-     * @return The updated API key DTO
      */
-    ApiKeyDTO updateApiKey(Long id, ApiKeyRequest request, Principal principal);
+    void updateApiKey(Long id, ApiKeyRequest request, Principal principal);
 
     /**
      * Get all API keys available to a user

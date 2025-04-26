@@ -77,6 +77,13 @@ public class RedisConfig {
         cacheConfigurations.put("adminStats", createCacheConfiguration(
                 new JsonRedisSerializer<>(AdminPageDTO.class)));
 
+        // API key caches
+        cacheConfigurations.put("apiKeys", createCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
+
+        cacheConfigurations.put("availableApiKeys", createCacheConfiguration(
+                new JsonRedisSerializer<>(List.class)));
+
         // Group service caches
         cacheConfigurations.put("groups", createCacheConfiguration(
                 new JsonRedisSerializer<>(CacheablePage.class)));

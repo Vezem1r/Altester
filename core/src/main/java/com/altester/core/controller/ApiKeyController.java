@@ -1,19 +1,22 @@
 package com.altester.core.controller;
 
+import com.altester.core.dtos.core_service.apiKey.ApiKeyDTO;
+import com.altester.core.dtos.core_service.apiKey.ApiKeyRequest;
 import com.altester.core.service.ApiKeyService;
 import com.altester.core.util.CacheablePage;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.util.List;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/keys")
 @Slf4j
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
@@ -21,9 +24,36 @@ public class ApiKeyController {
 
     private final ApiKeyService apiKeyService;
 
-    @GetMapping("/getAll")
-    public CacheablePage<?> getAllApiKeys(Principal principal) {
-        CacheablePage<?> resultPage = apiKeyService.getAll(principal);
+    @GetMapping
+    public ResponseEntity<CacheablePage<ApiKeyDTO>> getAllApiKeys(Principal principal) {
+        CacheablePage<ApiKeyDTO> resultPage = apiKeyService.getAll(principal);
         return ResponseEntity.ok(resultPage);
+    }
+
+    @GetMapping("/available")
+    public ResponseEntity<List<ApiKeyDTO>> getAvailableApiKeys(Principal principal) {
+        List<ApiKeyDTO> keys = apiKeyService.getAvailableApiKeys(principal);
+        return ResponseEntity.ok(keys);
+    }
+
+    @PostMapping
+    public ResponseEntity<String> createApiKey(Principal principal, @RequestBody @Valid ApiKeyRequest request) {
+        apiKeyService.createApiKey(request, principal);
+        return ResponseEntity.status(HttpStatus.CREATED).body("API key created successfully");
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<String> updateApiKey(
+            Principal principal,
+            @PathVariable Long id,
+            @Valid @RequestBody ApiKeyRequest request) {
+    apiKeyService.updateApiKey(id, request, principal);
+    return ResponseEntity.ok("API key updated successfully");
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteApiKey(@PathVariable Long id, Principal principal) {
+        boolean deleted = apiKeyService.deleteApiKey(id, principal);
+        return deleted ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
     }
 }

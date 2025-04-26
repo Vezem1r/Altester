@@ -108,6 +108,11 @@ public class CacheService {
         log.debug("All question-related caches have been cleared");
     }
 
+    public void clearApiKeyRelatedCaches() {
+        clearCaches("apiKeys", "availableApiKeys");
+        log.debug("All API key-related caches have been cleared");
+    }
+
     public void clearCaches(String... cacheNames) {
         Arrays.stream(cacheNames).forEach(cacheName -> {
             Cache cache = cacheManager.getCache(cacheName);
