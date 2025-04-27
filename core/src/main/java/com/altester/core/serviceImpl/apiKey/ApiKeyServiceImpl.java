@@ -201,6 +201,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     }
 
     @Override
+    @Transactional
     public void assignApiKeyToTestForGroup(TestApiKeyAssignmentRequest request, Principal principal) {
         log.debug("Assigning API key {} to test {}", request.getApiKeyId(), request.getTestId());
         User currentUser = getUserFromPrincipal(principal);
@@ -216,8 +217,95 @@ public class ApiKeyServiceImpl implements ApiKeyService {
             throw AccessDeniedException.apiKeyAccess("You don't have access to this API key");
         }
 
-        Group group = resolveGroup(request, currentUser, test);
+        if (request.getGroupId() != null) {
+            Group group = getAndValidateGroup(request.getGroupId(), currentUser, test);
+            assignApiKeyToTestAndGroup(test, group, apiKey, currentUser);
+            log.info("API key {} assigned to test {} for group {} by user {}",
+                    apiKey.getId(), test.getId(), group.getId(), currentUser.getUsername());
+        } else {
+            List<Group> teacherGroups = getTeacherGroupsForTest(currentUser, test);
+            if (teacherGroups.isEmpty()) {
+                throw ResourceNotFoundException.group("No groups found for this test where you are the teacher");
+            }
 
+            for (Group group : teacherGroups) {
+                assignApiKeyToTestAndGroup(test, group, apiKey, currentUser);
+            }
+            log.info("API key {} assigned to test {} for all {} groups by user {}",
+                    apiKey.getId(), test.getId(), teacherGroups.size(), currentUser.getUsername());
+        }
+
+        cacheService.clearApiKeyRelatedCaches();
+        cacheService.clearTestRelatedCaches();
+    }
+
+    @Override
+    public void unassignApiKeyFromTest(Long testId, Long groupId, Principal principal) {
+        log.debug("Unassigning API key from test {}", testId);
+        User currentUser = getUserFromPrincipal(principal);
+
+        Test test = testRepository.findById(testId)
+                .orElseThrow(() -> ResourceNotFoundException.test(testId));
+
+        if (groupId != null) {
+            Group group = getAndValidateGroup(groupId, currentUser, test);
+            unassignApiKeyFromTestAndGroup(test, group, currentUser);
+            log.info("API key unassigned from test {} for group {} by user {}",
+                    test.getId(), group.getId(), currentUser.getUsername());
+        } else {
+            List<Group> teacherGroups = getTeacherGroupsForTest(currentUser, test);
+
+            if (teacherGroups.isEmpty()) {
+                throw ResourceNotFoundException.group("No groups found for this test where you are the teacher");
+            }
+
+            int unassignedCount = 0;
+            for (Group group : teacherGroups) {
+                try {
+                    unassignApiKeyFromTestAndGroup(test, group, currentUser);
+                    unassignedCount++;
+                } catch (Exception e) {
+                    log.debug("No API key to unassign for test {} and group {}: {}",
+                            test.getId(), group.getId(), e.getMessage());
+                }
+            }
+
+            if (unassignedCount == 0) {
+                throw new StateConflictException("assignment", "no_api_key",
+                        "This test does not have an API key assigned for any of your groups");
+            }
+            log.info("API keys unassigned from test {} for {} groups by user {}",
+                    test.getId(), unassignedCount, currentUser.getUsername());
+        }
+
+        cacheService.clearApiKeyRelatedCaches();
+        cacheService.clearTestRelatedCaches();
+    }
+
+    private void unassignApiKeyFromTestAndGroup(Test test, Group group, User currentUser) {
+        TestGroupAssignment assignment = assignmentRepository
+                .findByTestAndGroup(test, group)
+                .orElseThrow(() -> new ResourceNotFoundException("assignment", "test and group",
+                        test.getId() + " and " + group.getId()));
+
+        if (assignment.getApiKey() == null) {
+            throw new StateConflictException("assignment", "no_api_key",
+                    "This test does not have an API key assigned for the specified group");
+        }
+
+        assignment.setApiKey(null);
+        assignmentRepository.save(assignment);
+    }
+
+    private List<Group> getTeacherGroupsForTest(User user, Test test) {
+        if (RolesEnum.ADMIN.equals(user.getRole())) {
+            throw ValidationException.invalidParameter("groupId", "Admins must specify a group ID");
+        }
+
+        return groupRepository.findByTeacherAndTestsContaining(user, test);
+    }
+
+    private void assignApiKeyToTestAndGroup(Test test, Group group, ApiKey apiKey, User currentUser) {
         TestGroupAssignment assignment = assignmentRepository
                 .findByTestAndGroup(test, group)
                 .orElse(TestGroupAssignment.builder()
@@ -229,21 +317,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
 
         assignment.setApiKey(apiKey);
         assignmentRepository.save(assignment);
-
-        cacheService.clearApiKeyRelatedCaches();
-        cacheService.clearTestRelatedCaches();
-        log.info("API key {} assigned to test {} for group {} by user {}",
-                apiKey.getId(), test.getId(), group.getId(), currentUser.getUsername());
     }
-
-    private Group resolveGroup(TestApiKeyAssignmentRequest request, User user, Test test) {
-        if (request.getGroupId() != null) {
-            return getAndValidateGroup(request.getGroupId(), user, test);
-        } else {
-            return getSingleGroupForTeacher(user, test);
-        }
-    }
-
 
     private Group getAndValidateGroup(Long groupId, User user, Test test) {
         Group group = groupRepository.findById(groupId)
@@ -259,26 +333,6 @@ public class ApiKeyServiceImpl implements ApiKeyService {
         }
 
         return group;
-    }
-
-
-    private Group getSingleGroupForTeacher(User user, Test test) {
-        if (RolesEnum.ADMIN.equals(user.getRole())) {
-            throw ValidationException.invalidParameter("groupId", "Admins must specify a group ID");
-        }
-
-        List<Group> teacherGroups = groupRepository.findByTeacherAndTestsContaining(user, test);
-
-        if (teacherGroups.isEmpty()) {
-            throw ResourceNotFoundException.group("No groups found for this test where you are the teacher");
-        }
-
-        if (teacherGroups.size() > 1) {
-            throw StateConflictException.multipleActiveGroups(
-                    "Multiple groups found for this test. Please specify a group ID");
-        }
-
-        return teacherGroups.getFirst();
     }
 
     private void validateApiKeyAccessPermission(User currentUser, ApiKey apiKey, String operation) {

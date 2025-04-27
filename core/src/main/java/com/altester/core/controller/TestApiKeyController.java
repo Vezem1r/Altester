@@ -6,10 +6,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 
@@ -27,5 +24,14 @@ public class TestApiKeyController {
             Principal principal) {
         apiKeyService.assignApiKeyToTestForGroup(request, principal);
         return ResponseEntity.ok("Assigned api key to test");
+    }
+
+    @PostMapping("/unassign")
+    public ResponseEntity<String> unassignApiKeyFromTest(
+            @RequestParam Long testId,
+            @RequestParam(required = false) Long groupId,
+            Principal principal) {
+        apiKeyService.unassignApiKeyFromTest(testId, groupId, principal);
+        return ResponseEntity.ok("Unassigned api key from test");
     }
 }

@@ -64,4 +64,12 @@ public interface ApiKeyService {
      * @param principal The authenticated user
      */
     void assignApiKeyToTestForGroup(TestApiKeyAssignmentRequest request, Principal principal);
+
+    /**
+     * Unassign API key from a test for a specific group
+     * @param testId The ID of the test
+     * @param groupId The ID of the group (optional for teachers with only one group)
+     * @param principal The authenticated user
+     */
+    void unassignApiKeyFromTest(Long testId, Long groupId, Principal principal);
 }
