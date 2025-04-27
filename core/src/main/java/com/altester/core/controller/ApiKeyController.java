@@ -2,6 +2,7 @@ package com.altester.core.controller;
 
 import com.altester.core.dtos.core_service.apiKey.ApiKeyDTO;
 import com.altester.core.dtos.core_service.apiKey.ApiKeyRequest;
+import com.altester.core.dtos.core_service.apiKey.AvailableKeys;
 import com.altester.core.service.ApiKeyService;
 import com.altester.core.util.CacheablePage;
 import jakarta.validation.Valid;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/keys")
@@ -31,8 +33,8 @@ public class ApiKeyController {
     }
 
     @GetMapping("/available")
-    public ResponseEntity<List<ApiKeyDTO>> getAvailableApiKeys(Principal principal) {
-        List<ApiKeyDTO> keys = apiKeyService.getAvailableApiKeys(principal);
+    public ResponseEntity<List<AvailableKeys>> getAvailableApiKeys(Principal principal) {
+        List<AvailableKeys> keys = apiKeyService.getAvailableApiKeys(principal);
         return ResponseEntity.ok(keys);
     }
 
@@ -55,5 +57,13 @@ public class ApiKeyController {
     public ResponseEntity<Void> deleteApiKey(@PathVariable Long id, Principal principal) {
         boolean deleted = apiKeyService.deleteApiKey(id, principal);
         return deleted ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+    }
+
+    @PutMapping("/{id}/toggle")
+    public ResponseEntity<Map<String, Boolean>> toggleApiKey(
+            @PathVariable Long id,
+            Principal principal) {
+        boolean isActive = apiKeyService.toggleApiKeyStatus(id, principal);
+        return ResponseEntity.ok(Map.of("active", isActive));
     }
 }

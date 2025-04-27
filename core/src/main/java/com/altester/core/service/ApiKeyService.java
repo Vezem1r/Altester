@@ -2,6 +2,7 @@ package com.altester.core.service;
 
 import com.altester.core.dtos.core_service.apiKey.ApiKeyDTO;
 import com.altester.core.dtos.core_service.apiKey.ApiKeyRequest;
+import com.altester.core.dtos.core_service.apiKey.AvailableKeys;
 import com.altester.core.util.CacheablePage;
 
 import java.security.Principal;
@@ -41,10 +42,19 @@ public interface ApiKeyService {
      */
     void updateApiKey(Long id, ApiKeyRequest request, Principal principal);
 
+
+    /**
+     * Toggle activation status of an API key
+     * @param id The ID of the API key to toggle
+     * @param principal The authenticated user
+     * @return The current active status after toggling
+     */
+    boolean toggleApiKeyStatus(Long id, Principal principal);
+
     /**
      * Get all API keys available to a user
      * @param principal The authenticated user
      * @return List of API key DTOs
      */
-    List<ApiKeyDTO> getAvailableApiKeys(Principal principal);
+    List<AvailableKeys> getAvailableApiKeys(Principal principal);
 }

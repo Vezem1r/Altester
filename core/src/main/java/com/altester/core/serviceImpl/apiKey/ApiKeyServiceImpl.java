@@ -2,6 +2,7 @@ package com.altester.core.serviceImpl.apiKey;
 
 import com.altester.core.dtos.core_service.apiKey.ApiKeyDTO;
 import com.altester.core.dtos.core_service.apiKey.ApiKeyRequest;
+import com.altester.core.dtos.core_service.apiKey.AvailableKeys;
 import com.altester.core.exception.AccessDeniedException;
 import com.altester.core.exception.ApiKeyException;
 import com.altester.core.exception.ResourceNotFoundException;
@@ -109,11 +110,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
         ApiKey apiKey = apiRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.apiKey(id));
 
-        if (!RolesEnum.ADMIN.equals(currentUser.getRole())
-                && (apiKey.isGlobal() ||
-                (apiKey.getOwner() != null && !apiKey.getOwner().getId().equals(currentUser.getId())))) {
-            throw AccessDeniedException.apiKeyAccess("You cannot delete this API key");
-        }
+        validateApiKeyAccessPermission(currentUser, apiKey, "delete");
         apiRepository.deleteById(id);
         cacheService.clearApiKeyRelatedCaches();
         log.info("API key deleted successfully: {} ({})", apiKey.getName(), id);
@@ -129,12 +126,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
         ApiKey apiKey = apiRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.apiKey(id));
 
-        if (!RolesEnum.ADMIN.equals(currentUser.getRole()) &&
-                (apiKey.isGlobal() ||
-                        apiKey.getOwner() == null ||
-                        !apiKey.getOwner().getId().equals(currentUser.getId()))) {
-            throw AccessDeniedException.apiKeyAccess("You cannot update this API key");
-        }
+        validateApiKeyAccessPermission(currentUser, apiKey, "update");
 
         if (request.getIsGlobal() != apiKey.isGlobal() &&
                 !RolesEnum.ADMIN.equals(currentUser.getRole()) ) {
@@ -164,8 +156,31 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     }
 
     @Override
+    @Transactional
+    public boolean toggleApiKeyStatus(Long id, Principal principal) {
+        log.debug("Toggling API key status with ID: {}", id);
+        User currentUser = getUserFromPrincipal(principal);
+
+        ApiKey apiKey = apiRepository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.apiKey(id));
+
+        validateApiKeyAccessPermission(currentUser, apiKey, "toggle");
+
+        apiKey.setActive(!apiKey.isActive());
+        apiRepository.save(apiKey);
+
+        cacheService.clearApiKeyRelatedCaches();
+
+        log.info("API key status toggled for: {} ({}). New status: {}",
+                apiKey.getName(), id, apiKey.isActive() ? "active" : "inactive");
+
+        return apiKey.isActive();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     @Cacheable(value = "availableApiKeys", key = "#principal.name")
-    public List<ApiKeyDTO> getAvailableApiKeys(Principal principal) {
+    public List<AvailableKeys> getAvailableApiKeys(Principal principal) {
         User currentUser = getUserFromPrincipal(principal);
 
         List<ApiKey> apiKeys;
@@ -177,8 +192,17 @@ public class ApiKeyServiceImpl implements ApiKeyService {
 
         return apiKeys.stream()
                 .filter(ApiKey::isActive)
-                .map(key -> ApiKeyDTO.fromEntity(key, currentUser.getId()))
+                .map(AvailableKeys::fromApiKey)
                 .toList();
+    }
+
+    private void validateApiKeyAccessPermission(User currentUser, ApiKey apiKey, String operation) {
+        if (!RolesEnum.ADMIN.equals(currentUser.getRole()) &&
+                (apiKey.isGlobal() ||
+                        apiKey.getOwner() == null ||
+                        !apiKey.getOwner().getId().equals(currentUser.getId()))) {
+            throw AccessDeniedException.apiKeyAccess("You cannot " + operation + " this API key");
+        }
     }
 
     private User getUserFromPrincipal(Principal principal) {
