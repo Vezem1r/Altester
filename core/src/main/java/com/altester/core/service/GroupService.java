@@ -6,8 +6,24 @@ import com.altester.core.util.CacheablePage;
 
 public interface GroupService {
 
+    /**
+     * Deletes a group if it is active and can be modified.
+     * Groups from past semesters (inactive) cannot be deleted.
+     *
+     * @param id ID of the group to delete
+     * @throws ResourceNotFoundException if the group doesn't exist
+     * @throws StateConflictException if the group is from a past semester and cannot be modified
+     * @throws ValidationException if there's an error during deletion
+     */
     void deleteGroup(long id);
 
+    /**
+     * Retrieves detailed information about a specific group, including subject association.
+     *
+     * @param id ID of the group to retrieve
+     * @return GroupDTO containing group details and associated subject information
+     * @throws ResourceNotFoundException if the group doesn't exist
+     */
     GroupDTO getGroup(long id);
 
     /**
@@ -40,8 +56,26 @@ public interface GroupService {
      */
     Long createGroup(CreateGroupDTO createGroupDTO);
 
+    /**
+     * Retrieves a paginated and searchable list of all students in the system.
+     * Used for group creation/modification to select which students to add.
+     *
+     * @param page Page number (zero-based)
+     * @param size Number of items per page
+     * @param searchQuery Optional search text to filter students by name, email, or username
+     * @return Paginated list of students available for assignment to groups
+     */
     CacheablePage<CreateGroupUserListDTO> getAllStudents(int page, int size, String searchQuery);
 
+    /**
+     * Retrieves a paginated and searchable list of all teachers in the system.
+     * Used for group creation/modification to select a teacher for the group.
+     *
+     * @param page Page number (zero-based)
+     * @param size Number of items per page
+     * @param searchQuery Optional search text to filter teachers by name, email, or username
+     * @return Paginated list of teachers available for assignment to a group
+     */
     CacheablePage<GroupUserList> getAllTeachers(int page, int size, String searchQuery);
 
     /**

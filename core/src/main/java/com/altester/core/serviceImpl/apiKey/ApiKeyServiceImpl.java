@@ -41,6 +41,9 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     private final GroupRepository groupRepository;
     private final TestGroupAssignmentRepository assignmentRepository;
 
+    private final ApiKeyAccessValidator accessValidator;
+    private final TestGroupAssignmentManager assignmentManager;
+
     private static final int PREFIX_LENGTH = 8;
     private static final int SUFFIX_LENGTH = 6;
 
@@ -48,7 +51,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     @Transactional(readOnly = true)
     @Cacheable(value = "apiKeys", key = "#principal.name")
     public CacheablePage<ApiKeyDTO> getAll(Principal principal) {
-        User currentUser = getUserFromPrincipal(principal);
+        User currentUser = accessValidator.getUserFromPrincipal(principal);
 
         List<ApiKey> apiKeys;
         if (RolesEnum.ADMIN.equals(currentUser.getRole())) {
@@ -71,11 +74,9 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     @Transactional
     public void createApiKey(ApiKeyRequest request, Principal principal) {
         log.debug("Creating new API key: {}", request.getName());
-        User currentUser = getUserFromPrincipal(principal);
+        User currentUser = accessValidator.getUserFromPrincipal(principal);
 
-        if (request.getIsGlobal() && !RolesEnum.ADMIN.equals(currentUser.getRole())) {
-            throw AccessDeniedException.notAdmin();
-        }
+        accessValidator.validateGlobalApiKeyRequest(currentUser, request.getIsGlobal());
 
         try {
             String encryptedKey = encryptionUtil.encrypt(request.getApiKey());
@@ -108,11 +109,11 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     @Transactional
     public boolean deleteApiKey(Long id, Principal principal) {
         log.debug("Deleting API key with ID: {}", id);
-        User currentUser = getUserFromPrincipal(principal);
+        User currentUser = accessValidator.getUserFromPrincipal(principal);
         ApiKey apiKey = apiRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.apiKey(id));
 
-        validateApiKeyAccessPermission(currentUser, apiKey, "delete");
+        accessValidator.validateApiKeyAccessPermission(currentUser, apiKey, "delete");
         apiRepository.deleteById(id);
         cacheService.clearApiKeyRelatedCaches();
         log.info("API key deleted successfully: {} ({})", apiKey.getName(), id);
@@ -123,12 +124,12 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     @Transactional
     public void updateApiKey(Long id, ApiKeyRequest request, Principal principal) {
         log.debug("Updating API key with ID: {}", id);
-        User currentUser = getUserFromPrincipal(principal);
+        User currentUser = accessValidator.getUserFromPrincipal(principal);
 
         ApiKey apiKey = apiRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.apiKey(id));
 
-        validateApiKeyAccessPermission(currentUser, apiKey, "update");
+        accessValidator.validateApiKeyAccessPermission(currentUser, apiKey, "update");
 
         if (request.getIsGlobal() != apiKey.isGlobal() &&
                 !RolesEnum.ADMIN.equals(currentUser.getRole()) ) {
@@ -161,26 +162,19 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     @Transactional
     public boolean toggleApiKeyStatus(Long id, Principal principal) {
         log.debug("Toggling API key status with ID: {}", id);
-        User currentUser = getUserFromPrincipal(principal);
+        User currentUser = accessValidator.getUserFromPrincipal(principal);
 
         ApiKey apiKey = apiRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.apiKey(id));
 
-        validateApiKeyAccessPermission(currentUser, apiKey, "toggle");
+        accessValidator.validateApiKeyAccessPermission(currentUser, apiKey, "toggle");
 
         boolean newStatus = !apiKey.isActive();
         apiKey.setActive(newStatus);
         apiRepository.save(apiKey);
 
         if (!newStatus) {
-            List<TestGroupAssignment> assignments = assignmentRepository.findByApiKey(apiKey);
-            for (TestGroupAssignment assignment : assignments) {
-                assignment.setAiEvaluation(false);
-                assignment.setApiKey(null);
-            }
-            assignmentRepository.saveAll(assignments);
-            log.info("Disabled AI evaluation and unassigned API key {} from {} test-group combinations",
-                    apiKey.getId(), assignments.size());
+            assignmentManager.handleDisabledApiKey(apiKey);
         }
 
         cacheService.clearApiKeyRelatedCaches();
@@ -196,7 +190,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     @Transactional(readOnly = true)
     @Cacheable(value = "availableApiKeys", key = "#principal.name")
     public List<AvailableKeys> getAvailableApiKeys(Principal principal) {
-        User currentUser = getUserFromPrincipal(principal);
+        User currentUser = accessValidator.getUserFromPrincipal(principal);
 
         List<ApiKey> apiKeys;
         if (RolesEnum.ADMIN.equals(currentUser.getRole())) {
@@ -215,11 +209,9 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     @Transactional
     public void assignApiKeyToTestForGroup(TestApiKeyAssignmentRequest request, Principal principal) {
         log.debug("Assigning API key {} to test {}", request.getApiKeyId(), request.getTestId());
-        User currentUser = getUserFromPrincipal(principal);
+        User currentUser = accessValidator.getUserFromPrincipal(principal);
 
-        if (RolesEnum.ADMIN.equals(currentUser.getRole()) && request.getGroupId() == null) {
-            throw ValidationException.invalidParameter("groupId", "Admins must specify a group ID");
-        }
+        accessValidator.validateAdminGroupIdRequirement(currentUser, request.getGroupId());
 
         Test test = testRepository.findById(request.getTestId())
                 .orElseThrow(() -> ResourceNotFoundException.test(request.getTestId()));
@@ -227,24 +219,24 @@ public class ApiKeyServiceImpl implements ApiKeyService {
         ApiKey apiKey = apiRepository.findById(request.getApiKeyId())
                 .orElseThrow(() -> ResourceNotFoundException.apiKey(request.getApiKeyId()));
 
-        if (!RolesEnum.ADMIN.equals(currentUser.getRole()) && !apiKey.isGlobal() &&
-                (apiKey.getOwner() == null || !apiKey.getOwner().getId().equals(currentUser.getId()))) {
-            throw AccessDeniedException.apiKeyAccess("You don't have access to this API key");
-        }
+        accessValidator.validateApiKeyUsagePermission(currentUser, apiKey);
 
         if (request.getGroupId() != null) {
-            Group group = getAndValidateGroup(request.getGroupId(), currentUser, test);
-            assignApiKeyToTestAndGroup(test, group, apiKey, currentUser);
+            Group group = groupRepository.findById(request.getGroupId())
+                    .orElseThrow(() -> ResourceNotFoundException.group(request.getGroupId()));
+
+            accessValidator.validateGroupAccess(group, currentUser, test);
+            assignmentManager.assignApiKeyToTestAndGroup(test, group, apiKey, currentUser);
             log.info("API key {} assigned to test {} for group {} by user {}",
                     apiKey.getId(), test.getId(), group.getId(), currentUser.getUsername());
         } else {
-            List<Group> teacherGroups = getTeacherGroupsForTest(currentUser, test);
+            List<Group> teacherGroups = assignmentManager.getTeacherGroupsForTest(currentUser, test);
             if (teacherGroups.isEmpty()) {
                 throw ResourceNotFoundException.group("No groups found for this test where you are the teacher");
             }
 
             for (Group group : teacherGroups) {
-                assignApiKeyToTestAndGroup(test, group, apiKey, currentUser);
+                assignmentManager.assignApiKeyToTestAndGroup(test, group, apiKey, currentUser);
             }
             log.info("API key {} assigned to test {} for all {} groups by user {}",
                     apiKey.getId(), test.getId(), teacherGroups.size(), currentUser.getUsername());
@@ -258,18 +250,21 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     @Transactional
     public void unassignApiKeyFromTest(Long testId, Long groupId, Principal principal) {
         log.debug("Unassigning API key from test {}", testId);
-        User currentUser = getUserFromPrincipal(principal);
+        User currentUser = accessValidator.getUserFromPrincipal(principal);
 
         Test test = testRepository.findById(testId)
                 .orElseThrow(() -> ResourceNotFoundException.test(testId));
 
         if (groupId != null) {
-            Group group = getAndValidateGroup(groupId, currentUser, test);
-            unassignApiKeyFromTestAndGroup(test, group, currentUser);
+            Group group = groupRepository.findById(groupId)
+                    .orElseThrow(() -> ResourceNotFoundException.group(groupId));
+
+            accessValidator.validateGroupAccess(group, currentUser, test);
+            assignmentManager.unassignApiKeyFromTestAndGroup(test, group);
             log.info("API key unassigned from test {} for group {} by user {}",
                     test.getId(), group.getId(), currentUser.getUsername());
         } else {
-            List<Group> teacherGroups = getTeacherGroupsForTest(currentUser, test);
+            List<Group> teacherGroups = assignmentManager.getTeacherGroupsForTest(currentUser, test);
 
             if (teacherGroups.isEmpty()) {
                 throw ResourceNotFoundException.group("No groups found for this test where you are the teacher");
@@ -278,7 +273,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
             int unassignedCount = 0;
             for (Group group : teacherGroups) {
                 try {
-                    unassignApiKeyFromTestAndGroup(test, group, currentUser);
+                    assignmentManager.unassignApiKeyFromTestAndGroup(test, group);
                     unassignedCount++;
                 } catch (Exception e) {
                     log.debug("No API key to unassign for test {} and group {}: {}",
@@ -304,8 +299,9 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     public TestApiKeysDTO getTestApiKeys(Long testId, Principal principal) {
         log.debug("Getting API keys for test ID: {}", testId);
 
-        User currentUser = getUserFromPrincipal(principal);
-        Test test = getTestById(testId);
+        User currentUser = accessValidator.getUserFromPrincipal(principal);
+        Test test = testRepository.findById(testId)
+                .orElseThrow(() -> ResourceNotFoundException.test(testId));
 
         List<ApiKeyAssignmentDTO> assignments = new ArrayList<>();
 
@@ -362,78 +358,5 @@ public class ApiKeyServiceImpl implements ApiKeyService {
         return TestApiKeysDTO.builder()
                 .assignments(assignments)
                 .build();
-    }
-
-    private Test getTestById(Long testId) {
-        return testRepository.findById(testId)
-                .orElseThrow(() -> ResourceNotFoundException.test(testId));
-    }
-
-    private void unassignApiKeyFromTestAndGroup(Test test, Group group, User currentUser) {
-        TestGroupAssignment assignment = assignmentRepository
-                .findByTestAndGroup(test, group)
-                .orElseThrow(() -> new ResourceNotFoundException("assignment", "test and group",
-                        test.getId() + " and " + group.getId()));
-
-        if (assignment.getApiKey() == null) {
-            throw new StateConflictException("assignment", "no_api_key",
-                    "This test does not have an API key assigned for the specified group");
-        }
-
-        assignment.setApiKey(null);
-        assignment.setAiEvaluation(false);
-        assignmentRepository.save(assignment);
-    }
-
-    private List<Group> getTeacherGroupsForTest(User user, Test test) {
-        if (RolesEnum.ADMIN.equals(user.getRole())) {
-            throw ValidationException.invalidParameter("groupId", "Admins must specify a group ID");
-        }
-
-        return groupRepository.findByTeacherAndTestsContaining(user, test);
-    }
-
-    private void assignApiKeyToTestAndGroup(Test test, Group group, ApiKey apiKey, User currentUser) {
-        TestGroupAssignment assignment = assignmentRepository
-                .findByTestAndGroup(test, group)
-                .orElse(TestGroupAssignment.builder()
-                        .test(test)
-                        .group(group)
-                        .assignedAt(LocalDateTime.now())
-                        .assignedBy(currentUser)
-                        .build());
-
-        assignment.setApiKey(apiKey);
-        assignmentRepository.save(assignment);
-    }
-
-    private Group getAndValidateGroup(Long groupId, User user, Test test) {
-        Group group = groupRepository.findById(groupId)
-                .orElseThrow(() -> ResourceNotFoundException.group(groupId));
-
-        if (!group.getTests().contains(test)) {
-            throw new StateConflictException("group", "mismatch", "The specified group is not associated with this test");
-        }
-
-        if (!RolesEnum.ADMIN.equals(user.getRole()) &&
-                (group.getTeacher() == null || !group.getTeacher().getId().equals(user.getId()))) {
-            throw AccessDeniedException.groupAccess();
-        }
-
-        return group;
-    }
-
-    private void validateApiKeyAccessPermission(User currentUser, ApiKey apiKey, String operation) {
-        if (!RolesEnum.ADMIN.equals(currentUser.getRole()) &&
-                (apiKey.isGlobal() ||
-                        apiKey.getOwner() == null ||
-                        !apiKey.getOwner().getId().equals(currentUser.getId()))) {
-            throw AccessDeniedException.apiKeyAccess("You cannot " + operation + " this API key");
-        }
-    }
-
-    private User getUserFromPrincipal(Principal principal) {
-        return userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> ResourceNotFoundException.user(principal.getName()));
     }
 }
