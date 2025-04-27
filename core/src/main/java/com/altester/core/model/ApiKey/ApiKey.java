@@ -54,8 +54,4 @@ public class ApiKey {
 
     @Column(nullable = false)
     private boolean isActive = true;
-
-    @OneToMany(mappedBy = "apiKey")
-    @JsonIgnore
-    private Set<Test> tests = new HashSet<>();
 }

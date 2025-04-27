@@ -3,6 +3,7 @@ package com.altester.core.service;
 import com.altester.core.dtos.core_service.apiKey.ApiKeyDTO;
 import com.altester.core.dtos.core_service.apiKey.ApiKeyRequest;
 import com.altester.core.dtos.core_service.apiKey.AvailableKeys;
+import com.altester.core.dtos.core_service.apiKey.TestApiKeyAssignmentRequest;
 import com.altester.core.util.CacheablePage;
 
 import java.security.Principal;
@@ -42,7 +43,6 @@ public interface ApiKeyService {
      */
     void updateApiKey(Long id, ApiKeyRequest request, Principal principal);
 
-
     /**
      * Toggle activation status of an API key
      * @param id The ID of the API key to toggle
@@ -57,4 +57,11 @@ public interface ApiKeyService {
      * @return List of API key DTOs
      */
     List<AvailableKeys> getAvailableApiKeys(Principal principal);
+
+    /**
+     * Assign an API key to a test for a specific group
+     * @param request The assignment request containing test ID and API key ID
+     * @param principal The authenticated user
+     */
+    void assignApiKeyToTestForGroup(TestApiKeyAssignmentRequest request, Principal principal);
 }

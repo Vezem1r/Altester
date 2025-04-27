@@ -3,14 +3,15 @@ package com.altester.core.serviceImpl.apiKey;
 import com.altester.core.dtos.core_service.apiKey.ApiKeyDTO;
 import com.altester.core.dtos.core_service.apiKey.ApiKeyRequest;
 import com.altester.core.dtos.core_service.apiKey.AvailableKeys;
-import com.altester.core.exception.AccessDeniedException;
-import com.altester.core.exception.ApiKeyException;
-import com.altester.core.exception.ResourceNotFoundException;
+import com.altester.core.dtos.core_service.apiKey.TestApiKeyAssignmentRequest;
+import com.altester.core.exception.*;
+import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.ApiKey.ApiKey;
-import com.altester.core.repository.ApiKeyRepository;
-import com.altester.core.repository.UserRepository;
+import com.altester.core.model.subject.Group;
+import com.altester.core.model.subject.Test;
+import com.altester.core.repository.*;
 import com.altester.core.service.ApiKeyService;
 import com.altester.core.serviceImpl.CacheService;
 import com.altester.core.util.ApiKeyEncryptionUtil;
@@ -38,6 +39,9 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     private final UserRepository userRepository;
     private final ApiKeyEncryptionUtil encryptionUtil;
     private final CacheService cacheService;
+    private final TestRepository testRepository;
+    private final GroupRepository groupRepository;
+    private final TestGroupAssignmentRepository assignmentRepository;
 
     private static final int PREFIX_LENGTH = 8;
     private static final int SUFFIX_LENGTH = 6;
@@ -194,6 +198,87 @@ public class ApiKeyServiceImpl implements ApiKeyService {
                 .filter(ApiKey::isActive)
                 .map(AvailableKeys::fromApiKey)
                 .toList();
+    }
+
+    @Override
+    public void assignApiKeyToTestForGroup(TestApiKeyAssignmentRequest request, Principal principal) {
+        log.debug("Assigning API key {} to test {}", request.getApiKeyId(), request.getTestId());
+        User currentUser = getUserFromPrincipal(principal);
+
+        Test test = testRepository.findById(request.getTestId())
+                .orElseThrow(() -> ResourceNotFoundException.test(request.getTestId()));
+
+        ApiKey apiKey = apiRepository.findById(request.getApiKeyId())
+                .orElseThrow(() -> ResourceNotFoundException.apiKey(request.getApiKeyId()));
+
+        if (!RolesEnum.ADMIN.equals(currentUser.getRole()) && !apiKey.isGlobal() &&
+                (apiKey.getOwner() == null || !apiKey.getOwner().getId().equals(currentUser.getId()))) {
+            throw AccessDeniedException.apiKeyAccess("You don't have access to this API key");
+        }
+
+        Group group = resolveGroup(request, currentUser, test);
+
+        TestGroupAssignment assignment = assignmentRepository
+                .findByTestAndGroup(test, group)
+                .orElse(TestGroupAssignment.builder()
+                        .test(test)
+                        .group(group)
+                        .assignedAt(LocalDateTime.now())
+                        .assignedBy(currentUser)
+                        .build());
+
+        assignment.setApiKey(apiKey);
+        assignmentRepository.save(assignment);
+
+        cacheService.clearApiKeyRelatedCaches();
+        cacheService.clearTestRelatedCaches();
+        log.info("API key {} assigned to test {} for group {} by user {}",
+                apiKey.getId(), test.getId(), group.getId(), currentUser.getUsername());
+    }
+
+    private Group resolveGroup(TestApiKeyAssignmentRequest request, User user, Test test) {
+        if (request.getGroupId() != null) {
+            return getAndValidateGroup(request.getGroupId(), user, test);
+        } else {
+            return getSingleGroupForTeacher(user, test);
+        }
+    }
+
+
+    private Group getAndValidateGroup(Long groupId, User user, Test test) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> ResourceNotFoundException.group(groupId));
+
+        if (!group.getTests().contains(test)) {
+            throw new StateConflictException("group", "mismatch", "The specified group is not associated with this test");
+        }
+
+        if (!RolesEnum.ADMIN.equals(user.getRole()) &&
+                (group.getTeacher() == null || !group.getTeacher().getId().equals(user.getId()))) {
+            throw AccessDeniedException.groupAccess();
+        }
+
+        return group;
+    }
+
+
+    private Group getSingleGroupForTeacher(User user, Test test) {
+        if (RolesEnum.ADMIN.equals(user.getRole())) {
+            throw ValidationException.invalidParameter("groupId", "Admins must specify a group ID");
+        }
+
+        List<Group> teacherGroups = groupRepository.findByTeacherAndTestsContaining(user, test);
+
+        if (teacherGroups.isEmpty()) {
+            throw ResourceNotFoundException.group("No groups found for this test where you are the teacher");
+        }
+
+        if (teacherGroups.size() > 1) {
+            throw StateConflictException.multipleActiveGroups(
+                    "Multiple groups found for this test. Please specify a group ID");
+        }
+
+        return teacherGroups.getFirst();
     }
 
     private void validateApiKeyAccessPermission(User currentUser, ApiKey apiKey, String operation) {
