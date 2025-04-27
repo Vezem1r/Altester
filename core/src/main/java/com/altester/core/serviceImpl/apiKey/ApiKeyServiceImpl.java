@@ -8,7 +8,7 @@ import com.altester.core.exception.ApiKeyException;
 import com.altester.core.exception.ResourceNotFoundException;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
-import com.altester.core.model.subject.ApiKey;
+import com.altester.core.model.ApiKey.ApiKey;
 import com.altester.core.repository.ApiKeyRepository;
 import com.altester.core.repository.UserRepository;
 import com.altester.core.service.ApiKeyService;

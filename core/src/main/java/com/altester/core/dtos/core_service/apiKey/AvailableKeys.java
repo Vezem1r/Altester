@@ -1,6 +1,6 @@
 package com.altester.core.dtos.core_service.apiKey;
 
-import com.altester.core.model.subject.ApiKey;
+import com.altester.core.model.ApiKey.ApiKey;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

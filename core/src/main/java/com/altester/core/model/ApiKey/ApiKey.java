@@ -1,6 +1,7 @@
-package com.altester.core.model.subject;
+package com.altester.core.model.ApiKey;
 
 import com.altester.core.model.auth.User;
+import com.altester.core.model.subject.Test;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;

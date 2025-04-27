@@ -1,5 +1,6 @@
 package com.altester.core.model.subject;
 
+import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.enums.Semester;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -16,7 +17,7 @@ import java.util.Set;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@EqualsAndHashCode(exclude = {"students", "tests"})
+@EqualsAndHashCode(exclude = {"students", "tests", "testGroupAssignments"})
 public class Group {
 
     @Id
@@ -58,4 +59,7 @@ public class Group {
     )
     @JsonManagedReference
     private Set<Test> tests = new HashSet<>();
+
+    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL)
+    private Set<TestGroupAssignment> testGroupAssignments = new HashSet<>();
 }

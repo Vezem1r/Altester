@@ -1,7 +1,7 @@
 package com.altester.core.repository;
 
 import com.altester.core.model.auth.User;
-import com.altester.core.model.subject.ApiKey;
+import com.altester.core.model.ApiKey.ApiKey;
 import io.lettuce.core.dynamic.annotation.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

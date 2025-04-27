@@ -1,5 +1,6 @@
 package com.altester.core.model.subject;
 
+import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
@@ -16,7 +17,7 @@ import java.util.Set;
 @NoArgsConstructor
 @Builder
 @Data
-@EqualsAndHashCode(exclude = {"questions", "attempts"})
+@EqualsAndHashCode(exclude = {"questions", "attempts", "testGroupAssignments"})
 public class Test {
 
     @Id
@@ -56,16 +57,15 @@ public class Test {
     @Column
     private boolean AiEvaluation = true;
 
-    @ManyToOne
-    @JoinColumn(name = "api_key_id")
-    private ApiKey apiKey;
-
     @OneToMany(mappedBy = "test", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Question> questions = new HashSet<>();
 
     @OneToMany(mappedBy = "test", cascade = CascadeType.ALL)
     @JsonBackReference
     private List<Attempt> attempts = new ArrayList<>();
+
+    @OneToMany(mappedBy = "test", cascade = CascadeType.ALL)
+    private Set<TestGroupAssignment> testGroupAssignments = new HashSet<>();
 
     @Transient
     public int getTotalScore() {
