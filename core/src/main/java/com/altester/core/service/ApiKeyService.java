@@ -1,9 +1,6 @@
 package com.altester.core.service;
 
-import com.altester.core.dtos.core_service.apiKey.ApiKeyDTO;
-import com.altester.core.dtos.core_service.apiKey.ApiKeyRequest;
-import com.altester.core.dtos.core_service.apiKey.AvailableKeys;
-import com.altester.core.dtos.core_service.apiKey.TestApiKeyAssignmentRequest;
+import com.altester.core.dtos.core_service.apiKey.*;
 import com.altester.core.util.CacheablePage;
 
 import java.security.Principal;
@@ -72,4 +69,10 @@ public interface ApiKeyService {
      * @param principal The authenticated user
      */
     void unassignApiKeyFromTest(Long testId, Long groupId, Principal principal);
+
+    /**
+     * Retrieves a list of all API keys assigned to a test, including group and teacher information.
+     * Only accessible to administrators.
+     */
+    TestApiKeysDTO getTestApiKeys(Long testId, Principal principal);
 }

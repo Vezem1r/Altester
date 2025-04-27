@@ -2,15 +2,14 @@ package com.altester.core.serviceImpl.test;
 
 import com.altester.core.dtos.core_service.test.*;
 import com.altester.core.exception.*;
+import com.altester.core.model.ApiKey.ApiKey;
+import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
 import com.altester.core.model.subject.Test;
-import com.altester.core.repository.GroupRepository;
-import com.altester.core.repository.SubjectRepository;
-import com.altester.core.repository.TestRepository;
-import com.altester.core.repository.UserRepository;
+import com.altester.core.repository.*;
 import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.service.TestService;
 import com.altester.core.serviceImpl.CacheService;
@@ -25,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.Principal;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -42,6 +42,8 @@ public class TestServiceImpl  implements TestService {
     private final NotificationDispatchService notificationService;
     private final CacheService cacheService;
     private final TestGroupSelectionService groupSelection;
+    private final ApiKeyRepository apiKeyRepository;
+    private final TestGroupAssignmentRepository assignmentRepository;
 
     private User getCurrentUser(Principal principal) {
         return userRepository.findByUsername(principal.getName())
@@ -56,6 +58,14 @@ public class TestServiceImpl  implements TestService {
                 .orElseThrow(() -> {
                     log.error("Test with ID {} not found", testId);
                     return ResourceNotFoundException.test(testId);
+                });
+    }
+
+    private Group getGroupById(Long groupId) {
+        return groupRepository.findById(groupId)
+                .orElseThrow(() -> {
+                    log.error("Group with ID {} not found", groupId);
+                    return ResourceNotFoundException.group("To perform this action you need to specify a group id");
                 });
     }
 
@@ -83,19 +93,40 @@ public class TestServiceImpl  implements TestService {
 
     @Override
     @Transactional
-    public void toggleAiEvaluation(Long testId, Principal principal) {
+    public void toggleAiEvaluation(Long testId, Long groupId, Principal principal) {
         log.debug("User {} is attempting to toggle AI evaluation for test with ID {}", principal.getName(), testId);
 
         User currentUser = getCurrentUser(principal);
         Test test = getTestById(testId);
+        Group group = getGroupById(groupId);
 
-        if (currentUser.getRole() == RolesEnum.TEACHER && !test.isAllowTeacherEdit()) {
-            throw AccessDeniedException.testEdit();
+        if (currentUser.getRole() == RolesEnum.TEACHER) {
+            if (group.getTeacher() == null || !group.getTeacher().getId().equals(currentUser.getId())) {
+                log.warn("User {} does not have access to group {}", currentUser.getUsername(), group.getId());
+                throw AccessDeniedException.groupAccess();
+            }
+            if (!test.isAllowTeacherEdit()) {
+                log.warn("Test {} does not allow teacher editing", test.getId());
+                throw AccessDeniedException.testEdit();
+            }
         }
 
-        boolean newState = !test.isAiEvaluation();
-        test.setAiEvaluation(newState);
-        testRepository.save(test);
+        TestGroupAssignment assignment = assignmentRepository
+                .findByTestAndGroup(test, group)
+                .orElseThrow(() -> new ResourceNotFoundException("assignment", "test and group",
+                        test.getId() + " and " + group.getId()));
+
+
+        if (assignment.getApiKey() == null) {
+            log.warn("Cannot enable AI evaluation for test {} and group {} without an assigned API key",
+                    test.getId(), group.getId());
+            throw new StateConflictException("assignment", "no_api_key",
+                    "Cannot enable AI evaluation without an assigned API key");
+        }
+
+        boolean newState = !assignment.isAiEvaluation();
+        assignment.setAiEvaluation(newState);
+        assignmentRepository.save(assignment);
 
         cacheService.clearTestRelatedCaches();
 
@@ -197,7 +228,6 @@ public class TestServiceImpl  implements TestService {
         test.setCreatedByAdmin(currentUser.getRole() == RolesEnum.ADMIN);
         test.setAllowTeacherEdit(currentUser.getRole() == RolesEnum.TEACHER);
         test.setMaxQuestions(createTestDTO.getMaxQuestions());
-        test.setAiEvaluation(true);
 
         List<Group> selectedGroups = groupSelection.findValidGroupsForTest(currentUser, createTestDTO);
 
@@ -211,6 +241,29 @@ public class TestServiceImpl  implements TestService {
 
         selectedGroups.forEach(group -> group.getTests().add(savedTest));
         groupRepository.saveAll(selectedGroups);
+
+        List<ApiKey> globalKeys = apiKeyRepository.findAllIsGlobalTrue();
+        boolean hasGlobalKey = !globalKeys.isEmpty();
+
+        if (hasGlobalKey && !selectedGroups.isEmpty()) {
+            ApiKey globalKey = globalKeys.getFirst();
+
+            for (Group group : selectedGroups) {
+                TestGroupAssignment assignment = TestGroupAssignment.builder()
+                        .test(savedTest)
+                        .group(group)
+                        .apiKey(globalKey)
+                        .assignedAt(LocalDateTime.now())
+                        .assignedBy(group.getTeacher())
+                        .aiEvaluation(true)
+                        .build();
+
+                log.debug("Automatically assigning global API key {} to test {} for group {}",
+                        globalKey.getId(), savedTest.getId(), group.getId());
+
+                assignmentRepository.save(assignment);
+            }
+        }
 
         cacheService.clearAllCaches();
 

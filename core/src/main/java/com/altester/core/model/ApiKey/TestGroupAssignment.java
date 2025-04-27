@@ -42,4 +42,7 @@ public class TestGroupAssignment {
     @ManyToOne
     @JoinColumn(name = "assigned_by_id", nullable = false)
     private User assignedBy;
+
+    @Column(nullable = false)
+    private boolean aiEvaluation = false;
 }

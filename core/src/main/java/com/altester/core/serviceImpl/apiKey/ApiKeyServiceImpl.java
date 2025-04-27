@@ -1,9 +1,6 @@
 package com.altester.core.serviceImpl.apiKey;
 
-import com.altester.core.dtos.core_service.apiKey.ApiKeyDTO;
-import com.altester.core.dtos.core_service.apiKey.ApiKeyRequest;
-import com.altester.core.dtos.core_service.apiKey.AvailableKeys;
-import com.altester.core.dtos.core_service.apiKey.TestApiKeyAssignmentRequest;
+import com.altester.core.dtos.core_service.apiKey.*;
 import com.altester.core.exception.*;
 import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.altester.core.model.auth.User;
@@ -28,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -170,10 +168,23 @@ public class ApiKeyServiceImpl implements ApiKeyService {
 
         validateApiKeyAccessPermission(currentUser, apiKey, "toggle");
 
-        apiKey.setActive(!apiKey.isActive());
+        boolean newStatus = !apiKey.isActive();
+        apiKey.setActive(newStatus);
         apiRepository.save(apiKey);
 
+        if (!newStatus) {
+            List<TestGroupAssignment> assignments = assignmentRepository.findByApiKey(apiKey);
+            for (TestGroupAssignment assignment : assignments) {
+                assignment.setAiEvaluation(false);
+                assignment.setApiKey(null);
+            }
+            assignmentRepository.saveAll(assignments);
+            log.info("Disabled AI evaluation and unassigned API key {} from {} test-group combinations",
+                    apiKey.getId(), assignments.size());
+        }
+
         cacheService.clearApiKeyRelatedCaches();
+        cacheService.clearTestRelatedCaches();
 
         log.info("API key status toggled for: {} ({}). New status: {}",
                 apiKey.getName(), id, apiKey.isActive() ? "active" : "inactive");
@@ -205,6 +216,10 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     public void assignApiKeyToTestForGroup(TestApiKeyAssignmentRequest request, Principal principal) {
         log.debug("Assigning API key {} to test {}", request.getApiKeyId(), request.getTestId());
         User currentUser = getUserFromPrincipal(principal);
+
+        if (RolesEnum.ADMIN.equals(currentUser.getRole()) && request.getGroupId() == null) {
+            throw ValidationException.invalidParameter("groupId", "Admins must specify a group ID");
+        }
 
         Test test = testRepository.findById(request.getTestId())
                 .orElseThrow(() -> ResourceNotFoundException.test(request.getTestId()));
@@ -280,6 +295,77 @@ public class ApiKeyServiceImpl implements ApiKeyService {
 
         cacheService.clearApiKeyRelatedCaches();
         cacheService.clearTestRelatedCaches();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(value = "testApiKeys", key = "#principal.name + ':test:' + #testId")
+    public TestApiKeysDTO getTestApiKeys(Long testId, Principal principal) {
+        log.debug("Getting API keys for test ID: {}", testId);
+
+        User currentUser = getUserFromPrincipal(principal);
+        Test test = getTestById(testId);
+
+        List<ApiKeyAssignmentDTO> assignments = new ArrayList<>();
+
+        for (TestGroupAssignment assignment : test.getTestGroupAssignments()) {
+            if (assignment.getApiKey() == null) {
+                continue;
+            }
+
+            Group group = assignment.getGroup();
+
+            if (currentUser.getRole() == RolesEnum.TEACHER) {
+                if (group.getTeacher() == null || !group.getTeacher().getId().equals(currentUser.getId()))
+                    continue;
+            }
+
+            ApiKey apiKey = assignment.getApiKey();
+            User teacher = group.getTeacher();
+
+            String maskedKey = apiKey.getKeyPrefix() + "*".repeat(8) + apiKey.getKeySuffix();
+
+            GroupTeacherDTO groupTeacherDTO = GroupTeacherDTO.builder()
+                    .groupId(group.getId())
+                    .groupName(group.getName())
+                    .teacherUsername(teacher != null ? teacher.getUsername() : null)
+                    .build();
+
+            ApiKeyAssignmentDTO assignmentDTO = ApiKeyAssignmentDTO.builder()
+                    .apiKeyId(apiKey.getId())
+                    .apiKeyName(apiKey.getName())
+                    .maskedKey(maskedKey)
+                    .aiServiceName(apiKey.getAiServiceName())
+                    .group(groupTeacherDTO)
+                    .aiEvaluationEnabled(assignment.isAiEvaluation())
+                    .build();
+
+            assignments.add(assignmentDTO);
+        }
+
+        if (assignments.isEmpty() && currentUser.getRole() == RolesEnum.TEACHER) {
+            List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
+            boolean hasAccessToTest = teacherGroups.stream()
+                    .anyMatch(group -> group.getTests().contains(test));
+
+            if (!hasAccessToTest) {
+                log.warn("Teacher {} attempted to access API keys for test {} but has no associated groups",
+                        currentUser.getUsername(), testId);
+                throw AccessDeniedException.testAccess();
+            }
+        }
+
+        log.info("Retrieved {} API key assignments for test ID {} for user {}",
+                assignments.size(), testId, currentUser.getUsername());
+
+        return TestApiKeysDTO.builder()
+                .assignments(assignments)
+                .build();
+    }
+
+    private Test getTestById(Long testId) {
+        return testRepository.findById(testId)
+                .orElseThrow(() -> ResourceNotFoundException.test(testId));
     }
 
     private void unassignApiKeyFromTestAndGroup(Test test, Group group, User currentUser) {

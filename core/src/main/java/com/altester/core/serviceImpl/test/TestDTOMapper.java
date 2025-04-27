@@ -1,6 +1,7 @@
 package com.altester.core.serviceImpl.test;
 
 import com.altester.core.dtos.core_service.test.*;
+import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
@@ -8,6 +9,7 @@ import com.altester.core.model.subject.Option;
 import com.altester.core.model.subject.Question;
 import com.altester.core.model.subject.Test;
 import com.altester.core.repository.GroupRepository;
+import com.altester.core.repository.TestGroupAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -21,7 +23,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TestDTOMapper {
     private final GroupRepository groupRepository;
-
+    private final TestGroupAssignmentRepository assignmentRepository;
     /**
      * Converts a Test entity to a simplified TestSummaryDTO containing essential test information
      *
@@ -29,6 +31,10 @@ public class TestDTOMapper {
      * @return TestSummaryDTO containing basic test information
      */
     public TestSummaryDTO convertToTestSummaryDTO(Test test) {
+
+        boolean hasAiEvaluation = test.getTestGroupAssignments().stream()
+                .anyMatch(TestGroupAssignment::isAiEvaluation);
+
         return TestSummaryDTO.builder()
                 .id(test.getId())
                 .title(test.getTitle())
@@ -39,7 +45,7 @@ public class TestDTOMapper {
                 .totalScore(test.getTotalScore())
                 .maxAttempts(test.getMaxAttempts())
                 .allowTeacherEdit(test.isAllowTeacherEdit())
-                .AiEvaluate(test.isAiEvaluation())
+                .AiEvaluate(hasAiEvaluation)
                 .build();
     }
 
@@ -59,12 +65,23 @@ public class TestDTOMapper {
                 ? groupRepository.findByTeacher(currentUser)
                 : Collections.emptyList();
 
+        boolean anyGroupHasAiEvaluation = false;
+
         for (Group group : testGroups) {
             if (currentUser.getRole() == RolesEnum.ADMIN ||
                     (currentUser.getRole() == RolesEnum.TEACHER && teacherGroups.contains(group))) {
+
+                TestGroupAssignment assignment = assignmentRepository
+                        .findByTestAndGroup(test, group)
+                        .orElse(null);
+
+                boolean aiEvaluationEnabled = assignment != null && assignment.isAiEvaluation();
+                anyGroupHasAiEvaluation = anyGroupHasAiEvaluation || aiEvaluationEnabled;
+
                 associatedGroups.add(GroupSummaryDTO.builder()
                         .id(group.getId())
                         .name(group.getName())
+                        .aiEvaluationEnabled(aiEvaluationEnabled)
                         .build());
             }
         }
@@ -88,7 +105,7 @@ public class TestDTOMapper {
                 .totalQuestions(test.getQuestions().size())
                 .totalScore(test.getTotalScore())
                 .associatedGroups(associatedGroups)
-                .AiEvaluate(test.isAiEvaluation())
+                .AiEvaluate(anyGroupHasAiEvaluation)
                 .maxQuestions(test.getMaxQuestions())
                 .questions(questions);
 

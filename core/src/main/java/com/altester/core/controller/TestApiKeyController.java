@@ -1,6 +1,7 @@
 package com.altester.core.controller;
 
 import com.altester.core.dtos.core_service.apiKey.TestApiKeyAssignmentRequest;
+import com.altester.core.dtos.core_service.apiKey.TestApiKeysDTO;
 import com.altester.core.service.ApiKeyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,5 +34,13 @@ public class TestApiKeyController {
             Principal principal) {
         apiKeyService.unassignApiKeyFromTest(testId, groupId, principal);
         return ResponseEntity.ok("Unassigned api key from test");
+    }
+
+    @GetMapping("/{testId}/api-keys")
+    public ResponseEntity<TestApiKeysDTO> getTestApiKeys(
+            @PathVariable Long testId,
+            Principal principal ) {
+        TestApiKeysDTO testApiKeysDTO = apiKeyService.getTestApiKeys(testId, principal);
+        return ResponseEntity.ok(testApiKeysDTO);
     }
 }

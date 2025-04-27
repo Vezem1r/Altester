@@ -121,10 +121,10 @@ public class TestController {
         return ResponseEntity.ok().build();
     }
 
-    @PutMapping("/tests/{testId}/evaluation")
+    @PutMapping("/tests/evaluation")
     @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
-    public ResponseEntity<Void> toggleTestEvaluation(@PathVariable Long testId, Principal principal) {
-        testService.toggleAiEvaluation(testId, principal);
+    public ResponseEntity<Void> toggleTestEvaluation(@RequestParam Long testId, @RequestParam Long groupId, Principal principal) {
+        testService.toggleAiEvaluation(testId, groupId, principal);
         return ResponseEntity.ok().build();
     }
 

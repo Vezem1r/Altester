@@ -442,7 +442,6 @@ public class DataInit {
                     .endTime(endTime)
                     .isCreatedByAdmin(createdByAdmin)
                     .allowTeacherEdit(allowTeacherEdit)
-                    .AiEvaluation(false)
                     .build();
 
             Test savedTest = testRepository.save(test);

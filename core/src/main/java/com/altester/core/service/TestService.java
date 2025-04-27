@@ -14,7 +14,7 @@ public interface TestService {
      */
     void toggleTeacherEditPermission(Long testId, Principal principal);
 
-    void toggleAiEvaluation(Long testId, Principal principal);
+    void toggleAiEvaluation(Long testId, Long groupId, Principal principal);
 
     CacheablePage<TestSummaryDTO> getAllTestsForAdmin(Pageable pageable, Principal principal, String searchQuery, Boolean isActive);
 

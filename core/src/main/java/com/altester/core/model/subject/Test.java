@@ -54,9 +54,6 @@ public class Test {
     @Column(nullable = false)
     private boolean allowTeacherEdit = false;
 
-    @Column
-    private boolean AiEvaluation = true;
-
     @OneToMany(mappedBy = "test", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Question> questions = new HashSet<>();
 
