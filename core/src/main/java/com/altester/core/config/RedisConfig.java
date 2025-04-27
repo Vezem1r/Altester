@@ -2,6 +2,7 @@ package com.altester.core.config;
 
 import com.altester.core.dtos.core_service.AdminPage.AdminPageDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherPageDTO;
+import com.altester.core.dtos.core_service.apiKey.TestApiKeysDTO;
 import com.altester.core.dtos.core_service.attempt.AttemptStatusResponse;
 import com.altester.core.dtos.core_service.question.QuestionDetailsDTO;
 import com.altester.core.dtos.core_service.retrieval.StudentTestAttemptsResponseDTO;
@@ -83,6 +84,9 @@ public class RedisConfig {
 
         cacheConfigurations.put("availableApiKeys", createCacheConfiguration(
                 new JsonRedisSerializer<>(List.class)));
+
+        cacheConfigurations.put("testApiKeys", createCacheConfiguration(
+                new JsonRedisSerializer<>(TestApiKeysDTO.class)));
 
         // Group service caches
         cacheConfigurations.put("groups", createCacheConfiguration(

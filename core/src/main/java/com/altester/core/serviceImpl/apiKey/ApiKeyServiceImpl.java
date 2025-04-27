@@ -255,6 +255,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     }
 
     @Override
+    @Transactional
     public void unassignApiKeyFromTest(Long testId, Long groupId, Principal principal) {
         log.debug("Unassigning API key from test {}", testId);
         User currentUser = getUserFromPrincipal(principal);
@@ -380,6 +381,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
         }
 
         assignment.setApiKey(null);
+        assignment.setAiEvaluation(false);
         assignmentRepository.save(assignment);
     }
 

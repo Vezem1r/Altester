@@ -109,7 +109,11 @@ public class CacheService {
     }
 
     public void clearApiKeyRelatedCaches() {
-        clearCaches("apiKeys", "availableApiKeys");
+        clearCaches(
+                "apiKeys",
+                "availableApiKeys",
+                "testApiKeys"
+        );
         log.debug("All API key-related caches have been cleared");
     }
 
