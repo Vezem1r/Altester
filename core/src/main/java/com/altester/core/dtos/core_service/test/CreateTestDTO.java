@@ -24,11 +24,16 @@ public class CreateTestDTO {
     @Min(value = 1, message = "Duration must be at least 1 minute")
     private int duration;
 
-    private boolean isOpen;
-
     private Integer maxAttempts;
 
-    private Integer maxQuestions;
+    @Min(value = 0, message = "Easy questions count cannot be negative")
+    private Integer easyQuestionsCount;
+
+    @Min(value = 0, message = "Medium questions count cannot be negative")
+    private Integer mediumQuestionsCount;
+
+    @Min(value = 0, message = "Hard questions count cannot be negative")
+    private Integer hardQuestionsCount;
 
     private LocalDateTime startTime;
 
@@ -44,5 +49,12 @@ public class CreateTestDTO {
             return true;
         }
         return endTime.isAfter(startTime);
+    }
+
+    @AssertTrue(message = "At least one difficulty level must have a count greater than 0")
+    private boolean isAtLeastOneDifficultySpecified() {
+        return (easyQuestionsCount != null && easyQuestionsCount > 0) ||
+                (mediumQuestionsCount != null && mediumQuestionsCount > 0) ||
+                (hardQuestionsCount != null && hardQuestionsCount > 0);
     }
 }

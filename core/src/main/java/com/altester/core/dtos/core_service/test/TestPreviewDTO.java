@@ -17,16 +17,21 @@ public class TestPreviewDTO {
     private String title;
     private String description;
     private int duration;
-    private boolean isOpen;
     private Integer maxAttempts;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
+
+    private boolean isOpen;
     private boolean isCreatedByAdmin;
     private Boolean allowTeacherEdit;
     private Boolean AiEvaluate;
-    private int totalQuestions;
+
     private int totalScore;
-    private Integer maxQuestions;
+    private int totalQuestions;
+    private Integer easyQuestionsCount;
+    private Integer mediumQuestionsCount;
+    private Integer hardQuestionsCount;
+
     private List<GroupSummaryDTO> associatedGroups;
     private List<QuestionDTO> questions;
 }

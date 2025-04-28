@@ -89,12 +89,11 @@ public class StudentMapper {
                                 .findFirst()
                                 .orElse(null)));
 
-        int numberOfQuestions;
-        if (test.getMaxQuestions() != null) {
-            numberOfQuestions = test.getMaxQuestions();
-        } else {
-            numberOfQuestions = test.getQuestions().size();
-        }
+        int easyCount = (test.getEasyQuestionsCount() != null) ? test.getEasyQuestionsCount() : 0;
+        int mediumCount = (test.getMediumQuestionsCount() != null) ? test.getMediumQuestionsCount() : 0;
+        int hardCount = (test.getHardQuestionsCount() != null) ? test.getHardQuestionsCount() : 0;
+
+        int numberOfQuestions = easyCount + mediumCount + hardCount;
 
         return TestDTO.builder()
                 .id(test.getId())

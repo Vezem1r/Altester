@@ -95,19 +95,4 @@ public class QuestionController {
 
         return ResponseEntity.ok(result);
     }
-
-    @PutMapping("/{questionId}/position/{newPosition}")
-    public ResponseEntity<Void> changeQuestionPosition(
-            @PathVariable Long questionId,
-            @PathVariable @Min(value = 0, message = "Position cannot be negative") int newPosition,
-            Principal principal) {
-
-        log.info("User {} changing position of question ID: {} to position: {}",
-                principal.getName(), questionId, newPosition);
-        questionService.changeQuestionPosition(questionId, newPosition, principal);
-        log.info("Position of question ID: {} successfully changed to position: {}",
-                questionId, newPosition);
-
-        return ResponseEntity.ok().build();
-    }
 }

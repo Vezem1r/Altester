@@ -1,15 +1,14 @@
 package com.altester.core.model.subject;
 
 import com.altester.core.model.ApiKey.TestGroupAssignment;
+import com.altester.core.model.subject.enums.QuestionDifficulty;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "tests")
@@ -40,7 +39,13 @@ public class Test {
     private Integer maxAttempts;
 
     @Column
-    private Integer maxQuestions;
+    private Integer easyQuestionsCount = 0;
+
+    @Column
+    private Integer mediumQuestionsCount = 0;
+
+    @Column
+    private Integer hardQuestionsCount = 0;
 
     @Column
     private LocalDateTime startTime;
@@ -66,6 +71,22 @@ public class Test {
 
     @Transient
     public int getTotalScore() {
-        return questions.stream().mapToInt(Question::getScore).sum();
+        Map<QuestionDifficulty, List<Question>> grouped = questions.stream()
+                .collect(Collectors.groupingBy(Question::getDifficulty));
+
+        Map<QuestionDifficulty, Integer> difficultyCountMap = Map.of(
+                QuestionDifficulty.EASY, Optional.ofNullable(easyQuestionsCount).orElse(0),
+                QuestionDifficulty.MEDIUM, Optional.ofNullable(mediumQuestionsCount).orElse(0),
+                QuestionDifficulty.HARD, Optional.ofNullable(hardQuestionsCount).orElse(0)
+        );
+
+        return difficultyCountMap.entrySet().stream()
+                .mapToInt(entry -> {
+                    List<Question> list = grouped.getOrDefault(entry.getKey(), Collections.emptyList());
+                    if (list.isEmpty() || entry.getValue() <= 0) return 0;
+                    double avg = list.stream().mapToInt(Question::getScore).average().orElse(0);
+                    return entry.getValue() * (int)Math.round(avg);
+                })
+                .sum();
     }
 }

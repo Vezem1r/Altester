@@ -8,6 +8,7 @@ import com.altester.core.model.subject.Option;
 import com.altester.core.model.subject.Question;
 import com.altester.core.model.subject.Subject;
 import com.altester.core.model.subject.Test;
+import com.altester.core.model.subject.enums.QuestionDifficulty;
 import com.altester.core.model.subject.enums.QuestionType;
 import com.altester.core.model.subject.enums.Semester;
 import com.altester.core.repository.GroupRepository;
@@ -274,9 +275,7 @@ public class DataInit {
         createSemesterGroups(twoSemestersAhead, twoSemestersAheadYear, 8, false, students, teachers);
     }
 
-    @Transactional
     protected void createSemesterGroups(Semester semester, int academicYear, int groupCount, boolean isActive, List<User> students, List<User> teachers) {
-
         log.info("Creating {} {} semester {} groups", groupCount, semester, academicYear);
 
         List<Subject> subjects = subjectRepository.findAll();
@@ -397,7 +396,6 @@ public class DataInit {
         }
     }
 
-    @Transactional
     protected void createTestsForGroup(Group group, Subject subject) {
         int baseTestCount = group.isActive() ? 3 : 2;
         int variance = group.isActive() ? 3 : 1;
@@ -432,12 +430,25 @@ public class DataInit {
                 }
             }
 
+            int easyCount = 2 + random.nextInt(3);
+            int mediumCount = 3 + random.nextInt(3);
+            int hardCount = 1 + random.nextInt(2);
+
+            if (i % 3 == 2) {
+                easyCount += 1;
+                mediumCount += 2;
+                hardCount += 1;
+            }
+
             Test test = Test.builder()
                     .title(testTitle)
                     .description(description)
                     .duration(30 + (i * 15))
-                    .isOpen(i % 2 == 0)
+                    .isOpen(group.isActive() && i % 2 == 0)
                     .maxAttempts(1 + i % 3)
+                    .easyQuestionsCount(easyCount)
+                    .mediumQuestionsCount(mediumCount)
+                    .hardQuestionsCount(hardCount)
                     .startTime(startTime)
                     .endTime(endTime)
                     .isCreatedByAdmin(createdByAdmin)
@@ -498,29 +509,56 @@ public class DataInit {
         return subject.getShortName() + ": " + testTitles.get(index % testTitles.size());
     }
 
-    @Transactional
     protected void createQuestionsForTest(Test test, Subject subject, int questionMultiplier) {
-        int baseQuestionCount = 5 + questionMultiplier;
-        int maxExtraQuestions = 5 + questionMultiplier;
-        int questionCount = baseQuestionCount + random.nextInt(maxExtraQuestions);
+        int easyQuestionsToCreate = Math.max(test.getEasyQuestionsCount() + 1, 3);
+        int mediumQuestionsToCreate = Math.max(test.getMediumQuestionsCount() + 2, 4);
+        int hardQuestionsToCreate = Math.max(test.getHardQuestionsCount() + 1, 2);
 
-        for (int i = 0; i < questionCount; i++) {
-            QuestionType questionType = random.nextBoolean() ?
-                    QuestionType.MULTIPLE_CHOICE : QuestionType.TEXT_ONLY;
+        if (questionMultiplier > 0) {
+            easyQuestionsToCreate += random.nextInt(3);
+            mediumQuestionsToCreate += random.nextInt(4);
+            hardQuestionsToCreate += random.nextInt(2);
+        }
 
-            String questionText = getQuestionText(subject, i);
+        int easyQuestionScore = 2 + random.nextInt(2);
+        int mediumQuestionScore = 4 + random.nextInt(3);
+        int hardQuestionScore = 7 + random.nextInt(4);
 
-            int baseScore = 5 + (i % 5) * 2;
+        Test managedTest = testRepository.findById(test.getId()).orElse(test);
 
-            Test managedTest = testRepository.findById(test.getId()).orElse(test);
+        createQuestionsWithDifficulty(managedTest, subject, easyQuestionsToCreate, QuestionDifficulty.EASY, easyQuestionScore);
+        createQuestionsWithDifficulty(managedTest, subject, mediumQuestionsToCreate, QuestionDifficulty.MEDIUM, mediumQuestionScore);
+        createQuestionsWithDifficulty(managedTest, subject, hardQuestionsToCreate, QuestionDifficulty.HARD, hardQuestionScore);
+
+        log.info("Created {} questions for test '{}' ({} easy @ {} pts, {} medium @ {} pts, {} hard @ {} pts)",
+                easyQuestionsToCreate + mediumQuestionsToCreate + hardQuestionsToCreate,
+                managedTest.getTitle(),
+                easyQuestionsToCreate, easyQuestionScore,
+                mediumQuestionsToCreate, mediumQuestionScore,
+                hardQuestionsToCreate, hardQuestionScore);
+    }
+
+    private void createQuestionsWithDifficulty(Test test, Subject subject, int count, QuestionDifficulty difficulty, int score) {
+        for (int i = 0; i < count; i++) {
+            QuestionType questionType;
+
+            if (difficulty == QuestionDifficulty.EASY) {
+                questionType = random.nextDouble() < 0.7 ? QuestionType.MULTIPLE_CHOICE : QuestionType.TEXT_ONLY;
+            } else if (difficulty == QuestionDifficulty.MEDIUM) {
+                questionType = random.nextDouble() < 0.5 ? QuestionType.MULTIPLE_CHOICE : QuestionType.TEXT_ONLY;
+            } else {
+                questionType = random.nextDouble() < 0.3 ? QuestionType.MULTIPLE_CHOICE : QuestionType.TEXT_ONLY;
+            }
+
+            String questionText = getQuestionTextForDifficulty(subject, i, difficulty);
 
             Question question = Question.builder()
                     .questionText(questionText)
                     .imagePath(null)
-                    .score(baseScore)
+                    .score(score)
                     .questionType(questionType)
-                    .test(managedTest)
-                    .position(i + 1)
+                    .difficulty(difficulty)
+                    .test(test)
                     .build();
 
             Question savedQuestion = questionRepository.save(question);
@@ -529,26 +567,51 @@ public class DataInit {
                 createOptionsForQuestion(savedQuestion, subject, i);
             }
 
-            log.info("Created {} question for test '{}'",
-                    questionType,
-                    managedTest.getTitle());
+            log.debug("Created {} {} question for test '{}'",
+                    difficulty, questionType, test.getTitle());
+        }
+    }
+
+    private String getQuestionTextForDifficulty(Subject subject, int index, QuestionDifficulty difficulty) {
+        String shortName = subject.getShortName();
+        String difficultyPrefix = switch (difficulty) {
+            case EASY -> "Define";
+            case MEDIUM -> "Explain";
+            case HARD -> "Analyze";
+        };
+
+        List<String> questions;
+
+        switch (shortName) {
+            case "PF", "DSA", "OOP" -> {
+                questions = DataConstants.CODING_QUESTIONS;
+                String baseQuestion = questions.get(index % questions.size());
+                if (difficulty == QuestionDifficulty.EASY) {
+                    return "Basic: " + baseQuestion;
+                } else if (difficulty == QuestionDifficulty.MEDIUM) {
+                    return "Intermediate: " + baseQuestion;
+                } else {
+                    return "Advanced: " + baseQuestion;
+                }
+            }
+            case "DBS" -> {
+                questions = DataConstants.DATABASE_QUESTIONS;
+                String baseQuestion = questions.get(index % questions.size());
+                return difficultyPrefix + " - " + baseQuestion;
+            }
+            case "CN" -> {
+                questions = DataConstants.NETWORKING_QUESTIONS;
+                String baseQuestion = questions.get(index % questions.size());
+                return difficultyPrefix + " - " + baseQuestion;
+            }
+            default -> {
+                return difficultyPrefix + " the concept of " + getConceptForSubject(subject, index);
+            }
         }
     }
 
     private String getQuestionText(Subject subject, int index) {
-        String shortName = subject.getShortName();
-        List<String> questions;
-
-        switch (shortName) {
-            case "PF", "DSA", "OOP" -> questions = DataConstants.CODING_QUESTIONS;
-            case "DBS" -> questions = DataConstants.DATABASE_QUESTIONS;
-            case "CN" -> questions = DataConstants.NETWORKING_QUESTIONS;
-            default -> {
-                return "Explain the concept of " + getConceptForSubject(subject, index);
-            }
-        }
-
-        return questions.get(index % questions.size());
+        return getQuestionTextForDifficulty(subject, index, QuestionDifficulty.MEDIUM);
     }
 
     private String getConceptForSubject(Subject subject, int index) {
@@ -568,25 +631,44 @@ public class DataInit {
         return subjectConcepts.get(index % subjectConcepts.size());
     }
 
-    @Transactional
     protected void createOptionsForQuestion(Question question, Subject subject, int questionIndex) {
         String shortName = subject.getShortName();
         List<List<String>> options;
 
-        if (shortName.equals("PF") || shortName.equals("OOP")) {
-            options = DataConstants.MULTIPLE_CHOICE_OPTIONS_JAVA;
-        } else if (shortName.equals("DBS")) {
-            options = DataConstants.MULTIPLE_CHOICE_OPTIONS_DB;
-        } else {
-            createGenericOptions(question, 4);
-            return;
+        int optionCount = 4;
+        if (question.getDifficulty() == QuestionDifficulty.EASY) {
+            optionCount = 3;
+        } else if (question.getDifficulty() == QuestionDifficulty.HARD) {
+            optionCount = 5;
         }
 
+        if (shortName.equals("PF") || shortName.equals("OOP")) {
+            options = DataConstants.MULTIPLE_CHOICE_OPTIONS_JAVA;
+            createProgrammingOptions(question, options, questionIndex, optionCount);
+        } else if (shortName.equals("DBS")) {
+            options = DataConstants.MULTIPLE_CHOICE_OPTIONS_DB;
+            createProgrammingOptions(question, options, questionIndex, optionCount);
+        } else {
+            createGenericOptions(question, optionCount);
+        }
+    }
+
+    private void createProgrammingOptions(Question question, List<List<String>> options, int questionIndex, int optionCount) {
         Question managedQuestion = questionRepository.findById(question.getId()).orElse(question);
         List<String> questionOptions = options.get(questionIndex % options.size());
 
-        for (int i = 0; i < questionOptions.size(); i++) {
+        int actualOptionCount = Math.min(questionOptions.size(), optionCount);
+
+        for (int i = 0; i < actualOptionCount; i++) {
             boolean isCorrect = i == 0;
+
+            if (question.getDifficulty() == QuestionDifficulty.HARD && i == 0 && random.nextDouble() < 0.3) {
+                int swapIndex = 1 + random.nextInt(actualOptionCount - 1);
+                String temp = questionOptions.getFirst();
+                questionOptions.set(0, questionOptions.get(swapIndex));
+                questionOptions.set(swapIndex, temp);
+                isCorrect = false;
+            }
 
             Option option = Option.builder()
                     .text(questionOptions.get(i))
@@ -599,21 +681,36 @@ public class DataInit {
         }
     }
 
-    @Transactional
     protected void createGenericOptions(Question question, int optionCount) {
         String[] words = question.getQuestionText().split("\\s+");
         String baseTerm = words.length > 3 ? words[3] : "concept";
 
         List<String> options = new ArrayList<>();
+        QuestionDifficulty difficulty = question.getDifficulty();
 
-        options.add("The " + baseTerm + " represents the primary mechanism for data abstraction");
-        options.add("The " + baseTerm + " is an implementation detail not relevant to the interface");
-        options.add("The " + baseTerm + " is a secondary component used only in specific cases");
-        options.add("The " + baseTerm + " is a theoretical concept with no practical applications");
+        if (difficulty == QuestionDifficulty.EASY) {
+            options.add("The " + baseTerm + " is the main concept related to the question");
+            options.add("The " + baseTerm + " is completely unrelated to the question");
+            options.add("The " + baseTerm + " is optional and not important");
+            options.add("The " + baseTerm + " only applies in theoretical situations");
+        } else if (difficulty == QuestionDifficulty.MEDIUM) {
+            options.add("The " + baseTerm + " represents the primary mechanism for data abstraction");
+            options.add("The " + baseTerm + " is an implementation detail not relevant to the interface");
+            options.add("The " + baseTerm + " is a secondary component used only in specific cases");
+            options.add("The " + baseTerm + " is a theoretical concept with no practical applications");
+            options.add("The " + baseTerm + " is deprecated and should not be used in modern systems");
+        } else {
+            options.add("The " + baseTerm + " provides an optimal solution by balancing time and space complexity");
+            options.add("The " + baseTerm + " offers better performance but significantly increases complexity");
+            options.add("The " + baseTerm + " is primarily useful for maintaining backward compatibility");
+            options.add("The " + baseTerm + " improves maintainability but introduces runtime overhead");
+            options.add("The " + baseTerm + " is considered best practice only in enterprise-scale applications");
+            options.add("The " + baseTerm + " is useful only when combined with other advanced techniques");
+        }
 
         Question managedQuestion = questionRepository.findById(question.getId()).orElse(question);
 
-        for (int i = 0; i < optionCount && i < options.size(); i++) {
+        for (int i = 0; i < Math.min(optionCount, options.size()); i++) {
             boolean isCorrect = i == 0;
 
             Option option = Option.builder()

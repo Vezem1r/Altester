@@ -44,6 +44,7 @@ public class TestServiceImpl  implements TestService {
     private final TestGroupSelectionService groupSelection;
     private final ApiKeyRepository apiKeyRepository;
     private final TestGroupAssignmentRepository assignmentRepository;
+    private final TestRequirementsValidator testRequirementsValidator;
 
     private User getCurrentUser(Principal principal) {
         return userRepository.findByUsername(principal.getName())
@@ -221,23 +222,24 @@ public class TestServiceImpl  implements TestService {
         test.setTitle(createTestDTO.getTitle());
         test.setDescription(createTestDTO.getDescription());
         test.setDuration(createTestDTO.getDuration());
-        test.setOpen(createTestDTO.isOpen());
+        test.setOpen(false);
         test.setMaxAttempts(createTestDTO.getMaxAttempts());
+
+        test.setEasyQuestionsCount(createTestDTO.getEasyQuestionsCount() != null ?
+                createTestDTO.getEasyQuestionsCount() : 0);
+        test.setMediumQuestionsCount(createTestDTO.getMediumQuestionsCount() != null ?
+                createTestDTO.getMediumQuestionsCount() : 0);
+        test.setHardQuestionsCount(createTestDTO.getHardQuestionsCount() != null ?
+                createTestDTO.getHardQuestionsCount() : 0);
+
         test.setStartTime(createTestDTO.getStartTime());
         test.setEndTime(createTestDTO.getEndTime());
         test.setCreatedByAdmin(currentUser.getRole() == RolesEnum.ADMIN);
         test.setAllowTeacherEdit(currentUser.getRole() == RolesEnum.TEACHER);
-        test.setMaxQuestions(createTestDTO.getMaxQuestions());
 
         List<Group> selectedGroups = groupSelection.findValidGroupsForTest(currentUser, createTestDTO);
 
         Test savedTest = testRepository.save(test);
-
-        if (savedTest.isOpen()) {
-            for (Group group : selectedGroups) {
-                notificationService.notifyTestAssigned(savedTest, group);
-            }
-        }
 
         selectedGroups.forEach(group -> group.getTests().add(savedTest));
         groupRepository.saveAll(selectedGroups);
@@ -535,6 +537,15 @@ public class TestServiceImpl  implements TestService {
         }
 
         boolean newState = !test.isOpen();
+
+        if (newState) {
+            if (!testRequirementsValidator.requirementsMet(test)) {
+                String errorMessage = testRequirementsValidator.getMissingRequirements(test);
+                log.warn("Cannot open test ID {}: {}", testId, errorMessage);
+                throw new StateConflictException("test", "requirements_not_met", errorMessage);
+            }
+        }
+
         test.setOpen(newState);
         testRepository.save(test);
 

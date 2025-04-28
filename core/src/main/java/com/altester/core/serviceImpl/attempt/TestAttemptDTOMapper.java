@@ -35,7 +35,6 @@ public class TestAttemptDTOMapper {
                 .questionText(question.getQuestionText())
                 .imagePath(question.getImagePath())
                 .score(question.getScore())
-                .position(question.getPosition())
                 .questionType(question.getQuestionType())
                 .options(optionDTOs)
                 .build();

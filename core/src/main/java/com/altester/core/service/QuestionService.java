@@ -63,17 +63,4 @@ public interface QuestionService {
      * @throws AccessDeniedException if the user doesn't have permission to access the test
      */
     QuestionDetailsDTO getQuestion(Long questionId, Principal principal);
-
-    /**
-     * Changes the position of a question within a test.
-     *
-     * @param questionId ID of the question to reposition
-     * @param newPosition New position number for the question (1-based)
-     * @param principal The authenticated user (admin or teacher)
-     * @throws ResourceNotFoundException if the question or user doesn't exist
-     * @throws AccessDeniedException if the user doesn't have permission to modify the test
-     * @throws StateConflictException if trying to modify a test in a past semester group
-     * @throws ValidationException if the new position is invalid
-     */
-    void changeQuestionPosition(Long questionId, int newPosition, Principal principal);
 }

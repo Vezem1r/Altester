@@ -87,7 +87,7 @@ public class TestDTOMapper {
         }
 
         List<QuestionDTO> questions = test.getQuestions().stream()
-                .sorted(Comparator.comparing(Question::getPosition))
+                .sorted(Comparator.comparing(Question::getDifficulty).reversed())
                 .map(this::convertToQuestionDTO)
                 .collect(Collectors.toList());
 
@@ -106,7 +106,9 @@ public class TestDTOMapper {
                 .totalScore(test.getTotalScore())
                 .associatedGroups(associatedGroups)
                 .AiEvaluate(anyGroupHasAiEvaluation)
-                .maxQuestions(test.getMaxQuestions())
+                .easyQuestionsCount(test.getEasyQuestionsCount())
+                .mediumQuestionsCount(test.getMediumQuestionsCount())
+                .hardQuestionsCount(test.getHardQuestionsCount())
                 .questions(questions);
 
         if (currentUser.getRole() == RolesEnum.ADMIN) {
@@ -134,8 +136,8 @@ public class TestDTOMapper {
                 .questionText(question.getQuestionText())
                 .imagePath(question.getImagePath())
                 .score(question.getScore())
-                .position(question.getPosition())
                 .questionType(question.getQuestionType())
+                .difficulty(question.getDifficulty())
                 .options(options)
                 .correctAnswer(question.getCorrectAnswer())
                 .build();

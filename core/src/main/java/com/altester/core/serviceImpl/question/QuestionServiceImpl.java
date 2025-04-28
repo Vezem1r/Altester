@@ -10,12 +10,15 @@ import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Option;
 import com.altester.core.model.subject.Question;
 import com.altester.core.model.subject.Test;
+import com.altester.core.model.subject.enums.QuestionDifficulty;
 import com.altester.core.repository.*;
+import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.service.QuestionService;
 import com.altester.core.serviceImpl.CacheService;
 import com.altester.core.serviceImpl.test.TestAccessValidator;
 import com.altester.core.serviceImpl.test.TestDTOMapper;
 import com.altester.core.serviceImpl.group.GroupActivityService;
+import com.altester.core.serviceImpl.test.TestRequirementsValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -42,6 +45,8 @@ public class QuestionServiceImpl implements QuestionService {
     private final ImageService imageService;
     private final QuestionValidator questionValidator;
     private final CacheService cacheService;
+    private final TestRequirementsValidator testRequirementsValidator;
+    private final NotificationDispatchService notificationService;
 
     private User getCurrentUser(Principal principal) {
         return userRepository.findByUsername(principal.getName())
@@ -91,16 +96,14 @@ public class QuestionServiceImpl implements QuestionService {
             log.info("Image saved successfully: {}", imagePath);
         }
 
-        int lastPosition = questionRepository.findMaxPositionByTestId(testId).orElse(0);
-
         Question question = Question.builder()
                 .questionText(createQuestionDTO.getQuestionText())
                 .imagePath(imagePath)
                 .score(createQuestionDTO.getScore())
                 .questionType(createQuestionDTO.getQuestionType())
                 .correctAnswer(createQuestionDTO.getCorrectAnswer())
+                .difficulty(createQuestionDTO.getDifficulty())
                 .test(test)
-                .position(lastPosition + 1)
                 .build();
 
         Question savedQuestion = questionRepository.save(question);
@@ -174,6 +177,10 @@ public class QuestionServiceImpl implements QuestionService {
         question.setQuestionType(updateQuestionDTO.getQuestionType());
         question.setCorrectAnswer(updateQuestionDTO.getCorrectAnswer());
 
+        if (updateQuestionDTO.getDifficulty() != null) {
+            question.setDifficulty(updateQuestionDTO.getDifficulty());
+        }
+
         if (updateQuestionDTO.getOptions() != null) {
             optionRepository.deleteAll(question.getOptions());
             question.getOptions().clear();
@@ -207,8 +214,8 @@ public class QuestionServiceImpl implements QuestionService {
 
         User currentUser = getCurrentUser(principal);
         Question question = getQuestionById(questionId);
-        int position = question.getPosition();
         Test test = question.getTest();
+        boolean wasTestOpen = test.isOpen();
 
         verifyTestModificationPermission(currentUser, test);
 
@@ -218,16 +225,33 @@ public class QuestionServiceImpl implements QuestionService {
 
         questionRepository.delete(question);
 
-        questionRepository.decrementPositionForRange(
-                test.getId(),
-                position + 1,
-                Integer.MAX_VALUE
-        );
-
         cacheService.clearQuestionRelatedCaches();
         cacheService.clearTestRelatedCaches();
 
+        if (wasTestOpen) {
+            updateTestOpenStatus(test);
+        }
+
         log.info("Question with ID {} deleted", questionId);
+    }
+
+    @Transactional
+    public void updateTestOpenStatus(Test test) {
+
+        if (!testRequirementsValidator.requirementsMet(test)) {
+            test.setOpen(false);
+            testRepository.save(test);
+
+            String message = testRequirementsValidator.getMissingRequirements(test);
+            log.info("Test with ID {} was closed because it no longer meets difficulty requirements: {}",
+                    test.getId(), message);
+
+            List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
+            for (Group group : testGroups) {
+                notificationService.notifyTestParametersChanged(test, group);
+            }
+        }
+        cacheService.clearTestRelatedCaches();
     }
 
     @Override
@@ -243,45 +267,6 @@ public class QuestionServiceImpl implements QuestionService {
         testAccessValidator.validateTestAccess(currentUser, test);
 
         return questionDTOMapper.convertToQuestionDetailsDTO(question);
-    }
-
-    @Override
-    @Transactional
-    public void changeQuestionPosition(Long questionId, int newPosition, Principal principal) {
-        log.info("User {} is attempting to change position of question ID {} to position {}",
-                principal.getName(), questionId, newPosition);
-
-        User currentUser = getCurrentUser(principal);
-        Question question = getQuestionById(questionId);
-        Test test = question.getTest();
-
-        verifyTestModificationPermission(currentUser, test);
-
-        int oldPosition = question.getPosition();
-        int maxPosition = questionRepository.findMaxPositionByTestId(test.getId()).orElse(0);
-
-        if (newPosition < 1 || newPosition > maxPosition) {
-            throw ValidationException.invalidPosition("Position must be between 1 and " + maxPosition);
-        }
-
-        if (oldPosition == newPosition) {
-            log.debug("No position change required as old and new positions are the same");
-            return;
-        }
-
-        if (oldPosition < newPosition) {
-            questionRepository.decrementPositionForRange(test.getId(), oldPosition + 1, newPosition);
-        } else {
-            questionRepository.incrementPositionForRange(test.getId(), newPosition, oldPosition - 1);
-        }
-
-        question.setPosition(newPosition);
-        questionRepository.save(question);
-
-        cacheService.clearQuestionRelatedCaches();
-        cacheService.clearTestRelatedCaches();
-
-        log.info("Question ID {} position changed from {} to {}", questionId, oldPosition, newPosition);
     }
 
     /**

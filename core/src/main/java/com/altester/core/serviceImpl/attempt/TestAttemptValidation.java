@@ -6,20 +6,26 @@ import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Attempt;
 import com.altester.core.model.subject.Group;
+import com.altester.core.model.subject.Question;
 import com.altester.core.model.subject.Test;
 import com.altester.core.model.subject.enums.AttemptStatus;
+import com.altester.core.model.subject.enums.QuestionDifficulty;
 import com.altester.core.repository.AttemptRepository;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.serviceImpl.group.GroupActivityService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TestAttemptValidation {
 
     private final GroupRepository groupRepository;
@@ -82,9 +88,53 @@ public class TestAttemptValidation {
                     "Maximum number of attempts reached for this test");
         }
 
-        if (test.getQuestions().isEmpty()) {
-            throw new StateConflictException("test", "no_questions", "Test has no questions");
+        boolean hasEnoughQuestions = validateQuestionAvailability(test);
+        if (!hasEnoughQuestions) {
+            throw new StateConflictException("test", "insufficient_questions",
+                    "Test does not have enough questions to meet the difficulty requirements");
         }
+    }
+
+    /**
+     * Validates that the test has enough questions of each difficulty level
+     * to satisfy the test requirements.
+     *
+     * @param test The test to validate
+     * @return true if test has enough questions, false otherwise
+     */
+    private boolean validateQuestionAvailability(Test test) {
+
+        Map<QuestionDifficulty, Long> questionCounts = test.getQuestions().stream()
+                .collect(Collectors.groupingBy(Question::getDifficulty, Collectors.counting()));
+
+        if (test.getEasyQuestionsCount() != null && test.getEasyQuestionsCount() > 0) {
+            long easyCount = questionCounts.getOrDefault(QuestionDifficulty.EASY, 0L);
+            if (easyCount < test.getEasyQuestionsCount()) {
+                log.warn("Test ID {} requires {} EASY questions but only has {}",
+                        test.getId(), test.getEasyQuestionsCount(), easyCount);
+                return false;
+            }
+        }
+
+        if (test.getMediumQuestionsCount() != null && test.getMediumQuestionsCount() > 0) {
+            long mediumCount = questionCounts.getOrDefault(QuestionDifficulty.MEDIUM, 0L);
+            if (mediumCount < test.getMediumQuestionsCount()) {
+                log.warn("Test ID {} requires {} MEDIUM questions but only has {}",
+                        test.getId(), test.getMediumQuestionsCount(), mediumCount);
+                return false;
+            }
+        }
+
+        if (test.getHardQuestionsCount() != null && test.getHardQuestionsCount() > 0) {
+            long hardCount = questionCounts.getOrDefault(QuestionDifficulty.HARD, 0L);
+            if (hardCount < test.getHardQuestionsCount()) {
+                log.warn("Test ID {} requires {} HARD questions but only has {}",
+                        test.getId(), test.getHardQuestionsCount(), hardCount);
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public boolean isAttemptExpired(Attempt attempt) {

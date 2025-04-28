@@ -1,5 +1,6 @@
 package com.altester.core.model.subject;
 
+import com.altester.core.model.subject.enums.QuestionDifficulty;
 import com.altester.core.model.subject.enums.QuestionType;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
@@ -32,15 +33,16 @@ public class Question {
     @Column(nullable = false)
     private int score;
 
-    @Column(name = "position")
-    private int position;
-
     @Column(name = "correct_answer", length = 1000)
     private String correctAnswer;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private QuestionType questionType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private QuestionDifficulty difficulty = QuestionDifficulty.MEDIUM;
 
     @ManyToOne
     @JoinColumn(name = "test_id", nullable = false)

@@ -1,6 +1,7 @@
 package com.altester.core.dtos.core_service.question;
 
 import com.altester.core.dtos.core_service.test.OptionDTO;
+import com.altester.core.model.subject.enums.QuestionDifficulty;
 import com.altester.core.model.subject.enums.QuestionType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,6 +20,7 @@ public class QuestionDetailsDTO {
     private String imagePath;
     private int score;
     private QuestionType questionType;
+    private QuestionDifficulty difficulty;
     private String correctAnswer;
     private List<OptionDTO> options;
     private int position;

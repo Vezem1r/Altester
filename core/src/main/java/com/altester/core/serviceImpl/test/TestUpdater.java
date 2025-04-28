@@ -17,9 +17,8 @@ public class TestUpdater {
         return updateTitle()
                 .updateDescription()
                 .updateDuration()
-                .updateOpen()
                 .updateMaxAttempts()
-                .updateMaxQuestions()
+                .updateDifficultyCounts()
                 .updateStartTime()
                 .updateEndTime();
     }
@@ -45,19 +44,20 @@ public class TestUpdater {
         return this;
     }
 
-    public TestUpdater updateOpen() {
-        test.setOpen(dto.isOpen());
-        return this;
-    }
-
     public TestUpdater updateMaxAttempts() {
         test.setMaxAttempts(dto.getMaxAttempts());
         return this;
     }
 
-    public TestUpdater updateMaxQuestions() {
-        if (dto.getMaxQuestions() != null) {
-            test.setMaxQuestions(dto.getMaxQuestions());
+    public TestUpdater updateDifficultyCounts() {
+        if (dto.getEasyQuestionsCount() != null) {
+            test.setEasyQuestionsCount(dto.getEasyQuestionsCount());
+        }
+        if (dto.getMediumQuestionsCount() != null) {
+            test.setMediumQuestionsCount(dto.getMediumQuestionsCount());
+        }
+        if (dto.getHardQuestionsCount() != null) {
+            test.setHardQuestionsCount(dto.getHardQuestionsCount());
         }
         return this;
     }

@@ -1,6 +1,7 @@
 package com.altester.core.dtos.core_service.question;
 
 import com.altester.core.dtos.core_service.test.OptionDTO;
+import com.altester.core.model.subject.enums.QuestionDifficulty;
 import com.altester.core.model.subject.enums.QuestionType;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
@@ -26,6 +27,8 @@ public class CreateQuestionDTO {
 
     @NotNull(message = "Question type is required")
     private QuestionType questionType;
+
+    private QuestionDifficulty difficulty = QuestionDifficulty.MEDIUM;
 
     @Size(max = 1000, message = "Correct answer must be less than 1000 characters")
     private String correctAnswer;
