@@ -39,6 +39,10 @@ Altester follows a microservices approach with the following components:
 
 <img src="scr/service.png" width="100%">
 
+## Database 
+
+<img src="scr/erd.png" width="100%">
+
 ## Microservices Details
 
 ### 1. Authorization Service
