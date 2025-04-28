@@ -134,10 +134,12 @@ public class AttemptQuestionService {
     public void createInitialSubmissions(Attempt attempt, List<Question> questions) {
         List<Submission> submissions = new ArrayList<>();
 
-        for (Question question : questions) {
+        for (int i = 0; i < questions.size(); i++) {
+            Question question = questions.get(i);
             Submission submission = Submission.builder()
                     .attempt(attempt)
                     .question(question)
+                    .orderIndex(i)
                     .selectedOptions(new ArrayList<>())
                     .build();
 
@@ -159,6 +161,7 @@ public class AttemptQuestionService {
         }
 
         return attempt.getSubmissions().stream()
+                .sorted(Comparator.comparing(Submission::getOrderIndex))
                 .map(Submission::getQuestion)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());

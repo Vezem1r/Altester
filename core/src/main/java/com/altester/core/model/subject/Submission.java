@@ -30,6 +30,9 @@ public class Submission {
     @Column(length = 1024)
     private String teacherFeedback;
 
+    @Column
+    private Integer orderIndex;
+
     @ManyToOne
     @JoinColumn(name = "attempt_id", nullable = false)
     private Attempt attempt;
@@ -37,12 +40,6 @@ public class Submission {
     @ManyToOne
     @JoinColumn(name = "question_id", nullable = false)
     private Question question;
-
-/*
-    @ManyToOne
-    @JoinColumn(name = "selected_option_id")
-    private Option selectedOption;
-*/
 
     @ManyToMany
     @JoinTable(
