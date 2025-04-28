@@ -15,6 +15,12 @@ public class CodeCleanUp {
 
     private final CodeRepository codeRepository;
 
+    /**
+     * Scheduled method to delete expired verification codes.
+     * Runs hourly (at the beginning of each hour) to remove all codes
+     * that have passed their expiration time from the database.
+     * The method logs the number of deleted codes for monitoring.
+     */
     @Scheduled(cron = "0 0 * * * *")
     public void cleanUp() {
         int deletedCount = codeRepository.deleteByExpirationBefore(LocalDateTime.now());

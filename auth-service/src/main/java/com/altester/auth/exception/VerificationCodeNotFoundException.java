@@ -7,7 +7,7 @@ public class VerificationCodeNotFoundException extends AuthException {
     private final String email;
 
     public VerificationCodeNotFoundException(String email) {
-        super("Verification code not found for email: " + email, AuthErrorCode.VERIFICATION_CODE_NOT_FOUND);
+        super("Verification code not found", AuthErrorCode.VERIFICATION_CODE_NOT_FOUND);
         this.email = email;
     }
 }

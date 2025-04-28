@@ -5,6 +5,8 @@ services:
       context: ./auth-service
     env_file:
       - .env
+    environment:
+      - TZ=Europe/Prague
     depends_on:
       - db
     networks:
@@ -22,6 +24,7 @@ services:
       - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
       - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
       - REDIS_HOST=${REDIS_HOST}
+      - TZ=Europe/Prague
     depends_on:
       - auth-service
     networks:
@@ -37,6 +40,8 @@ services:
       context: ./ai-grading-service
     env_file:
       - .env
+    environment:
+      - TZ=Europe/Prague
     depends_on:
       - core
       - db
@@ -55,6 +60,7 @@ services:
       POSTGRES_USER: ${SPRING_DATASOURCE_USERNAME}
       POSTGRES_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
       POSTGRES_DB: ${SPRING_DATASOURCE_DB}
+      TZ: Europe/Prague
     ports:
       - "5432:5432"
     volumes:
@@ -73,6 +79,8 @@ services:
     networks:
       - internal
     command: redis-server --save 60 1 --loglevel warning
+    environment:
+      - TZ=Europe/Prague
 
   notification-service:
     container_name: notification-service_container
@@ -80,6 +88,8 @@ services:
       context: ./notification-service
     env_file:
       - .env
+    environment:
+      - TZ=Europe/Prague
     depends_on:
       - core
     networks:
@@ -95,6 +105,8 @@ services:
       context: ./chat-service
     env_file:
       - .env
+    environment:
+      - TZ=Europe/Prague
     depends_on:
       - core
     networks:

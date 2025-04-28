@@ -1,5 +1,7 @@
 package com.altester.auth.utils;
 
+import com.altester.auth.exception.PasswordResetCodeNotFoundException;
+import com.altester.auth.exception.VerificationCodeNotFoundException;
 import com.altester.auth.models.Codes;
 import com.altester.auth.models.User;
 import com.altester.auth.models.enums.CodeType;
@@ -33,7 +35,7 @@ public class EmailUtils {
             Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(user, CodeType.VERIFICATION);
             if (optionalCode.isEmpty()) {
                 log.error("User verification code does not exists: {}", user.getUsername());
-                throw new RuntimeException("Verification code not found");
+                throw new VerificationCodeNotFoundException("Verification code not found");
             }
 
             Codes code = optionalCode.get();
@@ -52,7 +54,7 @@ public class EmailUtils {
             Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(user, CodeType.PASSWORD_RESET);
             if (optionalCode.isEmpty()) {
                 log.error("Password reset code does not exists`: {}", user.getUsername());
-                throw new RuntimeException("Password reset code not found");
+                throw new PasswordResetCodeNotFoundException("Password reset code not found");
             }
 
             Codes code = optionalCode.get();
@@ -74,7 +76,7 @@ public class EmailUtils {
             Optional<Codes> optionalCode = codeRepository.findByUserAndCodeType(user, CodeType.EMAIL_CHANGE);
             if (optionalCode.isEmpty()) {
                 log.error("Email reset code does not exists: {}", user.getUsername());
-                throw new RuntimeException("Email change code not found");
+                throw new VerificationCodeNotFoundException("Email change code not found");
             }
 
             Codes code = optionalCode.get();
