@@ -149,7 +149,6 @@ public class StudentMapper {
 
     public TestAttemptDTO mapAttemptToBasicDTO(Attempt attempt, Test test) {
         int answeredQuestions = attempt.getSubmissions() != null ? attempt.getSubmissions().size() : 0;
-        int totalQuestions = test.getQuestions().size();
 
         return TestAttemptDTO.builder()
                 .attemptId(attempt.getId())
@@ -159,7 +158,7 @@ public class StudentMapper {
                 .status(attempt.getStatus())
                 .score(attempt.getScore())
                 .answeredQuestions(answeredQuestions)
-                .totalQuestions(totalQuestions)
+                .totalQuestions(test.getTotalQuestions())
                 .build();
     }
 

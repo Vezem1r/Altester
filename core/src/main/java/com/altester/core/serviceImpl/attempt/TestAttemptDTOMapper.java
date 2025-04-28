@@ -100,7 +100,12 @@ public class TestAttemptDTOMapper {
                     .orElse(null);
 
             if (existingSubmission != null) {
-                currentAnswer = mapSubmissionToAnswerDTO(existingSubmission);
+                boolean hasAnswer = (existingSubmission.getSelectedOptions() != null && !existingSubmission.getSelectedOptions().isEmpty()) ||
+                        (existingSubmission.getAnswerText() != null && !existingSubmission.getAnswerText().isEmpty());
+
+                if (hasAnswer) {
+                    currentAnswer = mapSubmissionToAnswerDTO(existingSubmission);
+                }
             }
         }
 

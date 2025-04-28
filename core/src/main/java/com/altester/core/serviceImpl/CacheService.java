@@ -91,7 +91,6 @@ public class CacheService {
 
     public void clearAttemptRelatedCaches() {
         clearCaches(
-                "attemptStatus",
                 "attemptReview",
                 "testAttemptsForTeacher",
                 "testAttemptsForAdmin",

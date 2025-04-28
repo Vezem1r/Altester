@@ -13,7 +13,6 @@ import com.altester.core.service.TestAttemptService;
 import com.altester.core.serviceImpl.CacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,10 +64,14 @@ public class TestAttemptServiceImpl implements TestAttemptService {
                         "This attempt has expired. The time limit has been reached.");
             }
 
-            List<Question> questionsForTest = questionService.getQuestionsForTest(test);
-            int questionToResume = questionService.findQuestionToResume(activeAttempt, questionsForTest);
+            List<Question> questionsForAttempt = questionService.getQuestionsFromSubmissions(activeAttempt);
+            if (questionsForAttempt.isEmpty()) {
+                questionsForAttempt = questionService.getQuestionsForTest(test);
+            }
 
-            return dtoMapper.getQuestionByNumber(activeAttempt, questionToResume, questionsForTest);
+            int questionToResume = questionService.findQuestionToResume(activeAttempt, questionsForAttempt);
+
+            return dtoMapper.getQuestionByNumber(activeAttempt, questionToResume, questionsForAttempt);
         }
 
         validationService.validateTestAvailability(test, student);
@@ -86,13 +89,15 @@ public class TestAttemptServiceImpl implements TestAttemptService {
                 .submissions(new ArrayList<>())
                 .build();
 
+        List<Question> questionsForAttempt = questionService.getQuestionsForTest(test);
+        questionService.createInitialSubmissions(attempt, questionsForAttempt);
+
         attempt = attemptRepository.save(attempt);
 
         cacheService.clearAttemptRelatedCaches();
         cacheService.clearStudentRelatedCaches();
 
-        List<Question> questionsForTest = questionService.getQuestionsForTest(test);
-        return dtoMapper.getQuestionByNumber(attempt, 1, questionsForTest);
+        return dtoMapper.getQuestionByNumber(attempt, 1, questionsForAttempt);
     }
 
     @Override
@@ -118,15 +123,15 @@ public class TestAttemptServiceImpl implements TestAttemptService {
                     "This attempt has already been completed.");
         }
 
-        List<Question> questionsForTest = questionService.getQuestionsForTest(attempt.getTest());
+        List<Question> questionsForAttempt = questionService.getQuestionsFromSubmissions(attempt);
 
         int questionNumber = request.getQuestionNumber();
-        if (questionNumber < 1 || questionNumber > questionsForTest.size()) {
+        if (questionNumber < 1 || questionNumber > questionsForAttempt.size()) {
             throw ValidationException.invalidParameter("questionNumber",
-                    "Question number must be between 1 and " + questionsForTest.size());
+                    "Question number must be between 1 and " + questionsForAttempt.size());
         }
 
-        return dtoMapper.getQuestionByNumber(attempt, questionNumber, questionsForTest);
+        return dtoMapper.getQuestionByNumber(attempt, questionNumber, questionsForAttempt);
     }
 
     @Override
@@ -212,16 +217,16 @@ public class TestAttemptServiceImpl implements TestAttemptService {
             saveAnswer(principal, saveRequest);
         }
 
-        List<Question> questionsForTest = questionService.getQuestionsForTest(attempt.getTest());
+        List<Question> questionsForAttempt = questionService.getQuestionsFromSubmissions(attempt);
         int nextQuestionNumber = request.getCurrentQuestionNumber() + 1;
 
-        if (nextQuestionNumber > questionsForTest.size()) {
+        if (nextQuestionNumber > questionsForAttempt.size()) {
             throw ValidationException.invalidParameter("currentQuestionNumber",
                     "Already at the last question");
         }
 
         cacheService.clearAttemptRelatedCaches();
-        return dtoMapper.getQuestionByNumber(attempt, nextQuestionNumber, questionsForTest);
+        return dtoMapper.getQuestionByNumber(attempt, nextQuestionNumber, questionsForAttempt);
     }
 
     @Override
@@ -262,11 +267,11 @@ public class TestAttemptServiceImpl implements TestAttemptService {
                     "Already at the first question");
         }
 
-        List<Question> questionsForTest = questionService.getQuestionsForTest(attempt.getTest());
+        List<Question> questionsForAttempt = questionService.getQuestionsFromSubmissions(attempt);
 
         cacheService.clearAttemptRelatedCaches();
 
-        return dtoMapper.getQuestionByNumber(attempt, prevQuestionNumber, questionsForTest);
+        return dtoMapper.getQuestionByNumber(attempt, prevQuestionNumber, questionsForAttempt);
     }
 
     @Override
@@ -305,8 +310,15 @@ public class TestAttemptServiceImpl implements TestAttemptService {
 
         attemptRepository.save(attempt);
 
-        List<Question> questionsForTest = questionService.getQuestionsForTest(test);
-        int answeredQuestions = attempt.getSubmissions() != null ? attempt.getSubmissions().size() : 0;
+        List<Question> questionsForAttempt = questionService.getQuestionsFromSubmissions(attempt);
+
+        int answeredQuestions = 0;
+        if (attempt.getSubmissions() != null) {
+            answeredQuestions = (int) attempt.getSubmissions().stream()
+                    .filter(s -> (s.getSelectedOptions() != null && !s.getSelectedOptions().isEmpty()) ||
+                            (s.getAnswerText() != null && !s.getAnswerText().isEmpty()))
+                    .count();
+        }
 
         cacheService.clearAttemptRelatedCaches();
         cacheService.clearStudentRelatedCaches();
@@ -319,14 +331,13 @@ public class TestAttemptServiceImpl implements TestAttemptService {
                 .score(totalScore)
                 .totalScore(test.getTotalScore())
                 .questionsAnswered(answeredQuestions)
-                .totalQuestions(questionsForTest.size())
+                .totalQuestions(questionsForAttempt.size())
                 .completed(true)
                 .build();
     }
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "attemptStatus", key = "#principal.name + ':attemptId:' + #attemptId")
     public AttemptStatusResponse getAttemptStatus(Principal principal, Long attemptId) {
         log.info("[ATTEMPT STATUS] User: {} is checking status of attempt: {}",
                 principal.getName(), attemptId);
@@ -346,16 +357,18 @@ public class TestAttemptServiceImpl implements TestAttemptService {
             autoCompleteExpiredAttempt(attempt);
         }
 
-        List<Question> questionsForTest = questionService.getQuestionsForTest(test);
+        List<Question> questionsForAttempt  = questionService.getQuestionsFromSubmissions(attempt);
         List<QuestionAnswerStatus> questionStatuses = new ArrayList<>();
 
-        for (int i = 0; i < questionsForTest.size(); i++) {
-            Question question = questionsForTest.get(i);
+        for (int i = 0; i < questionsForAttempt.size(); i++) {
+            Question question = questionsForAttempt.get(i);
             boolean isAnswered = false;
 
             if (attempt.getSubmissions() != null) {
                 isAnswered = attempt.getSubmissions().stream()
-                        .anyMatch(s -> s.getQuestion().getId() == question.getId());
+                        .filter(s -> s.getQuestion().getId() == question.getId())
+                        .anyMatch(s -> (s.getSelectedOptions() != null && !s.getSelectedOptions().isEmpty()) ||
+                                (s.getAnswerText() != null && !s.getAnswerText().isEmpty()));
             }
 
             questionStatuses.add(QuestionAnswerStatus.builder()
@@ -367,11 +380,16 @@ public class TestAttemptServiceImpl implements TestAttemptService {
 
         int lastQuestionViewed = 1;
         if (attempt.getSubmissions() != null && !attempt.getSubmissions().isEmpty()) {
-            Optional<Submission> lastSubmission = attempt.getSubmissions().stream()
-                    .max(Comparator.comparing(s -> questionService.findQuestionIndex(questionsForTest, s.getQuestion())));
 
-            int lastIndex = questionService.findQuestionIndex(questionsForTest, lastSubmission.get().getQuestion());
-            lastQuestionViewed = lastIndex + 1;
+            Optional<Submission> lastAnsweredSubmission = attempt.getSubmissions().stream()
+                    .filter(s -> (s.getSelectedOptions() != null && !s.getSelectedOptions().isEmpty()) ||
+                            (s.getAnswerText() != null && !s.getAnswerText().isEmpty()))
+                    .max(Comparator.comparing(s -> questionService.findQuestionIndex(questionsForAttempt, s.getQuestion())));
+
+            if (lastAnsweredSubmission.isPresent()) {
+                int lastIndex = questionService.findQuestionIndex(questionsForAttempt, lastAnsweredSubmission.get().getQuestion());
+                lastQuestionViewed = lastIndex + 1;
+            }
         }
 
         int timeRemainingSeconds = 0;
@@ -380,7 +398,13 @@ public class TestAttemptServiceImpl implements TestAttemptService {
             if (timeRemainingSeconds < 0) timeRemainingSeconds = 0;
         }
 
-        int answeredQuestions = attempt.getSubmissions() != null ? attempt.getSubmissions().size() : 0;
+        int answeredQuestions = 0;
+        if (attempt.getSubmissions() != null) {
+            answeredQuestions = (int) attempt.getSubmissions().stream()
+                    .filter(s -> (s.getSelectedOptions() != null && !s.getSelectedOptions().isEmpty()) ||
+                            (s.getAnswerText() != null && !s.getAnswerText().isEmpty()))
+                    .count();
+        }
 
         return AttemptStatusResponse.builder()
                 .attemptId(attempt.getId())
@@ -392,7 +416,7 @@ public class TestAttemptServiceImpl implements TestAttemptService {
                 .isCompleted(attempt.getStatus() == AttemptStatus.COMPLETED)
                 .isExpired(isExpired)
                 .timeRemainingSeconds(timeRemainingSeconds)
-                .totalQuestions(questionsForTest.size())
+                .totalQuestions(questionsForAttempt.size())
                 .answeredQuestions(answeredQuestions)
                 .questionStatuses(questionStatuses)
                 .lastQuestionViewed(lastQuestionViewed)
@@ -408,10 +432,12 @@ public class TestAttemptServiceImpl implements TestAttemptService {
 
         if (attempt.getSubmissions() != null) {
             for (Submission submission : attempt.getSubmissions()) {
-                Question question = submission.getQuestion();
+                if (submission.getQuestion() != null) {
+                    Question question = submission.getQuestion();
 
-                if (isChoiceQuestionType(question.getQuestionType())) {
-                    totalScore += gradingService.gradeMultipleSelectionQuestion(submission);
+                    if (isChoiceQuestionType(question.getQuestionType())) {
+                        totalScore += gradingService.gradeMultipleSelectionQuestion(submission);
+                    }
                 }
             }
         }

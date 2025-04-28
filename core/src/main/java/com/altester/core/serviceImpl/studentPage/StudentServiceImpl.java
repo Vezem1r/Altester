@@ -148,6 +148,10 @@ public class StudentServiceImpl implements StudentService {
             throw new StateConflictException("attempt", "in_progress", "Cannot view review for an in-progress attempt");
         }
 
+        if (attempt.getStatus() == AttemptStatus.COMPLETED) {
+            throw new StateConflictException("attempt", "completed", "Cannot view review for non reviewed attempt");
+        }
+
         List<QuestionReviewDTO> questionReviews;
 
         if (attempt.getStatus() == AttemptStatus.REVIEWED) {

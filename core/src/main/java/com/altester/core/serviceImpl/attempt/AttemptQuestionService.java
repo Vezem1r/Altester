@@ -127,6 +127,44 @@ public class AttemptQuestionService {
     }
 
     /**
+     * Creates empty submissions for all selected questions in an attempt
+     * @param attempt The attempt to create submissions for
+     * @param questions The list of selected questions for the attempt
+     */
+    public void createInitialSubmissions(Attempt attempt, List<Question> questions) {
+        List<Submission> submissions = new ArrayList<>();
+
+        for (Question question : questions) {
+            Submission submission = Submission.builder()
+                    .attempt(attempt)
+                    .question(question)
+                    .selectedOptions(new ArrayList<>())
+                    .build();
+
+            submissions.add(submission);
+        }
+
+        attempt.setSubmissions(submissions);
+        log.debug("Created {} initial empty submissions for attempt ID: {}", submissions.size(), attempt.getId());
+    }
+
+    /**
+     * Gets a list of questions from the submissions of an attempt
+     * @param attempt The attempt containing submissions
+     * @return A list of questions in the order they appear in the submissions
+     */
+    public List<Question> getQuestionsFromSubmissions(Attempt attempt) {
+        if (attempt.getSubmissions() == null || attempt.getSubmissions().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return attempt.getSubmissions().stream()
+                .map(Submission::getQuestion)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Identifies the next unanswered question in an ongoing test attempt.
      */
     public int findQuestionToResume(Attempt attempt, List<Question> questions) {
@@ -135,6 +173,8 @@ public class AttemptQuestionService {
         }
 
         Set<Long> answeredQuestionIds = attempt.getSubmissions().stream()
+                .filter(s -> (s.getSelectedOptions() != null && !s.getSelectedOptions().isEmpty())
+                        || (s.getAnswerText() != null && !s.getAnswerText().isEmpty()))
                 .map(s -> s.getQuestion().getId())
                 .collect(Collectors.toSet());
 

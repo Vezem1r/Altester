@@ -70,6 +70,15 @@ public class Test {
     private Set<TestGroupAssignment> testGroupAssignments = new HashSet<>();
 
     @Transient
+    public int getTotalQuestions() {
+        int easyCount = (getEasyQuestionsCount() != null) ? getEasyQuestionsCount() : 0;
+        int mediumCount = (getMediumQuestionsCount() != null) ? getMediumQuestionsCount() : 0;
+        int hardCount = (getHardQuestionsCount() != null) ? getHardQuestionsCount() : 0;
+
+        return easyCount + mediumCount + hardCount;
+    }
+
+    @Transient
     public int getTotalScore() {
         Map<QuestionDifficulty, List<Question>> grouped = questions.stream()
                 .collect(Collectors.groupingBy(Question::getDifficulty));
