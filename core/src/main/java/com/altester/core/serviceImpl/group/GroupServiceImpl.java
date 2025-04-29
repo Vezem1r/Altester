@@ -6,6 +6,7 @@ import com.altester.core.exception.*;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
+import com.altester.core.model.subject.Subject;
 import com.altester.core.model.subject.enums.Semester;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
@@ -119,7 +120,7 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @Transactional
-    public void updateGroup(Long id, CreateGroupDTO createGroupDTO) {
+    public void updateGroup(Long id, UpdateGroupDTO updateGroupDTO) {
         Group group = getGroupById(id);
 
         Set<User> originalStudents = new HashSet<>(group.getStudents());
@@ -129,27 +130,27 @@ public class GroupServiceImpl implements GroupService {
             throw StateConflictException.inactiveGroup(group.getName());
         }
 
-        if (createGroupDTO.getStudentsIds() == null || createGroupDTO.getStudentsIds().isEmpty()) {
+        if (updateGroupDTO.getStudentsIds() == null || updateGroupDTO.getStudentsIds().isEmpty()) {
             log.error("Group update failed: At least one student is required");
             throw ValidationException.groupValidation("Group must have at least one student");
         }
 
-        if (!group.getName().equals(createGroupDTO.getGroupName()) &&
-                groupRepository.findByName(createGroupDTO.getGroupName()).isPresent()) {
-            log.error("Group with name '{}' already exists", createGroupDTO.getGroupName());
-            throw ResourceAlreadyExistsException.group(createGroupDTO.getGroupName());
+        if (!group.getName().equals(updateGroupDTO.getGroupName()) &&
+                groupRepository.findByName(updateGroupDTO.getGroupName()).isPresent()) {
+            log.error("Group with name '{}' already exists", updateGroupDTO.getGroupName());
+            throw ResourceAlreadyExistsException.group(updateGroupDTO.getGroupName());
         }
 
-        group.setName(createGroupDTO.getGroupName());
+        group.setName(updateGroupDTO.getGroupName());
 
-        User teacher = getUserById(createGroupDTO.getTeacherId(), "Teacher");
+        User teacher = getUserById(updateGroupDTO.getTeacherId(), "Teacher");
         if (!teacher.getRole().equals(RolesEnum.TEACHER)) {
-            log.error("User with ID '{}' is not a teacher", createGroupDTO.getTeacherId());
+            log.error("User with ID '{}' is not a teacher", updateGroupDTO.getTeacherId());
             throw StateConflictException.roleConflict("User is not a teacher");
         }
         group.setTeacher(teacher);
 
-        Set<User> students = createGroupDTO.getStudentsIds().stream()
+        Set<User> students = updateGroupDTO.getStudentsIds().stream()
                 .map(userRepository::findById)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -160,19 +161,23 @@ public class GroupServiceImpl implements GroupService {
             log.error("Group update failed: No valid students found");
             throw ValidationException.groupValidation("Group update failed: No valid students found");
         }
+
+        Subject subject = subjectRepository.findByGroupsContaining(group).orElse(null);
+        studentService.validateStudents(students, subject, group.getId());
+
         group.setStudents(students);
 
-        if (createGroupDTO.getSemester() == null) {
-            createGroupDTO.setSemester(Semester.valueOf(semesterConfig.getCurrentSemester()));
+        if (updateGroupDTO.getSemester() == null) {
+            updateGroupDTO.setSemester(Semester.valueOf(semesterConfig.getCurrentSemester()));
         }
 
-        if (createGroupDTO.getAcademicYear() == null) {
-            createGroupDTO.setAcademicYear(semesterConfig.getCurrentAcademicYear());
+        if (updateGroupDTO.getAcademicYear() == null) {
+            updateGroupDTO.setAcademicYear(semesterConfig.getCurrentAcademicYear());
         }
 
-        boolean isActive = semesterConfig.isSemesterActive(createGroupDTO.getSemester().name(), createGroupDTO.getAcademicYear());
-        group.setSemester(createGroupDTO.getSemester());
-        group.setAcademicYear(createGroupDTO.getAcademicYear());
+        boolean isActive = semesterConfig.isSemesterActive(updateGroupDTO.getSemester().name(), updateGroupDTO.getAcademicYear());
+        group.setSemester(updateGroupDTO.getSemester());
+        group.setAcademicYear(updateGroupDTO.getAcademicYear());
         group.setActive(isActive);
 
         groupRepository.save(group);
@@ -207,6 +212,17 @@ public class GroupServiceImpl implements GroupService {
             throw StateConflictException.roleConflict("User is not a teacher");
         }
 
+        if (createGroupDTO.getSubjectId() == null) {
+            log.error("Subject ID is required when creating a group");
+            throw ValidationException.invalidParameter("subject", "Subject is required when creating a group");
+        }
+
+        Subject subject = subjectRepository.findById(createGroupDTO.getSubjectId())
+                .orElseThrow(() -> {
+                    log.error("Subject with ID {} not found", createGroupDTO.getSubjectId());
+                    return ResourceNotFoundException.subject(createGroupDTO.getSubjectId());
+                });
+
         if (createGroupDTO.getSemester() == null) {
             createGroupDTO.setSemester(Semester.valueOf(semesterConfig.getCurrentSemester()));
         }
@@ -219,20 +235,10 @@ public class GroupServiceImpl implements GroupService {
                 ? createGroupDTO.getActive()
                 : semesterConfig.isSemesterActive(createGroupDTO.getSemester().name(), createGroupDTO.getAcademicYear());
 
-        Set<User> students = new HashSet<>();
-        if (createGroupDTO.getStudentsIds() != null && !createGroupDTO.getStudentsIds().isEmpty()) {
-            students = createGroupDTO.getStudentsIds().stream()
-                    .map(userRepository::findById)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .filter(user -> user.getRole().equals(RolesEnum.STUDENT))
-                    .collect(Collectors.toSet());
-        }
-
         Group group = Group.builder()
                 .name(createGroupDTO.getGroupName())
                 .teacher(teacher)
-                .students(students)
+                .students(new HashSet<>())
                 .semester(createGroupDTO.getSemester())
                 .academicYear(createGroupDTO.getAcademicYear())
                 .active(isActive)
@@ -240,15 +246,13 @@ public class GroupServiceImpl implements GroupService {
 
         Group savedGroup = groupRepository.save(group);
 
+        subject.getGroups().add(savedGroup);
+        subjectRepository.save(subject);
+
         cacheService.clearAllCaches();
 
-        log.info("Group '{}' created successfully with {} students, active status: {}",
-                group.getName(), students.size(), group.isActive());
-
-        if (!students.isEmpty()) {
-            students.forEach(student ->
-                    notificationService.notifyNewStudentJoined(student, savedGroup));
-        }
+        log.info("Group '{}' created successfully, active status: {}",
+                group.getName(), group.isActive());
 
         return savedGroup.getId();
     }
@@ -260,15 +264,15 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     public GroupStudentsResponseDTO getGroupStudentsWithCategories(
-            int page, int size, Long groupId, String searchQuery, boolean includeCurrentMembers, boolean hideStudentsInSameSubject) {
+            int page, int size, Long groupId, String searchQuery, boolean includeCurrentMembers) {
         return studentService.getGroupStudentsWithCategories(
-                page, size, groupId, searchQuery, includeCurrentMembers, hideStudentsInSameSubject);
+                page, size, groupId, searchQuery, includeCurrentMembers);
     }
 
     @Override
     public CacheablePage<CreateGroupUserListDTO> getAllStudentsNotInGroup(
-            int page, int size, Long groupId, String searchQuery, boolean hideStudentsInSameSubject) {
-        return studentService.getAllStudentsNotInGroup(page, size, groupId, searchQuery, hideStudentsInSameSubject);
+            int page, int size, Long groupId, String searchQuery) {
+        return studentService.getAllStudentsNotInGroup(page, size, groupId, searchQuery);
     }
 
     @Override

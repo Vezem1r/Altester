@@ -286,6 +286,12 @@ public class DataInit {
 
         Map<Subject, Integer> subjectGroupCounts = new HashMap<>();
 
+        Map<Subject, Set<User>> studentsAssignedToSubject = new HashMap<>();
+
+        for (Subject subject : subjects) {
+            studentsAssignedToSubject.put(subject, new HashSet<>());
+        }
+
         int remainingGroups = groupCount;
         int subjectsWithGroups = Math.min(subjects.size(), groupCount);
 
@@ -322,9 +328,19 @@ public class DataInit {
                 int studentCount = 5 + random.nextInt(11);
                 Set<User> groupStudents = new HashSet<>();
 
-                for (int j = 0; j < studentCount && j < students.size(); j++) {
-                    int studentIndex = (groupIndex * 7 + j * 3 + i * 11) % students.size();
-                    groupStudents.add(students.get(studentIndex));
+                int attemptsCount = 0;
+                int maxAttempts = students.size() * 2;
+
+                while (groupStudents.size() < studentCount && attemptsCount < maxAttempts) {
+                    int studentIndex = (groupIndex * 7 + attemptsCount * 3 + i * 11) % students.size();
+                    User student = students.get(studentIndex);
+
+                    if (!studentsAssignedToSubject.get(subject).contains(student)) {
+                        groupStudents.add(student);
+                        studentsAssignedToSubject.get(subject).add(student);
+                    }
+
+                    attemptsCount++;
                 }
 
                 boolean groupIsActive = isActive;

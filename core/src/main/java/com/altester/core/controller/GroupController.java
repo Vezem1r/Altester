@@ -34,9 +34,9 @@ public class GroupController {
     @PutMapping("/update/{groupId}")
     public ResponseEntity<String> updateGroup(
             @PathVariable Long groupId,
-            @Valid @RequestBody CreateGroupDTO createGroupDTO) {
-        log.debug("Updating group with ID {}: {}", groupId, createGroupDTO.getGroupName());
-        groupService.updateGroup(groupId, createGroupDTO);
+            @Valid @RequestBody UpdateGroupDTO updateGroupDTO) {
+        log.debug("Updating group with ID {}: {}", groupId, updateGroupDTO.getGroupName());
+        groupService.updateGroup(groupId, updateGroupDTO);
         log.info("Group with ID {} updated successfully", groupId);
         return ResponseEntity.ok("Group updated successfully");
     }
@@ -95,8 +95,8 @@ public class GroupController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) Long groupId,
             @RequestParam(required = false) String searchQuery,
-            @RequestParam(defaultValue = "false") boolean includeCurrentMembers,
-            @RequestParam(defaultValue = "false") boolean hideStudentsInSameSubject) {
+            @RequestParam(defaultValue = "false") boolean includeCurrentMembers
+    ) {
         log.debug("Fetching students for group with ID: {}", groupId);
 
         if (groupId == null) {
@@ -114,7 +114,7 @@ public class GroupController {
         }
 
         GroupStudentsResponseDTO result = groupService.getGroupStudentsWithCategories(
-                page, size, groupId, searchQuery, includeCurrentMembers, hideStudentsInSameSubject);
+                page, size, groupId, searchQuery, includeCurrentMembers);
 
         return ResponseEntity.ok(result);
     }

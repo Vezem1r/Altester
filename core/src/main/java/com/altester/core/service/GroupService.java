@@ -40,12 +40,12 @@ public interface GroupService {
     /**
      * Updates an existing group with new information if allowed by activity rules
      * @param id ID of the group to update
-     * @param createGroupDTO DTO containing updated group information
+     * @param updateGroupDTO DTO containing updated group information
      * @throws StateConflictException if group cannot be modified due to activity constraints
      * @throws ValidationException if update fails validation
      * @throws ResourceAlreadyExistsException if new group name is already taken
      */
-    void updateGroup(Long id, CreateGroupDTO createGroupDTO);
+    void updateGroup(Long id, UpdateGroupDTO updateGroupDTO);
 
     /**
      * Creates a new group with provided information and returns the generated ID
@@ -83,20 +83,18 @@ public interface GroupService {
      * @param groupId ID of the group to get members for
      * @param searchQuery Optional search query to filter available students
      * @param includeCurrentMembers Whether to include current members in available students
-     * @param hideStudentsInSameSubject Whether to hide students already in the same subject
      * @return GroupStudentsResponseDTO with current members and available students
      * @throws ValidationException if groupId is null
      */
     GroupStudentsResponseDTO getGroupStudentsWithCategories(
-            int page, int size, Long groupId, String searchQuery, boolean includeCurrentMembers, boolean hideStudentsInSameSubject);
+            int page, int size, Long groupId, String searchQuery, boolean includeCurrentMembers);
 
     /**
      * Retrieves students not in specified group with optional filtering by subject association
      * @param groupId ID of the group to exclude students from
      * @param searchQuery Optional search query to filter students
-     * @param hideStudentsInSameSubject Whether to hide students already in the same subject
      * @return Paginated list of CreateGroupUserListDTO objects
      */
     CacheablePage<CreateGroupUserListDTO> getAllStudentsNotInGroup(
-            int page, int size, Long groupId, String searchQuery, boolean hideStudentsInSameSubject);
+            int page, int size, Long groupId, String searchQuery);
 }

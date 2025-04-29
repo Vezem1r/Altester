@@ -101,9 +101,9 @@ public class GroupStudentService {
     }
 
     @Cacheable(value = "groupStudentsWithCategories",
-            key = "'page:' + #page + ':size:' + #size + ':groupId:' + #groupId + ':search:' + (#searchQuery == null ? '' : #searchQuery) + ':includeMembers:' + #includeCurrentMembers + ':hideStudents:' + #hideStudentsInSameSubject")
+            key = "'page:' + #page + ':size:' + #size + ':groupId:' + #groupId + ':search:' + (#searchQuery == null ? '' : #searchQuery) + ':includeMembers:' + #includeCurrentMembers")
     public GroupStudentsResponseDTO getGroupStudentsWithCategories(
-            int page, int size, Long groupId, String searchQuery, boolean includeCurrentMembers, boolean hideStudentsInSameSubject) {
+            int page, int size, Long groupId, String searchQuery, boolean includeCurrentMembers) {
 
         if (groupId == null) {
             throw ValidationException.invalidParameter("groupId", "Group ID is required");
@@ -122,7 +122,7 @@ public class GroupStudentService {
         CacheablePage<CreateGroupUserListDTO> availableStudents =
                 includeCurrentMembers ?
                         getAllStudents(page, size, searchQuery) :
-                        getAllStudentsNotInGroup(page, size, groupId, searchQuery, hideStudentsInSameSubject);
+                        getAllStudentsNotInGroup(page, size, groupId, searchQuery);
 
         return GroupStudentsResponseDTO.builder()
                 .currentMembers(currentMembers)
@@ -133,13 +133,14 @@ public class GroupStudentService {
     @Cacheable(
             value = "groupStudentsNotInGroup",
             key = "'page:' + #page + ':size:' + #size + ':groupId:' + #groupId +" +
-                    "':search:' + (#searchQuery == null ? '' : #searchQuery) + ':hide:' + #hideStudentsInSameSubject")
+                    "':search:' + (#searchQuery == null ? '' : #searchQuery)")
     public CacheablePage<CreateGroupUserListDTO> getAllStudentsNotInGroup(
-            int page, int size, Long groupId, String searchQuery, boolean hideStudentsInSameSubject) {
+            int page, int size, Long groupId, String searchQuery) {
         Pageable pageable = PageRequest.of(page, size);
 
         Group group = getGroupById(groupId);
         Set<Long> studentsInGroupIds = group.getStudents().stream().map(User::getId).collect(Collectors.toSet());
+
         Subject subject = subjectRepository.findByGroupsContaining(group).orElse(null);
 
         Set<Long> studentsInSubjectIds = getOtherGroupsStudentIds(subject, group);
@@ -147,10 +148,8 @@ public class GroupStudentService {
         List<User> allStudents = userRepository.findAllByRole(RolesEnum.STUDENT);
 
         List<User> filteredStudents = filterStudents(
-                allStudents, studentsInGroupIds, studentsInSubjectIds, searchQuery, hideStudentsInSameSubject
+                allStudents, studentsInGroupIds, studentsInSubjectIds, searchQuery
         );
-
-        sortBySubjectPresence(filteredStudents, studentsInSubjectIds, hideStudentsInSameSubject);
 
         List<User> pagedStudents = paginateStudents(filteredStudents, pageable);
         List<CreateGroupUserListDTO> dtoList = convertToDto(pagedStudents, studentsInSubjectIds, subject);
@@ -161,13 +160,12 @@ public class GroupStudentService {
     public List<User> filterStudents(
             List<User> allStudents,
             Set<Long> studentsInGroupIds,
-            Set<Long> studentsInSubjectIds,
-            String searchQuery,
-            boolean hideStudentsInSameSubject
+            Set<Long> studentsInSameSubjectIds,
+            String searchQuery
     ) {
         return allStudents.stream()
                 .filter(student -> !studentsInGroupIds.contains(student.getId()))
-                .filter(student -> !hideStudentsInSameSubject || !studentsInSubjectIds.contains(student.getId()))
+                .filter(student -> !studentsInSameSubjectIds.contains(student.getId()))
                 .filter(student -> {
                     if (!StringUtils.hasText(searchQuery)) return true;
 
@@ -176,16 +174,6 @@ public class GroupStudentService {
                     return fullName.contains(searchQuery.toLowerCase()) || username.contains(searchQuery.toLowerCase());
                 })
                 .collect(Collectors.toList());
-    }
-
-    public void sortBySubjectPresence(List<User> students, Set<Long> studentsInSubjectIds, boolean hideStudentsInSameSubject) {
-        if (!studentsInSubjectIds.isEmpty() && !hideStudentsInSameSubject) {
-            students.sort((a, b) -> {
-                boolean aInSubject = studentsInSubjectIds.contains(a.getId());
-                boolean bInSubject = studentsInSubjectIds.contains(b.getId());
-                return Boolean.compare(bInSubject, aInSubject);
-            });
-        }
     }
 
     public List<User> paginateStudents(List<User> students, Pageable pageable) {
@@ -226,6 +214,7 @@ public class GroupStudentService {
 
         return subject.getGroups().stream()
                 .filter(g -> g.getId() != currentGroup.getId())
+                .filter(Group::isActive)
                 .flatMap(g -> g.getStudents().stream())
                 .map(User::getId)
                 .collect(Collectors.toSet());
@@ -240,5 +229,40 @@ public class GroupStudentService {
                         .orElse("Group has no subject"))
                 .distinct()
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Validates that students are not already in other active groups of the same subject
+     * @param students Students to validate
+     * @param subject Subject which holds this group
+     * @param currentGroupId Current group ID (can be null for new groups)
+     * @throws ValidationException if validation fails
+     */
+    public void validateStudents(Set<User> students, Subject subject, Long currentGroupId) {
+        if (subject == null) {
+            return;
+        }
+
+        Set<Group> otherActiveGroups = subject.getGroups().stream()
+                .filter(Group::isActive)
+                .filter(g -> currentGroupId == null || g.getId() != currentGroupId)
+                .collect(Collectors.toSet());
+
+        if (otherActiveGroups.isEmpty()) {
+            return;
+        }
+
+        for (User student : students) {
+            for (Group group : otherActiveGroups) {
+                if (group.getStudents().contains(student)) {
+                    log.error("Student {} is already in another active group {} of the same subject",
+                            student.getUsername(), group.getName());
+                    throw ValidationException.groupValidation(
+                            "Student " + student.getName() + " " + student.getSurname() +
+                                    " is already in active group '" + group.getName() +
+                                    "' of the same subject. Students cannot be in multiple active groups of the same subject.");
+                }
+            }
+        }
     }
 }
