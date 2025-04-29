@@ -1,6 +1,7 @@
 package com.altester.core.dtos.core_service.apiKey;
 
 import com.altester.core.model.ApiKey.ApiKey;
+import com.altester.core.model.ApiKey.enums.AiServiceName;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,7 +17,7 @@ public class ApiKeyDTO {
     private Long id;
     private String name;
     private String keyMasked;
-    private String aiServiceName;
+    private AiServiceName aiServiceName;
     private boolean isGlobal;
     private Long ownerId;
     private String ownerUsername;

@@ -1,14 +1,12 @@
 package com.altester.core.model.ApiKey;
 
+import com.altester.core.model.ApiKey.enums.AiServiceName;
 import com.altester.core.model.auth.User;
-import com.altester.core.model.subject.Test;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
 
 @Entity
 @Data
@@ -16,7 +14,6 @@ import java.util.Set;
 @AllArgsConstructor
 @Builder
 @Table(name = "api_keys")
-@EqualsAndHashCode(exclude = {"tests"})
 public class ApiKey {
 
     @Id
@@ -37,7 +34,8 @@ public class ApiKey {
     private String keySuffix;
 
     @Column(nullable = false)
-    private String aiServiceName;
+    @Enumerated(EnumType.STRING)
+    private AiServiceName aiServiceName;
 
     @Column(nullable = false)
     private boolean isGlobal;

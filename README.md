@@ -1,3 +1,5 @@
+LangChain, enum for api services. Поиграть с уведмолениями, в конце концов чатик доделать.
+
 # Altester
 
 <img src="scr/8.png" width="100%">

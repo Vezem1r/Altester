@@ -1,5 +1,6 @@
 package com.altester.core.dtos.core_service.apiKey;
 
+import com.altester.core.model.ApiKey.enums.AiServiceName;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -17,7 +18,7 @@ public class ApiKeyRequest {
     private String apiKey;
 
     @NotBlank(message = "AI service name is required")
-    private String aiServiceName;
+    private AiServiceName aiServiceName;
 
     @NotNull(message = "Global flag is required")
     private Boolean isGlobal;

@@ -1,5 +1,6 @@
 package com.altester.core.dtos.core_service.apiKey;
 
+import com.altester.core.model.ApiKey.enums.AiServiceName;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,7 +14,7 @@ public class ApiKeyAssignmentDTO {
     private Long apiKeyId;
     private String apiKeyName;
     private String maskedKey;
-    private String aiServiceName;
+    private AiServiceName aiServiceName;
     private GroupTeacherDTO group;
     private boolean aiEvaluationEnabled;
 }

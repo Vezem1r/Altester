@@ -1,6 +1,7 @@
 package com.altester.core.dtos.core_service.apiKey;
 
 import com.altester.core.model.ApiKey.ApiKey;
+import com.altester.core.model.ApiKey.enums.AiServiceName;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,7 +15,7 @@ public class AvailableKeys {
     private Long id;
     private String name;
     private String keyMasked;
-    private String aiServiceName;
+    private AiServiceName aiServiceName;
 
     public static AvailableKeys fromApiKey(ApiKey apiKey) {
         String maskedKey = apiKey.getKeyPrefix() + "*".repeat(8) + apiKey.getKeySuffix();
