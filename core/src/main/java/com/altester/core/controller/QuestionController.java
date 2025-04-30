@@ -6,7 +6,6 @@ import com.altester.core.dtos.core_service.question.UpdateQuestionDTO;
 import com.altester.core.service.QuestionService;
 import com.altester.core.validation.FileValidator;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;

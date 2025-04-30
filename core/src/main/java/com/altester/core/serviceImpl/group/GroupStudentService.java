@@ -7,6 +7,7 @@ import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
+import com.altester.core.model.subject.enums.Semester;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.UserRepository;
@@ -33,6 +34,7 @@ public class GroupStudentService {
     private final UserRepository userRepository;
     private final SubjectRepository subjectRepository;
     private final GroupDTOMapper groupMapper;
+    private final GroupActivityService groupActivityService;
 
     public Group getGroupById(long id) {
         return groupRepository.findById(id)
@@ -42,6 +44,15 @@ public class GroupStudentService {
                 });
     }
 
+    /**
+     * Retrieves a paginated list of students with optional search filtering.
+     * Supports caching to improve performance for repeated queries.
+     *
+     * @param page The page number of results to retrieve (zero-indexed)
+     * @param size The number of students per page
+     * @param searchQuery Optional text to filter students by name or username
+     * @return A pageable collection of student DTOs matching the search criteria
+     */
     @Cacheable(
             value = "groupStudents",
             key = "'page:' + #page + ':size:' + #size + ':search:' + (#searchQuery == null ? '' : #searchQuery)"
@@ -58,6 +69,14 @@ public class GroupStudentService {
         return new CacheablePage<>(resultPage);
     }
 
+    /**
+     * Retrieves a filtered page of students, considering search query and role.
+     * Used internally to support student pagination and filtering.
+     *
+     * @param pageable Pagination information
+     * @param searchQuery Optional text to filter students
+     * @return A page of User entities matching the search criteria
+     */
     private Page<User> getFilteredStudentsPage(Pageable pageable, String searchQuery) {
         if (!StringUtils.hasText(searchQuery)) {
             return userRepository.findByRole(RolesEnum.STUDENT, pageable);
@@ -81,25 +100,41 @@ public class GroupStudentService {
         return new PageImpl<>(paged, pageable, filtered.size());
     }
 
+    /**
+     * Checks if a student matches the search criteria.
+     *
+     * @param student The student to check
+     * @param searchLower The lowercase search query
+     * @return true if the student matches the search, false otherwise
+     */
     private boolean matchesSearch(User student, String searchLower) {
         String fullName = (student.getName() + " " + student.getSurname()).toLowerCase();
         String username = student.getUsername() != null ? student.getUsername().toLowerCase() : "";
         return fullName.contains(searchLower) || username.contains(searchLower);
     }
 
+    /**
+     * Maps a student to a Data Transfer Object (DTO) with additional group and subject information.
+     *
+     * @param student The student to map
+     * @return A CreateGroupUserListDTO containing student details and associated subject names
+     */
     private CreateGroupUserListDTO mapStudentToDTO(User student) {
         List<Group> activeGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
-
-        List<String> subjectNames = activeGroups.stream()
-                .map(group -> subjectRepository.findByGroupsContaining(group)
-                        .map(Subject::getShortName)
-                        .orElse("Group has no subject"))
-                .distinct()
-                .toList();
-
-        return groupMapper.toCreateGroupUserListDTO(student, subjectNames);
+        return groupMapper.toCreateGroupUserListDTO(student);
     }
 
+    /**
+     * Retrieves group students with categorization, supporting pagination and optional filtering.
+     *
+     * @param page The page number of results to retrieve (zero-indexed)
+     * @param size The number of students per page
+     * @param groupId The unique identifier of the group
+     * @param searchQuery Optional text to filter students
+     * @param includeCurrentMembers Flag to determine whether to include current group members in available students
+     * @return A response containing current group members and available students
+     * @throws ValidationException if group ID is not provided
+     */
     @Cacheable(value = "groupStudentsWithCategories",
             key = "'page:' + #page + ':size:' + #size + ':groupId:' + #groupId + ':search:' + (#searchQuery == null ? '' : #searchQuery) + ':includeMembers:' + #includeCurrentMembers")
     public GroupStudentsResponseDTO getGroupStudentsWithCategories(
@@ -111,13 +146,8 @@ public class GroupStudentService {
 
         Group group = getGroupById(groupId);
 
-        List<String> subjectNames = group.getStudents().stream()
-                .flatMap(student -> getStudentSubjects(student).stream())
-                .distinct()
-                .collect(Collectors.toList());
-
         List<CreateGroupUserListDTO> currentMembers = groupMapper.mapAndSortCurrentMembers(
-                group.getStudents(), subjectNames);
+                group.getStudents());
 
         CacheablePage<CreateGroupUserListDTO> availableStudents =
                 includeCurrentMembers ?
@@ -130,6 +160,17 @@ public class GroupStudentService {
                 .build();
     }
 
+    /**
+     * Retrieves a paginated list of students not currently in a specific group.
+     * Supports caching and advanced filtering based on subject and group constraints.
+     *
+     * @param page The page number of results to retrieve (zero-indexed)
+     * @param size The number of students per page
+     * @param groupId The unique identifier of the group
+     * @param searchQuery Optional text to filter students
+     * @return A pageable collection of student DTOs not in the specified group
+     * @throws ResourceNotFoundException if the group does not exist
+     */
     @Cacheable(
             value = "groupStudentsNotInGroup",
             key = "'page:' + #page + ':size:' + #size + ':groupId:' + #groupId +" +
@@ -143,20 +184,64 @@ public class GroupStudentService {
 
         Subject subject = subjectRepository.findByGroupsContaining(group).orElse(null);
 
-        Set<Long> studentsInSubjectIds = getOtherGroupsStudentIds(subject, group);
+        boolean isGroupInFuture = groupActivityService.isGroupInFuture(group);
+
+        Set<Long> relevantStudentIds = getRelevantStudentIds(subject, group, isGroupInFuture);
 
         List<User> allStudents = userRepository.findAllByRole(RolesEnum.STUDENT);
 
         List<User> filteredStudents = filterStudents(
-                allStudents, studentsInGroupIds, studentsInSubjectIds, searchQuery
+                allStudents, studentsInGroupIds, relevantStudentIds, searchQuery
         );
 
         List<User> pagedStudents = paginateStudents(filteredStudents, pageable);
-        List<CreateGroupUserListDTO> dtoList = convertToDto(pagedStudents, studentsInSubjectIds, subject);
+        List<CreateGroupUserListDTO> dtoList = convertToDto(pagedStudents, relevantStudentIds, subject);
 
         return new CacheablePage<>(new PageImpl<>(dtoList, pageable, filteredStudents.size()));
     }
 
+    /**
+     * Determines relevant student IDs based on subject, current group, and group activity status.
+     *
+     * @param subject The subject associated with the group
+     * @param currentGroup The current group being processed
+     * @param isCurrentGroupInFuture Flag indicating if the current group is a future group
+     * @return A set of student IDs relevant to the specified conditions
+     */
+    public Set<Long> getRelevantStudentIds(Subject subject, Group currentGroup, boolean isCurrentGroupInFuture) {
+        if (subject == null) return Collections.emptySet();
+
+        Semester currentSemester = currentGroup.getSemester();
+        int currentAcademicYear = currentGroup.getAcademicYear();
+
+        if (!isCurrentGroupInFuture) {
+            return subject.getGroups().stream()
+                    .filter(g -> g.getId() != currentGroup.getId())
+                    .filter(Group::isActive)
+                    .flatMap(g -> g.getStudents().stream())
+                    .map(User::getId)
+                    .collect(Collectors.toSet());
+        } else {
+            return subject.getGroups().stream()
+                    .filter(g -> g.getId() != currentGroup.getId())
+                    .filter(groupActivityService::isGroupInFuture)
+                    .filter(g -> g.getSemester() == currentSemester &&
+                            g.getAcademicYear().equals(currentAcademicYear))
+                    .flatMap(g -> g.getStudents().stream())
+                    .map(User::getId)
+                    .collect(Collectors.toSet());
+        }
+    }
+
+    /**
+     * Filters students based on group membership, subject constraints, and optional search query.
+     *
+     * @param allStudents The complete list of students to filter
+     * @param studentsInGroupIds Set of student IDs already in the group
+     * @param studentsInSameSubjectIds Set of student IDs in related subject groups
+     * @param searchQuery Optional text to filter students
+     * @return A filtered list of students
+     */
     public List<User> filterStudents(
             List<User> allStudents,
             Set<Long> studentsInGroupIds,
@@ -176,6 +261,13 @@ public class GroupStudentService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Paginates a list of students based on the provided pagination information.
+     *
+     * @param students The complete list of students
+     * @param pageable Pagination information
+     * @return A sublist of students for the specified page
+     */
     public List<User> paginateStudents(List<User> students, Pageable pageable) {
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), students.size());
@@ -184,6 +276,14 @@ public class GroupStudentService {
         return students.subList(start, end);
     }
 
+    /**
+     * Converts a list of students to DTOs with optional subject-related enrichment.
+     *
+     * @param students The list of students to convert
+     * @param studentsInSubjectIds Set of student IDs in the subject
+     * @param subject The subject associated with the group (can be null)
+     * @return A list of student DTOs with additional information
+     */
     public List<CreateGroupUserListDTO> convertToDto(
             List<User> students,
             Set<Long> studentsInSubjectIds,
@@ -192,14 +292,7 @@ public class GroupStudentService {
         return students.stream().map(student -> {
             List<Group> activeGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
 
-            List<String> subjectNames = activeGroups.stream()
-                    .map(group -> subjectRepository.findByGroupsContaining(group)
-                            .map(Subject::getShortName)
-                            .orElse("Group has no subject"))
-                    .distinct()
-                    .toList();
-
-            CreateGroupUserListDTO dto = groupMapper.toCreateGroupUserListDTO(student, subjectNames);
+            CreateGroupUserListDTO dto = groupMapper.toCreateGroupUserListDTO(student);
 
             if (subject != null && studentsInSubjectIds.contains(student.getId())) {
                 groupMapper.enrichWithSubjectInfo(dto, true, subject.getName(), subject.getShortName());
@@ -209,6 +302,13 @@ public class GroupStudentService {
         }).toList();
     }
 
+    /**
+     * Retrieves student IDs for other groups in the same subject.
+     *
+     * @param subject The subject to search within
+     * @param currentGroup The current group to exclude
+     * @return A set of student IDs in other active groups of the same subject
+     */
     public Set<Long> getOtherGroupsStudentIds(Subject subject, Group currentGroup) {
         if (subject == null) return Collections.emptySet();
 
@@ -220,6 +320,12 @@ public class GroupStudentService {
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * Retrieves the list of subjects a student is enrolled in.
+     *
+     * @param student The student to retrieve subjects for
+     * @return A list of subject short names
+     */
     public List<String> getStudentSubjects(User student) {
         List<Group> studentActiveGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
 
@@ -232,7 +338,9 @@ public class GroupStudentService {
     }
 
     /**
-     * Validates that students are not already in other active groups of the same subject
+     * Validates that students are not already in other active groups of the same subject,
+     * or in future groups of the same semester and year if the current group is a future group
+     *
      * @param students Students to validate
      * @param subject Subject which holds this group
      * @param currentGroupId Current group ID (can be null for new groups)
@@ -243,6 +351,33 @@ public class GroupStudentService {
             return;
         }
 
+        Group currentGroup = currentGroupId != null
+                ? groupRepository.findById(currentGroupId).orElse(null)
+                : null;
+
+        if (currentGroup == null) {
+            validateAgainstActiveGroups(students, subject, currentGroupId);
+            return;
+        }
+
+        boolean isCurrentGroupInFuture = groupActivityService.isGroupInFuture(currentGroup);
+
+        if (isCurrentGroupInFuture) {
+            validateAgainstFutureGroups(students, subject, currentGroup);
+        } else {
+            validateAgainstActiveGroups(students, subject, currentGroupId);
+        }
+    }
+
+    /**
+     * Validates students against active groups to prevent multiple enrollments in the same subject.
+     *
+     * @param students The set of students to validate
+     * @param subject The subject to check against
+     * @param currentGroupId The ID of the current group
+     * @throws ValidationException if a student is already in an active group of the same subject
+     */
+    private void validateAgainstActiveGroups(Set<User> students, Subject subject, Long currentGroupId) {
         Set<Group> otherActiveGroups = subject.getGroups().stream()
                 .filter(Group::isActive)
                 .filter(g -> currentGroupId == null || g.getId() != currentGroupId)
@@ -263,6 +398,113 @@ public class GroupStudentService {
                                     "' of the same subject. Students cannot be in multiple active groups of the same subject.");
                 }
             }
+        }
+    }
+
+    /**
+     * Validates students against future groups to prevent multiple enrollments in the same subject and semester.
+     *
+     * @param students The set of students to validate
+     * @param subject The subject to check against
+     * @param currentGroup The current group being processed
+     * @throws ValidationException if a student is already in a future group of the same subject and semester
+     */
+    private void validateAgainstFutureGroups(Set<User> students, Subject subject, Group currentGroup) {
+        Semester currentSemester = currentGroup.getSemester();
+        int currentAcademicYear = currentGroup.getAcademicYear();
+
+        Set<Group> otherFutureGroups = subject.getGroups().stream()
+                .filter(g -> g.getId() != currentGroup.getId())
+                .filter(groupActivityService::isGroupInFuture)
+                .filter(g -> g.getSemester() == currentSemester && g.getAcademicYear() == currentAcademicYear)
+                .collect(Collectors.toSet());
+
+        if (otherFutureGroups.isEmpty()) {
+            return;
+        }
+
+        for (User student : students) {
+            for (Group group : otherFutureGroups) {
+                if (group.getStudents().contains(student)) {
+                    log.error("Student {} is already in another future group {} of the same subject for semester {} and year {}",
+                            student.getUsername(), group.getName(), currentSemester, currentAcademicYear);
+                    throw ValidationException.groupValidation(
+                            "Student " + student.getName() + " " + student.getSurname() +
+                                    " is already in future group '" + group.getName() +
+                                    "' of the same subject for semester " + currentSemester +
+                                    " and year " + currentAcademicYear +
+                                    ". Students cannot be in multiple future groups of the same subject for the same semester and year.");
+                }
+            }
+        }
+    }
+
+    /**
+     * Validates students for a specific semester and academic year to prevent multiple enrollments.
+     *
+     * @param students The set of students to validate
+     * @param subject The subject to check against
+     * @param currentGroupId The ID of the current group
+     * @param semester The semester to validate
+     * @param academicYear The academic year to validate
+     * @throws ValidationException if a student is already in a group of the same subject for the specified semester and year
+     */
+    public void validateStudentsForSemesterAndYear(
+            Set<User> students,
+            Subject subject,
+            Long currentGroupId,
+            Semester semester,
+            Integer academicYear) {
+
+        if (subject == null) {
+            return;
+        }
+
+        Set<Group> groupsInSemesterAndYear = subject.getGroups().stream()
+                .filter(g -> currentGroupId == null || g.getId() != currentGroupId)
+                .filter(g -> g.getSemester() == semester && g.getAcademicYear().equals(academicYear))
+                .collect(Collectors.toSet());
+
+        if (groupsInSemesterAndYear.isEmpty()) {
+            return;
+        }
+
+        List<User> studentsWithIssues = new ArrayList<>();
+        Map<User, Group> studentGroupMap = new HashMap<>();
+
+        for (User student : students) {
+            for (Group group : groupsInSemesterAndYear) {
+                if (group.getStudents().contains(student)) {
+                    studentsWithIssues.add(student);
+                    studentGroupMap.put(student, group);
+                    break;
+                }
+            }
+        }
+
+        if (!studentsWithIssues.isEmpty()) {
+            User firstStudent = studentsWithIssues.getFirst();
+            Group firstStudentGroup = studentGroupMap.get(firstStudent);
+
+            String errorMessage;
+            if (studentsWithIssues.size() == 1) {
+                errorMessage = "Student " + firstStudent.getName() + " " + firstStudent.getSurname() +
+                        " is already in another group '" + firstStudentGroup.getName() +
+                        "' of the same subject for semester " + semester +
+                        " and year " + academicYear +
+                        ". Students cannot be in multiple future groups of the same subject for the same semester and year.";
+            } else {
+                errorMessage = "Student " + firstStudent.getName() + " " + firstStudent.getSurname() +
+                        " and " + (studentsWithIssues.size() - 1) + " more students are already in other groups " +
+                        "of the same subject for semester " + semester +
+                        " and year " + academicYear +
+                        ". Students cannot be in multiple future groups of the same subject for the same semester and year.";
+            }
+
+            log.error("Found {} students already in other groups of the subject for semester {} and year {}",
+                    studentsWithIssues.size(), semester, academicYear);
+
+            throw ValidationException.groupValidation(errorMessage);
         }
     }
 }

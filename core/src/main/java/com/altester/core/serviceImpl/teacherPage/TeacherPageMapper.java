@@ -1,7 +1,7 @@
 package com.altester.core.serviceImpl.teacherPage;
 
 import com.altester.core.dtos.core_service.TeacherPage.*;
-import com.altester.core.dtos.core_service.subject.SubjectGroupDTO;
+import com.altester.core.dtos.core_service.TeacherPage.SubjectGroupDTO;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;

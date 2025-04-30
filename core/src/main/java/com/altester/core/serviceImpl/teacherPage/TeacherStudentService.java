@@ -1,7 +1,7 @@
 package com.altester.core.serviceImpl.teacherPage;
 
 import com.altester.core.dtos.core_service.TeacherPage.TeacherStudentsDTO;
-import com.altester.core.dtos.core_service.subject.SubjectGroupDTO;
+import com.altester.core.dtos.core_service.TeacherPage.SubjectGroupDTO;
 import com.altester.core.model.subject.Group;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

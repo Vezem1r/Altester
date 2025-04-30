@@ -2,7 +2,6 @@ package com.altester.core.controller;
 
 import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
 import com.altester.core.dtos.core_service.subject.SubjectDTO;
-import com.altester.core.dtos.core_service.subject.UpdateGroupsDTO;
 import com.altester.core.service.SubjectService;
 import com.altester.core.util.CacheablePage;
 import jakarta.validation.Valid;
@@ -28,22 +27,6 @@ public class SubjectController {
         subjectService.createSubject(createSubjectDTO);
         log.info("Subject created successfully {}", createSubjectDTO.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body("Subject has been created successfully");
-    }
-
-    @PostMapping("/update-groups")
-    public ResponseEntity<String> assignGroups(@Valid @RequestBody UpdateGroupsDTO updateGroupsDTO) {
-        subjectService.updateGroups(updateGroupsDTO);
-        log.info("Subject updated successfully {}", updateGroupsDTO.getSubjectId());
-        return ResponseEntity.status(HttpStatus.OK).body("Subject has been updated successfully");
-    }
-
-    @PostMapping("/add-group")
-    public ResponseEntity<String> addGroup(
-            @RequestParam long subjectId,
-            @RequestParam long groupId) {
-        subjectService.updateGroup(subjectId, groupId);
-        log.info("Subject updated successfully {}", subjectId);
-        return ResponseEntity.status(HttpStatus.OK).body("Subject has been updated successfully");
     }
 
     @DeleteMapping("/delete/{subjectId}")

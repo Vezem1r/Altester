@@ -2,16 +2,21 @@ package com.altester.core.serviceImpl.subject;
 
 import com.altester.core.dtos.core_service.subject.SubjectDTO;
 import com.altester.core.dtos.core_service.subject.SubjectGroupDTO;
+import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
+import com.altester.core.serviceImpl.group.GroupActivityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 public class SubjectMapper {
+
+    private final GroupActivityService groupActivityService;
 
     public SubjectDTO toDto(Subject subject) {
         if (subject == null) {
@@ -19,8 +24,9 @@ public class SubjectMapper {
         }
 
         List<SubjectGroupDTO> groups = subject.getGroups().stream()
-                .map(group -> new SubjectGroupDTO(group.getId(), group.getName()))
-                .toList();
+                .filter(group -> group.isActive() || groupActivityService.isGroupInFuture(group))
+                .map(this::mapGroupToDto)
+                .collect(Collectors.toList());
 
         return new SubjectDTO(
                 subject.getId(),
@@ -29,6 +35,17 @@ public class SubjectMapper {
                 subject.getDescription(),
                 subject.getModified(),
                 groups
+        );
+    }
+
+    private SubjectGroupDTO mapGroupToDto(Group group) {
+        boolean isInFuture = groupActivityService.isGroupInFuture(group);
+        String status = isInFuture ? "Future" : "Active";
+
+        return new SubjectGroupDTO(
+                group.getId(),
+                group.getName(),
+                status
         );
     }
 
@@ -41,5 +58,4 @@ public class SubjectMapper {
                 .map(this::toDto)
                 .toList();
     }
-
 }

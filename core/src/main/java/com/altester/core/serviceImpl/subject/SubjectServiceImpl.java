@@ -2,7 +2,6 @@ package com.altester.core.serviceImpl.subject;
 
 import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
 import com.altester.core.dtos.core_service.subject.SubjectDTO;
-import com.altester.core.dtos.core_service.subject.UpdateGroupsDTO;
 import com.altester.core.exception.ResourceAlreadyExistsException;
 import com.altester.core.exception.ResourceNotFoundException;
 import com.altester.core.model.subject.Subject;
@@ -32,7 +31,6 @@ import java.util.Optional;
 public class SubjectServiceImpl implements SubjectService {
 
     private final SubjectRepository subjectRepository;
-    private final SubjectGroupService subjectGroupService;
     private final CacheService cacheService;
     private final SubjectMapper subjectMapper;
 
@@ -132,17 +130,5 @@ public class SubjectServiceImpl implements SubjectService {
         subjectRepository.save(subject);
         cacheService.clearAllCaches();
         log.info("Subject with short name {} created", shortName);
-    }
-
-    @Override
-    @Transactional
-    public void updateGroups(UpdateGroupsDTO updateGroupsDTO) {
-        subjectGroupService.updateGroups(updateGroupsDTO);
-    }
-
-    @Override
-    @Transactional
-    public void updateGroup(long subjectId, long groupId) {
-        subjectGroupService.updateGroup(subjectId, groupId);
     }
 }

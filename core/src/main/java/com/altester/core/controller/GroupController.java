@@ -12,8 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/admin/group")
 @Slf4j
@@ -93,25 +91,11 @@ public class GroupController {
     public ResponseEntity<GroupStudentsResponseDTO> getGroupStudents(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) Long groupId,
+            @RequestParam(required = true) Long groupId,
             @RequestParam(required = false) String searchQuery,
             @RequestParam(defaultValue = "false") boolean includeCurrentMembers
     ) {
         log.debug("Fetching students for group with ID: {}", groupId);
-
-        if (groupId == null) {
-            log.info("Request for students without groupId. Returning all students.");
-            CacheablePage<CreateGroupUserListDTO> allStudents = groupService.getAllStudents(page, size, searchQuery);
-
-            GroupStudentsResponseDTO result = GroupStudentsResponseDTO.builder()
-                    .currentMembers(List.of())
-                    .availableStudents(allStudents)
-                    .build();
-
-            log.debug("Retrieved {} current students", result.getCurrentMembers().size());
-
-            return ResponseEntity.ok(result);
-        }
 
         GroupStudentsResponseDTO result = groupService.getGroupStudentsWithCategories(
                 page, size, groupId, searchQuery, includeCurrentMembers);

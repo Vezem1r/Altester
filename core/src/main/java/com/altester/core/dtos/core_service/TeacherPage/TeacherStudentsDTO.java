@@ -1,6 +1,5 @@
 package com.altester.core.dtos.core_service.TeacherPage;
 
-import com.altester.core.dtos.core_service.subject.SubjectGroupDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

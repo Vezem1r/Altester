@@ -335,9 +335,11 @@ public class DataInit {
                     int studentIndex = (groupIndex * 7 + attemptsCount * 3 + i * 11) % students.size();
                     User student = students.get(studentIndex);
 
-                    if (!studentsAssignedToSubject.get(subject).contains(student)) {
+                    Set<User> assignedStudents = studentsAssignedToSubject.computeIfAbsent(subject, k -> new HashSet<>());
+
+                    if (!assignedStudents.contains(student)) {
                         groupStudents.add(student);
-                        studentsAssignedToSubject.get(subject).add(student);
+                        assignedStudents.add(student);
                     }
 
                     attemptsCount++;

@@ -163,9 +163,6 @@ public class GroupServiceImpl implements GroupService {
         }
 
         Subject subject = subjectRepository.findByGroupsContaining(group).orElse(null);
-        studentService.validateStudents(students, subject, group.getId());
-
-        group.setStudents(students);
 
         if (updateGroupDTO.getSemester() == null) {
             updateGroupDTO.setSemester(Semester.valueOf(semesterConfig.getCurrentSemester()));
@@ -174,6 +171,23 @@ public class GroupServiceImpl implements GroupService {
         if (updateGroupDTO.getAcademicYear() == null) {
             updateGroupDTO.setAcademicYear(semesterConfig.getCurrentAcademicYear());
         }
+
+        boolean isSemesterOrYearChanging =
+                !group.getSemester().equals(updateGroupDTO.getSemester()) ||
+                        !group.getAcademicYear().equals(updateGroupDTO.getAcademicYear());
+
+        studentService.validateStudents(students, subject, group.getId());
+
+        if (isSemesterOrYearChanging && subject != null) {
+            studentService.validateStudentsForSemesterAndYear(
+                    students,
+                    subject,
+                    group.getId(),
+                    updateGroupDTO.getSemester(),
+                    updateGroupDTO.getAcademicYear());
+        }
+
+        group.setStudents(students);
 
         boolean isActive = semesterConfig.isSemesterActive(updateGroupDTO.getSemester().name(), updateGroupDTO.getAcademicYear());
         group.setSemester(updateGroupDTO.getSemester());

@@ -1,4 +1,4 @@
-package com.altester.core.dtos.core_service.subject;
+package com.altester.core.dtos.core_service.TeacherPage;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,5 +12,4 @@ import lombok.NoArgsConstructor;
 public class SubjectGroupDTO {
     private long id;
     private String name;
-    private String status;
 }

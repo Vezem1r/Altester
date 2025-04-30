@@ -66,13 +66,12 @@ public class GroupDTOMapper {
                 .toList();
     }
 
-    public CreateGroupUserListDTO toCreateGroupUserListDTO(User user, List<String> subjectNames) {
+    public CreateGroupUserListDTO toCreateGroupUserListDTO(User user) {
         return new CreateGroupUserListDTO(
                 user.getId(),
                 user.getName(),
                 user.getSurname(),
-                user.getUsername(),
-                subjectNames
+                user.getUsername()
         );
     }
 
@@ -81,20 +80,12 @@ public class GroupDTOMapper {
             boolean inSameSubject,
             String subjectName,
             String subjectShortName) {
-
-        if (inSameSubject) {
-            dto.setInSameSubject(true);
-            dto.setSubjectName(subjectName);
-            dto.setSubjectShortName(subjectShortName);
-        }
     }
 
-    public List<CreateGroupUserListDTO> mapAndSortCurrentMembers(Set<User> students, List<String> subjectNamesList) {
-
+    public List<CreateGroupUserListDTO> mapAndSortCurrentMembers(Set<User> students) {
         return students.stream()
-                .map(student -> toCreateGroupUserListDTO(
-                        student,
-                        subjectNamesList
-                )).sorted(Comparator.comparing(dto -> dto.getName() + " " + dto.getSurname())).collect(Collectors.toList());
+                .map(this::toCreateGroupUserListDTO)
+                .sorted(Comparator.comparing(dto -> dto.getName() + " " + dto.getSurname()))
+                .collect(Collectors.toList());
     }
 }

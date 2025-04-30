@@ -2,7 +2,6 @@ package com.altester.core.service;
 
 import com.altester.core.dtos.core_service.subject.CreateSubjectDTO;
 import com.altester.core.dtos.core_service.subject.SubjectDTO;
-import com.altester.core.dtos.core_service.subject.UpdateGroupsDTO;
 import com.altester.core.util.CacheablePage;
 import com.altester.core.exception.*;
 
@@ -36,25 +35,6 @@ public interface SubjectService {
      * @throws RuntimeException if there's an error during deletion
      */
     void deleteSubject(long subjectId);
-
-    /**
-     * Updates the association between a subject and multiple groups.
-     * Can associate and disassociate groups with the subject in a single operation.
-     *
-     * @param updateGroupsDTO DTO containing subject ID and group IDs to associate
-     * @throws ResourceNotFoundException if the subject or any group doesn't exist
-     */
-    void updateGroups(UpdateGroupsDTO updateGroupsDTO);
-
-    /**
-     * Updates the association between a subject and a single group.
-     * If the group is already associated with another subject, it will be moved.
-     *
-     * @param subjectId ID of the subject
-     * @param groupId ID of the group to associate with the subject
-     * @throws ResourceNotFoundException if the subject or group doesn't exist
-     */
-    void updateGroup(long subjectId, long groupId);
 
     /**
      * Retrieves a paginated and searchable list of all subjects.
