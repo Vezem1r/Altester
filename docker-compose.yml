@@ -23,6 +23,7 @@ services:
     environment:
       - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
       - NOTIFICATION_SERVICE_URL=${NOTIFICATION_SERVICE_URL}
+      - AI_SERVICE_URL=${AI_GRADING_SERVICE_URL}
       - REDIS_HOST=${REDIS_HOST}
       - TZ=Europe/Prague
     depends_on:

@@ -15,6 +15,10 @@ public class ApiKeyException extends AlTesterException {
         return new ApiKeyException("encryption", message);
     }
 
+    public static ApiKeyException decryptionError(String message) {
+        return new ApiKeyException("encryption", message);
+    }
+
     public static ApiKeyException invalidKeyLength() {
         return new ApiKeyException("validation", "Invalid AES key length. It must be 16, 24, or 32 bytes.");
     }

@@ -9,6 +9,7 @@ import com.altester.core.model.subject.*;
 import com.altester.core.model.subject.enums.AttemptStatus;
 import com.altester.core.model.subject.enums.QuestionType;
 import com.altester.core.repository.*;
+import com.altester.core.service.AiGradingService;
 import com.altester.core.service.TestAttemptService;
 import com.altester.core.serviceImpl.CacheService;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class TestAttemptServiceImpl implements TestAttemptService {
     private final AttemptRepository attemptRepository;
     private final QuestionRepository questionRepository;
     private final CacheService cacheService;
+    private final AiGradingService aiGradingService;
 
     private final TestAttemptDTOMapper dtoMapper;
     private final TestAttemptValidation validationService;
@@ -310,6 +312,13 @@ public class TestAttemptServiceImpl implements TestAttemptService {
 
         attemptRepository.save(attempt);
 
+        aiGradingService.processAttemptForAiGrading(attempt)
+                .exceptionally(ex -> {
+                    log.error("Error during async AI grading for attempt {}: {}",
+                            attempt.getId(), ex.getMessage(), ex);
+                    return false;
+                });
+
         List<Question> questionsForAttempt = questionService.getQuestionsFromSubmissions(attempt);
 
         int answeredQuestions = 0;
@@ -444,6 +453,13 @@ public class TestAttemptServiceImpl implements TestAttemptService {
 
         attempt.setScore(totalScore);
         attemptRepository.save(attempt);
+
+        aiGradingService.processAttemptForAiGrading(attempt)
+                .exceptionally(ex -> {
+                    log.error("Error during async AI grading for expired attempt {}: {}",
+                            attempt.getId(), ex.getMessage(), ex);
+                    return false;
+                });
     }
 
     private boolean isChoiceQuestionType(QuestionType questionType) {

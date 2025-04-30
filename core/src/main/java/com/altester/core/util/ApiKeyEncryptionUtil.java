@@ -49,6 +49,41 @@ public class ApiKeyEncryptionUtil {
     }
 
     /**
+     * Decrypts an encrypted API key
+     * @param encryptedKey The encrypted API key to decrypt
+     * @return The decrypted API key
+     * @throws ApiKeyException If decryption fails or inputs are invalid
+     */
+    public String decrypt(String encryptedKey) {
+        if (encryptedKey == null || encryptedKey.isEmpty()) {
+            throw ApiKeyException.invalidInputKey("Encrypted API key cannot be null or empty");
+        }
+
+        try {
+            byte[] decodedKey = Base64.getDecoder().decode(secret);
+
+            if (decodedKey.length != 16 && decodedKey.length != 24 && decodedKey.length != 32) {
+                throw ApiKeyException.invalidKeyLength();
+            }
+
+            Key key = new SecretKeySpec(decodedKey, ALGORITHM);
+            Cipher cipher = Cipher.getInstance(ALGORITHM);
+            cipher.init(Cipher.DECRYPT_MODE, key);
+
+            byte[] encryptedBytes = Base64.getDecoder().decode(encryptedKey);
+            byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+
+            return new String(decryptedBytes, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            throw ApiKeyException.decryptionError("Invalid Base64 encoded string: " + e.getMessage());
+        } catch (ApiKeyException e) {
+            throw e;
+        } catch (Exception e) {
+            throw ApiKeyException.decryptionError("Error decrypting API key: " + e.getMessage());
+        }
+    }
+
+    /**
      * Extracts the first N characters from an API key
      * @param apiKey The API key
      * @param count Number of characters to extract
