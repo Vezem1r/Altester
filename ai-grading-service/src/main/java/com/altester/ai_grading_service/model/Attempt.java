@@ -1,0 +1,48 @@
+package com.altester.ai_grading_service.model;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "attempts")
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+@Data
+public class Attempt {
+
+    @Id
+    private long id;
+
+    @Column(nullable = false)
+    private int attemptNumber;
+
+    @Column(nullable = false)
+    private LocalDateTime startTime;
+
+    @Column
+    private LocalDateTime endTime;
+
+    @Column
+    private Integer score;
+
+    @Column(nullable = false)
+    private String status;
+
+    @ManyToOne
+    @JoinColumn(name = "test_id", nullable = false)
+    private Test test;
+
+    @Column(name = "student_id", nullable = false)
+    private Long studentId;
+
+    @OneToMany(mappedBy = "attempt", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Submission> submissions = new ArrayList<>();
+}
