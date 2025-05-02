@@ -11,5 +11,4 @@ import java.util.List;
 public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     List<Submission> findByAttempt(Attempt attempt);
     List<Submission> findByAttemptAndAiGraded(Attempt attempt, boolean aiGraded);
-    List<Submission> findByAttemptIdAndAiGraded(Long attemptId, boolean aiGraded);
 }

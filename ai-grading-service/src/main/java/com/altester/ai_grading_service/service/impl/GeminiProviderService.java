@@ -1,6 +1,6 @@
 package com.altester.ai_grading_service.service.impl;
 
-import com.altester.ai_grading_service.AiModels.OpenAiChatModel;
+import com.altester.ai_grading_service.AiModels.GeminiChatModel;
 import com.altester.ai_grading_service.exception.AiServiceException;
 import com.altester.ai_grading_service.util.PromptBuilder;
 import lombok.extern.slf4j.Slf4j;
@@ -11,22 +11,22 @@ import java.time.Duration;
 
 @Service
 @Slf4j
-public class OpenAiProviderService extends AbstractAiProviderService {
+public class GeminiProviderService extends AbstractAiProviderService {
 
-    @Value("${ai.openai.model}")
+    @Value("${ai.gemini.model}")
     private String model;
 
-    @Value("${ai.openai.timeout}")
+    @Value("${ai.gemini.timeout}")
     private int timeout;
 
-    public OpenAiProviderService(PromptBuilder promptBuilder) {
+    public GeminiProviderService(PromptBuilder promptBuilder) {
         super(promptBuilder);
     }
 
     @Override
     protected String sendPromptToAi(String prompt, String apiKey, int maxScore) {
         try {
-            OpenAiChatModel chatModel = new OpenAiChatModel(
+            GeminiChatModel chatModel = new GeminiChatModel(
                     apiKey,
                     model,
                     0.1,
@@ -35,18 +35,18 @@ public class OpenAiProviderService extends AbstractAiProviderService {
 
             return chatModel.generate(prompt);
         } catch (Exception e) {
-            log.error("Failed to process request with OpenAI: {}", e.getMessage(), e);
-            throw new AiServiceException("Failed to process request with OpenAI", e);
+            log.error("Failed to process request with Gemini: {}", e.getMessage(), e);
+            throw new AiServiceException("Failed to process request with Gemini", e);
         }
     }
 
     @Override
     protected String getProviderName() {
-        return "OpenAI";
+        return "Google Gemini";
     }
 
     @Override
     public boolean supports(String providerName) {
-        return "OPENAI".equalsIgnoreCase(providerName);
+        return "GEMINI".equalsIgnoreCase(providerName);
     }
 }

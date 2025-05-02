@@ -27,5 +27,6 @@ public class Test {
     private String description;
 
     @OneToMany(mappedBy = "test", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<Question> questions = new HashSet<>();
 }

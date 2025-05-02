@@ -48,4 +48,7 @@ public class Submission {
             inverseJoinColumns = @JoinColumn(name = "option_id")
     )
     private List<Option> selectedOptions = new ArrayList<>();
+
+    @Column(nullable = false)
+    private boolean aiGraded = false;
 }

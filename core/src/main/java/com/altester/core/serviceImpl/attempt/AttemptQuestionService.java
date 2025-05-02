@@ -141,6 +141,7 @@ public class AttemptQuestionService {
                     .question(question)
                     .orderIndex(i)
                     .selectedOptions(new ArrayList<>())
+                    .aiGraded(false)
                     .build();
 
             submissions.add(submission);

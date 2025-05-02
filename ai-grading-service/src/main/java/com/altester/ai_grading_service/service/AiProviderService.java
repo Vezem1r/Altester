@@ -2,7 +2,6 @@ package com.altester.ai_grading_service.service;
 
 import com.altester.ai_grading_service.model.Question;
 import com.altester.ai_grading_service.model.Submission;
-import lombok.Getter;
 
 public interface AiProviderService {
 
@@ -27,8 +26,6 @@ public interface AiProviderService {
         /**
          * Container class for the grading result
          */
-        @Getter
         record GradingResult(int score, String feedback) {
-
     }
 }

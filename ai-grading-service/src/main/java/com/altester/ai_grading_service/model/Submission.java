@@ -43,8 +43,10 @@ public class Submission {
             joinColumns = @JoinColumn(name = "submission_id"),
             inverseJoinColumns = @JoinColumn(name = "option_id")
     )
+    @Builder.Default
     private List<Option> selectedOptions = new ArrayList<>();
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean aiGraded = false;
 }

@@ -43,5 +43,6 @@ public class Question {
     private Test test;
 
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<Option> options = new ArrayList<>();
 }

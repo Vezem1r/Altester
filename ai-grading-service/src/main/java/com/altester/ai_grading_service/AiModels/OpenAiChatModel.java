@@ -1,6 +1,7 @@
 package com.altester.ai_grading_service.AiModels;
 
 import com.altester.ai_grading_service.AiModels.dto.ModelResponses.OpenAiResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
@@ -10,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 public class OpenAiChatModel extends BaseModel {
 
     public OpenAiChatModel(String apiKey, String modelName, double temperature, Duration timeout) {
@@ -19,7 +21,7 @@ public class OpenAiChatModel extends BaseModel {
     @Override
     protected HttpHeaders createHeaders() {
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(apiKey);
+        headers.set("Authorization", "Bearer " + apiKey);
         headers.setContentType(MediaType.APPLICATION_JSON);
         return headers;
     }

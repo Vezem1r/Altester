@@ -44,5 +44,6 @@ public class Attempt {
     private Long studentId;
 
     @OneToMany(mappedBy = "attempt", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<Submission> submissions = new ArrayList<>();
 }
