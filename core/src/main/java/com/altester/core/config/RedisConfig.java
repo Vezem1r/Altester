@@ -1,5 +1,6 @@
 package com.altester.core.config;
 
+import com.altester.core.dtos.ai_service.PromptDetailsDTO;
 import com.altester.core.dtos.core_service.AdminPage.AdminPageDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherPageDTO;
 import com.altester.core.dtos.core_service.apiKey.TestApiKeysDTO;
@@ -166,6 +167,19 @@ public class RedisConfig {
         cacheConfigurations.put("studentAttemptsForAdmin", createCacheConfiguration(
                 new JsonRedisSerializer<>(StudentTestAttemptsResponseDTO.class)));
 
+        // Prompt service caches
+        cacheConfigurations.put("prompts", createInfiniteCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
+
+        cacheConfigurations.put("myPrompts", createInfiniteCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
+
+        cacheConfigurations.put("publicPrompts", createInfiniteCacheConfiguration(
+                new JsonRedisSerializer<>(CacheablePage.class)));
+
+        cacheConfigurations.put("promptDetails", createInfiniteCacheConfiguration(
+                new JsonRedisSerializer<>(PromptDetailsDTO.class)));
+
         return RedisCacheManager.builder(redisConnectionFactory)
                 .cacheDefaults(defaultConfig)
                 .withInitialCacheConfigurations(cacheConfigurations)
@@ -176,6 +190,13 @@ public class RedisConfig {
     private RedisCacheConfiguration createCacheConfiguration(JsonRedisSerializer<?> serializer) {
         return RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofSeconds(redisTTL))
+                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer))
+                .disableCachingNullValues();
+    }
+
+    private RedisCacheConfiguration createInfiniteCacheConfiguration(JsonRedisSerializer<?> serializer) {
+        return RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer))
                 .disableCachingNullValues();

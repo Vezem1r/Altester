@@ -29,6 +29,8 @@ public class DataInitializer implements CommandLineRunner {
         // - Future semester groups
         // - Each with assigned tests, questions, and options
         dataInit.createStudentGroups();
-    }
 
+        //Creates default prompt for fallback
+        dataInit.createDefaultPrompt();
+    }
 }

@@ -1,6 +1,8 @@
 package com.altester.core.serviceImpl.DataInit;
 
 import com.altester.core.config.SemesterConfig;
+import com.altester.core.exception.ResourceNotFoundException;
+import com.altester.core.model.ApiKey.Prompt;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
@@ -11,21 +13,18 @@ import com.altester.core.model.subject.Test;
 import com.altester.core.model.subject.enums.QuestionDifficulty;
 import com.altester.core.model.subject.enums.QuestionType;
 import com.altester.core.model.subject.enums.Semester;
-import com.altester.core.repository.GroupRepository;
-import com.altester.core.repository.OptionRepository;
-import com.altester.core.repository.QuestionRepository;
-import com.altester.core.repository.SubjectRepository;
-import com.altester.core.repository.TestRepository;
-import com.altester.core.repository.UserRepository;
+import com.altester.core.repository.*;
 import com.altester.core.serviceImpl.group.GroupActivityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -43,6 +42,8 @@ public class DataInit {
     private final OptionRepository optionRepository;
     private final SemesterConfig semesterConfig;
     private final GroupActivityService groupActivityService;
+    private final PromptRepository promptRepository;
+
     private final Random random = new Random();
 
     @Value("${admin.password}")
@@ -739,6 +740,37 @@ public class DataInit {
                     .build();
 
             optionRepository.save(option);
+        }
+    }
+
+    @Transactional
+    public void createDefaultPrompt() {
+
+        if (promptRepository.findById(1L).isPresent()) {
+            log.info("Default grading prompt already exists");
+            return;
+        }
+
+        try {
+            User admin = userRepository.findByUsername("ADMIN")
+                    .orElseThrow(() -> ResourceNotFoundException.user("ADMIN"));
+
+            ClassPathResource resource = new ClassPathResource("grading_prompt.txt");
+            String promptContent = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+            Prompt defaultPrompt = Prompt.builder()
+                    .title("Default Grading Prompt")
+                    .description("Standard grading prompt for evaluating student submissions. This prompt provides guidelines for fair and constructive assessment.")
+                    .prompt(promptContent)
+                    .author(admin)
+                    .isPublic(true)
+                    .created(LocalDateTime.now())
+                    .build();
+
+            promptRepository.save(defaultPrompt);
+            log.info("Created default grading prompt successfully");
+        } catch (Exception e) {
+            log.error("Failed to create default grading prompt: {}", e.getMessage(), e);
         }
     }
 }

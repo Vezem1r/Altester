@@ -116,6 +116,16 @@ public class CacheService {
         log.debug("All API key-related caches have been cleared");
     }
 
+    public void clearPromptRelatedCaches() {
+        clearCaches(
+                "prompts",
+                "myPrompts",
+                "publicPrompts",
+                "promptDetails"
+        );
+        log.debug("All prompt-related caches have been cleared");
+    }
+
     public void clearCaches(String... cacheNames) {
         Arrays.stream(cacheNames).forEach(cacheName -> {
             Cache cache = cacheManager.getCache(cacheName);

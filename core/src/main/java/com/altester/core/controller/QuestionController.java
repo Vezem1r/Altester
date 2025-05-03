@@ -4,7 +4,7 @@ import com.altester.core.dtos.core_service.question.CreateQuestionDTO;
 import com.altester.core.dtos.core_service.question.QuestionDetailsDTO;
 import com.altester.core.dtos.core_service.question.UpdateQuestionDTO;
 import com.altester.core.service.QuestionService;
-import com.altester.core.validation.FileValidator;
+import com.altester.core.util.FileValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,4 +1,4 @@
-package com.altester.core.validation;
+package com.altester.core.util;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
