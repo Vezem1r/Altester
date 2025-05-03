@@ -1,15 +1,10 @@
 package com.altester.core.serviceImpl.attempt;
 
-import com.altester.core.dtos.core_service.attempt.AnswerDTO;
-import com.altester.core.dtos.core_service.attempt.OptionDTO;
-import com.altester.core.dtos.core_service.attempt.QuestionDTO;
-import com.altester.core.dtos.core_service.attempt.SingleQuestionResponse;
-import com.altester.core.model.subject.Attempt;
-import com.altester.core.model.subject.Option;
-import com.altester.core.model.subject.Question;
-import com.altester.core.model.subject.Submission;
+import com.altester.core.dtos.core_service.attempt.*;
+import com.altester.core.model.subject.*;
 import com.altester.core.model.subject.enums.AttemptStatus;
 import com.altester.core.model.subject.enums.QuestionType;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -19,7 +14,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
+@RequiredArgsConstructor
 public class TestAttemptDTOMapper {
+
+    private final AttemptQuestionService questionService;
 
     public QuestionDTO mapQuestionToDTO(Question question) {
         List<OptionDTO> optionDTOs = question.getOptions().stream()
@@ -110,5 +108,28 @@ public class TestAttemptDTOMapper {
         }
 
         return buildSingleQuestionResponse(attempt, questionNumber, questions, question, currentAnswer);
+    }
+
+    public AttemptResultResponse buildAttemptResult(Attempt attempt) {
+        Test test = attempt.getTest();
+        List<Question> questionsForAttempt = questionService.getQuestionsFromSubmissions(attempt);
+
+        int answeredQuestions = 0;
+        if (attempt.getSubmissions() != null) {
+            answeredQuestions = (int) attempt.getSubmissions().stream()
+                    .filter(s -> (s.getSelectedOptions() != null && !s.getSelectedOptions().isEmpty()) ||
+                            (s.getAnswerText() != null && !s.getAnswerText().isEmpty()))
+                    .count();
+        }
+
+        return AttemptResultResponse.builder()
+                .attemptId(attempt.getId())
+                .testTitle(test.getTitle())
+                .score(attempt.getScore())
+                .totalScore(test.getTotalScore())
+                .questionsAnswered(answeredQuestions)
+                .totalQuestions(questionsForAttempt.size())
+                .completed(true)
+                .build();
     }
 }

@@ -12,8 +12,10 @@ import com.altester.core.repository.*;
 import com.altester.core.service.AiGradingService;
 import com.altester.core.service.TestAttemptService;
 import com.altester.core.serviceImpl.CacheService;
+import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.StaleObjectStateException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -285,76 +287,70 @@ public class TestAttemptServiceImpl implements TestAttemptService {
         User student = getUserFromPrincipal(principal);
         validationService.ensureStudentRole(student);
 
-        Attempt attempt = getAttemptById(request.getAttemptId());
-        validationService.validateAttemptOwnership(attempt, student);
+        try {
+            Attempt attempt = getAttemptById(request.getAttemptId());
+            validationService.validateAttemptOwnership(attempt, student);
 
-        if (attempt.getStatus() == AttemptStatus.COMPLETED) {
-            throw new StateConflictException("attempt", "completed",
-                    "This attempt has already been completed.");
-        }
-
-        if (attempt.getAiGradingSentAt() != null) {
-            LocalDateTime cooldownEndTime = attempt.getAiGradingSentAt().plusMinutes(5);
-            if (LocalDateTime.now().isBefore(cooldownEndTime)) {
-                throw new StateConflictException("attempt", "cooldown",
-                        "Please wait before submitting again. AI grading is already in progress.");
+            if (attempt.getStatus() == AttemptStatus.COMPLETED) {
+                return dtoMapper.buildAttemptResult(attempt);
             }
-        }
 
-        int totalScore = 0;
-        Test test = attempt.getTest();
-
-        if (attempt.getSubmissions() != null) {
-            for (Submission submission : attempt.getSubmissions()) {
-                Question question = submission.getQuestion();
-
-                if (isChoiceQuestionType(question.getQuestionType())) {
-                    totalScore += gradingService.gradeMultipleSelectionQuestion(submission);
+            if (attempt.getAiGradingSentAt() != null) {
+                LocalDateTime cooldownEndTime = attempt.getAiGradingSentAt().plusMinutes(5);
+                if (LocalDateTime.now().isBefore(cooldownEndTime)) {
+                    throw new StateConflictException("attempt", "cooldown",
+                            "Please wait before submitting again. AI grading is already in progress.");
                 }
             }
+
+            int totalScore = 0;
+            Test test = attempt.getTest();
+
+            if (attempt.getSubmissions() != null) {
+                for (Submission submission : attempt.getSubmissions()) {
+                    Question question = submission.getQuestion();
+
+                    if (isChoiceQuestionType(question.getQuestionType())) {
+                        totalScore += gradingService.gradeMultipleSelectionQuestion(submission);
+                    }
+                }
+            }
+
+            attempt.setStatus(AttemptStatus.COMPLETED);
+            attempt.setEndTime(LocalDateTime.now());
+            attempt.setScore(totalScore);
+            attempt.setAiGradingSentAt(LocalDateTime.now());
+
+            attemptRepository.save(attempt);
+
+            aiGradingService.processAttemptForAiGrading(attempt)
+                    .exceptionally(ex -> {
+                        log.error("Error during async AI grading for attempt {}: {}",
+                                attempt.getId(), ex.getMessage(), ex);
+                        attempt.setAiGradingSentAt(null);
+                        attemptRepository.save(attempt);
+                        return false;
+                    });
+
+            cacheService.clearAttemptRelatedCaches();
+            cacheService.clearStudentRelatedCaches();
+            cacheService.clearTeacherRelatedCaches();
+            cacheService.clearAdminRelatedCaches();
+
+            return dtoMapper.buildAttemptResult(attempt);
+
+        } catch (OptimisticLockException | StaleObjectStateException e) {
+            log.info("Optimistic lock detected for attempt: {}, retrying...", request.getAttemptId());
+
+            Attempt freshAttempt = getAttemptById(request.getAttemptId());
+
+            if (freshAttempt.getStatus() == AttemptStatus.COMPLETED) {
+                return dtoMapper.buildAttemptResult(freshAttempt);
+            } else {
+                throw new StateConflictException("attempt", "processing",
+                        "The attempt is currently being processed. Please try again.");
+            }
         }
-
-        attempt.setStatus(AttemptStatus.COMPLETED);
-        attempt.setEndTime(LocalDateTime.now());
-        attempt.setScore(totalScore);
-
-        attempt.setAiGradingSentAt(LocalDateTime.now());
-
-        attemptRepository.save(attempt);
-
-        aiGradingService.processAttemptForAiGrading(attempt)
-                .exceptionally(ex -> {
-                    log.error("Error during async AI grading for attempt {}: {}",
-                            attempt.getId(), ex.getMessage(), ex);
-                    attempt.setAiGradingSentAt(null);
-                    attemptRepository.save(attempt);
-                    return false;
-                });
-
-        List<Question> questionsForAttempt = questionService.getQuestionsFromSubmissions(attempt);
-
-        int answeredQuestions = 0;
-        if (attempt.getSubmissions() != null) {
-            answeredQuestions = (int) attempt.getSubmissions().stream()
-                    .filter(s -> (s.getSelectedOptions() != null && !s.getSelectedOptions().isEmpty()) ||
-                            (s.getAnswerText() != null && !s.getAnswerText().isEmpty()))
-                    .count();
-        }
-
-        cacheService.clearAttemptRelatedCaches();
-        cacheService.clearStudentRelatedCaches();
-        cacheService.clearTeacherRelatedCaches();
-        cacheService.clearAdminRelatedCaches();
-
-        return AttemptResultResponse.builder()
-                .attemptId(attempt.getId())
-                .testTitle(test.getTitle())
-                .score(totalScore)
-                .totalScore(test.getTotalScore())
-                .questionsAnswered(answeredQuestions)
-                .totalQuestions(questionsForAttempt.size())
-                .completed(true)
-                .build();
     }
 
     @Override

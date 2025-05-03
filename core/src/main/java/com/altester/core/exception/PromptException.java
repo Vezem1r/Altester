@@ -50,4 +50,14 @@ public class PromptException extends AlTesterException {
                 ErrorCode.VALIDATION_ERROR
         );
     }
+
+    public static PromptException tokenLimitExceeded(int tokenCount, int maxTokenCount) {
+        return new PromptException(
+                String.format(
+                        "Token limit exceeded: prompt contains approximately %d tokens, but maximum allowed is %d",
+                        tokenCount, maxTokenCount
+                ),
+                ErrorCode.VALIDATION_ERROR
+        );
+    }
 }

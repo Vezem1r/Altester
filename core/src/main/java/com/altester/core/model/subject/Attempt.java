@@ -53,4 +53,8 @@ public class Attempt {
 
     @OneToMany(mappedBy = "attempt", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Submission> submissions = new ArrayList<>();
+
+    @Version
+    @Column(name = "version")
+    private Long version;
 }

@@ -1,6 +1,7 @@
 package com.altester.core.util;
 
 import com.altester.core.exception.PromptException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -37,9 +38,20 @@ public class PromptValidator {
             Pattern.CASE_INSENSITIVE
     );
 
+    private final int maxTokenCount;
+
+    public PromptValidator(@Value("${prompt.token.max-count}") int maxTokenCount) {
+        this.maxTokenCount = maxTokenCount;
+    }
+
     public void validatePrompt(String prompt) {
         if (prompt == null || prompt.trim().isEmpty()) {
             throw PromptException.invalidPromptContent();
+        }
+
+        int tokenCount = estimateTokenCount(prompt);
+        if (tokenCount > maxTokenCount) {
+            throw PromptException.tokenLimitExceeded(tokenCount, maxTokenCount);
         }
 
         for (String placeholder : REQUIRED_PLACEHOLDERS) {
@@ -88,6 +100,31 @@ public class PromptValidator {
             count++;
             index += substring.length();
         }
+        return count;
+    }
+
+    private int estimateTokenCount(String prompt) {
+        if (prompt == null || prompt.trim().isEmpty()) {
+            return 0;
+        }
+
+        String[] tokens = prompt.split("\\s+|(?=\\p{Punct})|(?<=\\p{Punct})");
+
+        int count = 0;
+        for (String token : tokens) {
+            if (!token.trim().isEmpty()) {
+                count++;
+
+                if (token.matches("\\d+")) {
+                    count += token.length() / 3;
+                }
+
+                if (token.contains("{{") || token.contains("}}")) {
+                    count += 2;
+                }
+            }
+        }
+
         return count;
     }
 }
