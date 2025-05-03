@@ -1,5 +1,6 @@
 package com.altester.core.service;
 
+import com.altester.core.dtos.ai_service.AssignmentPromptRequest;
 import com.altester.core.dtos.core_service.apiKey.*;
 import com.altester.core.util.CacheablePage;
 import com.altester.core.exception.*;
@@ -126,4 +127,6 @@ public interface ApiKeyService {
      * @throws AccessDeniedException if a teacher has no groups associated with the test
      */
     TestApiKeysDTO getTestApiKeys(Long testId, Principal principal);
+
+    void updateAssignmentPrompt(AssignmentPromptRequest request, Principal principal);
 }

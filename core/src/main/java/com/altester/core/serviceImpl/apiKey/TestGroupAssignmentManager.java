@@ -4,12 +4,14 @@ import com.altester.core.exception.ResourceNotFoundException;
 import com.altester.core.exception.StateConflictException;
 import com.altester.core.exception.ValidationException;
 import com.altester.core.model.ApiKey.ApiKey;
+import com.altester.core.model.ApiKey.Prompt;
 import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Test;
 import com.altester.core.repository.GroupRepository;
+import com.altester.core.repository.PromptRepository;
 import com.altester.core.repository.TestGroupAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +27,7 @@ public class TestGroupAssignmentManager {
 
     private final TestGroupAssignmentRepository assignmentRepository;
     private final GroupRepository groupRepository;
+    private final PromptRepository promptRepository;
 
     /**
      * Assigns an API key to a test for a specific group.
@@ -45,6 +48,12 @@ public class TestGroupAssignmentManager {
                         .build());
 
         assignment.setApiKey(apiKey);
+
+        if (assignment.getPrompt() == null) {
+            Prompt defaultPrompt = promptRepository.findById(1L).orElse(null);
+            assignment.setPrompt(defaultPrompt);
+        }
+
         assignmentRepository.save(assignment);
     }
 

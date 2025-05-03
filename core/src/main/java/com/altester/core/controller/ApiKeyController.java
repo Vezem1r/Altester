@@ -1,5 +1,6 @@
 package com.altester.core.controller;
 
+import com.altester.core.dtos.ai_service.AssignmentPromptRequest;
 import com.altester.core.dtos.core_service.apiKey.ApiKeyDTO;
 import com.altester.core.dtos.core_service.apiKey.ApiKeyRequest;
 import com.altester.core.dtos.core_service.apiKey.AvailableKeys;
@@ -65,5 +66,13 @@ public class ApiKeyController {
             Principal principal) {
         boolean isActive = apiKeyService.toggleApiKeyStatus(id, principal);
         return ResponseEntity.ok(Map.of("active", isActive));
+    }
+
+    @PutMapping("/assignment-prompt")
+    public ResponseEntity<Void> updateAssignmentPrompt(
+            @RequestBody AssignmentPromptRequest request,
+            Principal principal) {
+        apiKeyService.updateAssignmentPrompt(request, principal);
+        return ResponseEntity.ok().build();
     }
 }

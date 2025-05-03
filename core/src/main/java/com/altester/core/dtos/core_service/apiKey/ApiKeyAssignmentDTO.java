@@ -15,6 +15,7 @@ public class ApiKeyAssignmentDTO {
     private String apiKeyName;
     private String maskedKey;
     private AiServiceName aiServiceName;
+    private String promptName;
     private GroupTeacherDTO group;
     private boolean aiEvaluationEnabled;
 }

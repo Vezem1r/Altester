@@ -33,6 +33,9 @@ public class Attempt {
     @Column
     private LocalDateTime endTime;
 
+    @Column(name = "ai_grading_sent_at")
+    private LocalDateTime aiGradingSentAt;
+
     @Column
     private Integer score;
 

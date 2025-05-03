@@ -1,7 +1,9 @@
 package com.altester.core.serviceImpl.apiKey;
 
+import com.altester.core.dtos.ai_service.AssignmentPromptRequest;
 import com.altester.core.dtos.core_service.apiKey.*;
 import com.altester.core.exception.*;
+import com.altester.core.model.ApiKey.Prompt;
 import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
@@ -46,6 +48,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
 
     private static final int PREFIX_LENGTH = 8;
     private static final int SUFFIX_LENGTH = 6;
+    private final PromptRepository promptRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -333,6 +336,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
                     .apiKeyName(apiKey.getName())
                     .maskedKey(maskedKey)
                     .aiServiceName(apiKey.getAiServiceName())
+                    .promptName(assignment.getPrompt().getTitle())
                     .group(groupTeacherDTO)
                     .aiEvaluationEnabled(assignment.isAiEvaluation())
                     .build();
@@ -358,5 +362,47 @@ public class ApiKeyServiceImpl implements ApiKeyService {
         return TestApiKeysDTO.builder()
                 .assignments(assignments)
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public void updateAssignmentPrompt(AssignmentPromptRequest request, Principal principal) {
+        log.debug("Updating prompt for test {} and group {}", request.getTestId(), request.getGroupId());
+        User currentUser = accessValidator.getUserFromPrincipal(principal);
+
+        Test test = testRepository.findById(request.getTestId())
+                .orElseThrow(() -> ResourceNotFoundException.test(request.getTestId()));
+
+        Group group = groupRepository.findById(request.getGroupId())
+                .orElseThrow(() -> ResourceNotFoundException.group(request.getGroupId()));
+
+        accessValidator.validateGroupAccess(group, currentUser, test);
+
+        TestGroupAssignment assignment = assignmentRepository
+                .findByTestAndGroup(test, group)
+                .orElseThrow(() -> new ResourceNotFoundException("assignment", "test and group",
+                        test.getId() + " and " + group.getId()));
+
+        if (assignment.getApiKey() == null) {
+            throw new StateConflictException("assignment", "no_api_key",
+                    "Cannot assign prompt without an API key");
+        }
+
+        Prompt prompt = promptRepository.findById(request.getPromptId())
+                .orElseThrow(() -> ResourceNotFoundException.prompt(request.getPromptId()));
+
+        if (!prompt.isPublic() && !prompt.getAuthor().getId().equals(currentUser.getId())
+                && currentUser.getRole() != RolesEnum.ADMIN) {
+            throw AccessDeniedException.promptAccess("You don't have permission to access this prompt");
+        }
+
+        assignment.setPrompt(prompt);
+        assignmentRepository.save(assignment);
+
+        cacheService.clearTestRelatedCaches();
+        cacheService.clearApiKeyRelatedCaches();
+
+        log.info("Prompt {} assigned to test {} for group {} by user {}",
+                prompt.getId(), test.getId(), group.getId(), currentUser.getUsername());
     }
 }

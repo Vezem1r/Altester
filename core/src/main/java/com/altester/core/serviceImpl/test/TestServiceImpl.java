@@ -3,6 +3,7 @@ package com.altester.core.serviceImpl.test;
 import com.altester.core.dtos.core_service.test.*;
 import com.altester.core.exception.*;
 import com.altester.core.model.ApiKey.ApiKey;
+import com.altester.core.model.ApiKey.Prompt;
 import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
@@ -45,6 +46,7 @@ public class TestServiceImpl  implements TestService {
     private final ApiKeyRepository apiKeyRepository;
     private final TestGroupAssignmentRepository assignmentRepository;
     private final TestRequirementsValidator testRequirementsValidator;
+    private final PromptRepository promptRepository;
 
     private User getCurrentUser(Principal principal) {
         return userRepository.findByUsername(principal.getName())
@@ -250,17 +252,20 @@ public class TestServiceImpl  implements TestService {
         if (hasGlobalKey && !selectedGroups.isEmpty()) {
             ApiKey globalKey = globalKeys.getFirst();
 
+            Prompt defaultPrompt = promptRepository.findById(1L).orElse(null);
+
             for (Group group : selectedGroups) {
                 TestGroupAssignment assignment = TestGroupAssignment.builder()
                         .test(savedTest)
                         .group(group)
                         .apiKey(globalKey)
+                        .prompt(defaultPrompt)
                         .assignedAt(LocalDateTime.now())
                         .assignedBy(group.getTeacher())
                         .aiEvaluation(true)
                         .build();
 
-                log.debug("Automatically assigning global API key {} to test {} for group {}",
+                log.debug("Automatically assigning global API key {} and default prompt to test {} for group {}",
                         globalKey.getId(), savedTest.getId(), group.getId());
 
                 assignmentRepository.save(assignment);

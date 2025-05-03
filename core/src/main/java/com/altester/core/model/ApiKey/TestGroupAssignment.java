@@ -36,6 +36,10 @@ public class TestGroupAssignment {
     @JoinColumn(name = "api_key_id")
     private ApiKey apiKey;
 
+    @ManyToOne
+    @JoinColumn(name = "prompt_id")
+    private Prompt prompt;
+
     @Column(nullable = false)
     private LocalDateTime assignedAt;
 

@@ -293,6 +293,14 @@ public class TestAttemptServiceImpl implements TestAttemptService {
                     "This attempt has already been completed.");
         }
 
+        if (attempt.getAiGradingSentAt() != null) {
+            LocalDateTime cooldownEndTime = attempt.getAiGradingSentAt().plusMinutes(5);
+            if (LocalDateTime.now().isBefore(cooldownEndTime)) {
+                throw new StateConflictException("attempt", "cooldown",
+                        "Please wait before submitting again. AI grading is already in progress.");
+            }
+        }
+
         int totalScore = 0;
         Test test = attempt.getTest();
 
@@ -310,12 +318,16 @@ public class TestAttemptServiceImpl implements TestAttemptService {
         attempt.setEndTime(LocalDateTime.now());
         attempt.setScore(totalScore);
 
+        attempt.setAiGradingSentAt(LocalDateTime.now());
+
         attemptRepository.save(attempt);
 
         aiGradingService.processAttemptForAiGrading(attempt)
                 .exceptionally(ex -> {
                     log.error("Error during async AI grading for attempt {}: {}",
                             attempt.getId(), ex.getMessage(), ex);
+                    attempt.setAiGradingSentAt(null);
+                    attemptRepository.save(attempt);
                     return false;
                 });
 

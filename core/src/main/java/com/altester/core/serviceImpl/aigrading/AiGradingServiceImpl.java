@@ -104,6 +104,8 @@ public class AiGradingServiceImpl implements AiGradingService {
         try {
             String decryptedKey = encryptionUtil.decrypt(apiKey.getEncryptedKey());
 
+            Long promptId = findPromptForAttempt(attempt);
+
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
@@ -111,6 +113,7 @@ public class AiGradingServiceImpl implements AiGradingService {
                     .attemptId(attempt.getId())
                     .apiKey(decryptedKey)
                     .aiServiceName(apiKey.getAiServiceName())
+                    .promptId(promptId)
                     .build();
 
             HttpEntity<GradingRequest> entity = new HttpEntity<>(request, headers);
@@ -132,5 +135,21 @@ public class AiGradingServiceImpl implements AiGradingService {
                     attempt.getId(), e.getMessage(), e);
             throw e;
         }
+    }
+
+    private Long findPromptForAttempt(Attempt attempt) {
+        Test test = attempt.getTest();
+        List<Group> studentGroups = groupRepository.findAllByStudentsContaining(attempt.getStudent());
+
+        for (Group group : studentGroups) {
+            Optional<TestGroupAssignment> assignment = assignmentRepository.findByTestAndGroup(test, group);
+
+            if (assignment.isPresent() && assignment.get().getPrompt() != null) {
+                return assignment.get().getPrompt().getId();
+            }
+        }
+
+        log.info("No prompt found for attempt {}, using default prompt ID 1", attempt.getId());
+        return 1L;
     }
 }

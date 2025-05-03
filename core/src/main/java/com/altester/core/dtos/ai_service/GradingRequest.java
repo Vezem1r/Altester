@@ -14,4 +14,5 @@ public class GradingRequest {
     private Long attemptId;
     private String apiKey;
     private AiServiceName aiServiceName;
+    private Long promptId;
 }

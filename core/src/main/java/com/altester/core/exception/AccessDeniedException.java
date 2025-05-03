@@ -19,6 +19,11 @@ public class AccessDeniedException extends AlTesterException {
         return new AccessDeniedException("apiKey", "access", message);
     }
 
+    public static AccessDeniedException promptAccess(String message) {
+        return new AccessDeniedException("prompt", "access", message);
+    }
+
+
     public static AccessDeniedException testAccess() {
         return new AccessDeniedException("test", "access", null);
     }
