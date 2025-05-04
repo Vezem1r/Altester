@@ -7,21 +7,21 @@ import com.altester.ai_grading_service.exception.AiServiceException;
 import com.altester.ai_grading_service.exception.ResourceNotFoundException;
 import com.altester.ai_grading_service.model.Attempt;
 import com.altester.ai_grading_service.model.Submission;
+import com.altester.ai_grading_service.model.enums.QuestionType;
 import com.altester.ai_grading_service.repository.AttemptRepository;
 import com.altester.ai_grading_service.service.AiGradingService;
 import com.altester.ai_grading_service.service.AiProviderService;
 import com.altester.ai_grading_service.service.SubmissionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,11 +33,19 @@ public class AiGradingServiceImpl implements AiGradingService {
     private final SubmissionService submissionService;
     private final List<AiProviderService> aiProviderServices;
 
+    @Value("${CORE_SERVICE_URL}")
+    private String coreServiceUrl;
+
+    @Value("${INTERNAL_API_KEY}")
+    private String internalApiKey;
+
+    private final RestTemplate restTemplate;
+
     @Override
     @Transactional
     public GradingResponse gradeAttempt(GradingRequest request) {
-        log.info("Processing grading request for attempt: {}, using AI service: {}",
-                request.getAttemptId(), request.getAiServiceName());
+        log.info("Processing grading request for attempt: {}, using AI service: {}, with prompt ID: {}",
+                request.getAttemptId(), request.getAiServiceName(), request.getPromptId());
 
         Attempt attempt = attemptRepository.findById(request.getAttemptId())
                 .orElseThrow(() -> ResourceNotFoundException.attempt(request.getAttemptId()));
@@ -58,103 +66,93 @@ public class AiGradingServiceImpl implements AiGradingService {
                     .build();
         }
 
-        List<CompletableFuture<SubmissionGradingResult>> futures = new ArrayList<>();
+        // Filter out auto-gradable submissions
+        List<Submission> submissionsForAiGrading = submissions.stream()
+                .filter(submission -> !isAutoGradableQuestion(submission))
+                .filter(submission -> !submission.isAiGraded())
+                .collect(Collectors.toList());
 
-        for (Submission submission : submissions) {
-            CompletableFuture<SubmissionGradingResult> future = processSubmissionAsync(
-                    submission, provider, request.getApiKey());
-            futures.add(future);
+        if (submissionsForAiGrading.isEmpty()) {
+            return GradingResponse.builder()
+                    .attemptId(request.getAttemptId())
+                    .success(true)
+                    .message("All submissions are already graded or auto-gradable")
+                    .results(new ArrayList<>())
+                    .build();
         }
-        CompletableFuture<Void> allFutures = CompletableFuture.allOf(
-                futures.toArray(new CompletableFuture[0]));
 
         try {
-            allFutures.get();
+            // Process submissions in batches
+            List<AiProviderService.GradingResult> gradingResults = provider.evaluateSubmissionsBatch(
+                    submissionsForAiGrading,
+                    request.getApiKey(),
+                    request.getPromptId()
+            );
 
-            List<SubmissionGradingResult> results = futures.stream()
-                    .map(future -> {
-                        try {
-                            return future.get();
-                        } catch (InterruptedException | ExecutionException e) {
-                            log.error("Error getting future result: {}", e.getMessage(), e);
-                            return null;
-                        }
-                    })
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
+            // Convert results to SubmissionGradingResult
+            List<SubmissionGradingResult> submissionResults = new ArrayList<>();
+            for (int i = 0; i < submissionsForAiGrading.size() && i < gradingResults.size(); i++) {
+                Submission submission = submissionsForAiGrading.get(i);
+                AiProviderService.GradingResult result = gradingResults.get(i);
 
-            int savedCount = submissionService.saveGradingResults(results);
+                submissionResults.add(SubmissionGradingResult.builder()
+                        .submissionId(submission.getId())
+                        .score(result.score())
+                        .feedback(result.feedback())
+                        .graded(true)
+                        .build());
+            }
+
+            int savedCount = submissionService.saveGradingResults(submissionResults);
+
+            notifyCoreServiceGradingComplete(request.getAttemptId());
 
             return GradingResponse.builder()
                     .attemptId(request.getAttemptId())
                     .success(true)
                     .message(String.format("Successfully graded %d out of %d submissions",
-                            savedCount, submissions.size()))
-                    .results(results)
+                            savedCount, submissionsForAiGrading.size()))
+                    .results(submissionResults)
                     .build();
 
-        } catch (InterruptedException | ExecutionException e) {
-            log.error("Error waiting for grading tasks to complete: {}", e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Error processing AI grading for attempt {}: {}", request.getAttemptId(), e.getMessage(), e);
             throw new AiServiceException("Failed to complete grading tasks: " + e.getMessage(), e);
         }
     }
 
-    @Async
-    protected CompletableFuture<SubmissionGradingResult> processSubmissionAsync(
-            Submission submission, AiProviderService provider, String apiKey) {
-
-        try {
-            log.info("Processing submission {} for question {}",
-                    submission.getId(), submission.getQuestion().getId());
-
-            if (submission.isAiGraded()) {
-                return CompletableFuture.completedFuture(
-                        SubmissionGradingResult.builder()
-                                .submissionId(submission.getId())
-                                .graded(false)
-                                .feedback("Submission already graded")
-                                .build()
-                );
-            }
-
-            if (isAutoGradableQuestion(submission)) {
-                return CompletableFuture.completedFuture(
-                        SubmissionGradingResult.builder()
-                                .submissionId(submission.getId())
-                                .graded(false)
-                                .feedback("Question is auto-gradable, skipping AI grading")
-                                .build()
-                );
-            }
-
-            AiProviderService.GradingResult result = provider.evaluateSubmission(
-                    submission, submission.getQuestion(), apiKey);
-
-            return CompletableFuture.completedFuture(
-                    SubmissionGradingResult.builder()
-                            .submissionId(submission.getId())
-                            .score(result.score())
-                            .feedback(result.feedback())
-                            .graded(true)
-                            .build()
-            );
-
-        } catch (Exception e) {
-            log.error("Error processing submission {}: {}", submission.getId(), e.getMessage(), e);
-
-            return CompletableFuture.completedFuture(
-                    SubmissionGradingResult.builder()
-                            .submissionId(submission.getId())
-                            .graded(false)
-                            .feedback("Error during AI grading: " + e.getMessage())
-                            .build()
-            );
-        }
+    private boolean isAutoGradableQuestion(Submission submission) {
+        QuestionType questionType = submission.getQuestion().getQuestionType();
+        return QuestionType.MULTIPLE_CHOICE.equals(questionType) ||
+                QuestionType.IMAGE_WITH_MULTIPLE_CHOICE.equals(questionType);
     }
 
-    private boolean isAutoGradableQuestion(Submission submission) {
-        String questionType = submission.getQuestion().getQuestionType();
-        return "MULTIPLE_CHOICE".equals(questionType) ||
-                "IMAGE_WITH_MULTIPLE_CHOICE".equals(questionType);
+    private void notifyCoreServiceGradingComplete(Long attemptId) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("x-api-key", internalApiKey);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            String url = coreServiceUrl + "/internal/ai-grading/complete/" + attemptId;
+
+            ResponseEntity<Void> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    Void.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                log.info("Successfully notified core service about completion of grading for attempt {}", attemptId);
+            } else {
+                log.error("Failed to notify core service about completion for attempt {}. Status: {}",
+                        attemptId, response.getStatusCode());
+            }
+        } catch (Exception e) {
+            log.error("Error notifying core service about completion for attempt {}: {}",
+                    attemptId, e.getMessage(), e);
+        }
     }
 }

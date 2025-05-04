@@ -64,18 +64,15 @@ public class TestAttemptServiceImpl implements TestAttemptService {
 
             if (validationService.isAttemptExpired(activeAttempt)) {
                 autoCompleteExpiredAttempt(activeAttempt);
-                throw new StateConflictException("attempt", "expired",
-                        "This attempt has expired. The time limit has been reached.");
+            } else {
+                List<Question> questionsForAttempt = questionService.getQuestionsFromSubmissions(activeAttempt);
+                if (questionsForAttempt.isEmpty()) {
+                    questionsForAttempt = questionService.getQuestionsForTest(test);
+                }
+
+                int questionToResume = questionService.findQuestionToResume(activeAttempt, questionsForAttempt);
+                return dtoMapper.getQuestionByNumber(activeAttempt, questionToResume, questionsForAttempt);
             }
-
-            List<Question> questionsForAttempt = questionService.getQuestionsFromSubmissions(activeAttempt);
-            if (questionsForAttempt.isEmpty()) {
-                questionsForAttempt = questionService.getQuestionsForTest(test);
-            }
-
-            int questionToResume = questionService.findQuestionToResume(activeAttempt, questionsForAttempt);
-
-            return dtoMapper.getQuestionByNumber(activeAttempt, questionToResume, questionsForAttempt);
         }
 
         validationService.validateTestAvailability(test, student);
@@ -304,7 +301,6 @@ public class TestAttemptServiceImpl implements TestAttemptService {
             }
 
             int totalScore = 0;
-            Test test = attempt.getTest();
 
             if (attempt.getSubmissions() != null) {
                 for (Submission submission : attempt.getSubmissions()) {
@@ -323,14 +319,7 @@ public class TestAttemptServiceImpl implements TestAttemptService {
 
             attemptRepository.save(attempt);
 
-            aiGradingService.processAttemptForAiGrading(attempt)
-                    .exceptionally(ex -> {
-                        log.error("Error during async AI grading for attempt {}: {}",
-                                attempt.getId(), ex.getMessage(), ex);
-                        attempt.setAiGradingSentAt(null);
-                        attemptRepository.save(attempt);
-                        return false;
-                    });
+            aiGradingService.processAttemptForAiGrading(attempt);
 
             cacheService.clearAttemptRelatedCaches();
             cacheService.clearStudentRelatedCaches();
@@ -440,7 +429,8 @@ public class TestAttemptServiceImpl implements TestAttemptService {
                 .build();
     }
 
-    private void autoCompleteExpiredAttempt(Attempt attempt) {
+    @Transactional
+    public void autoCompleteExpiredAttempt(Attempt attempt) {
         attempt.setStatus(AttemptStatus.COMPLETED);
         LocalDateTime expirationTime = attempt.getStartTime().plusMinutes(attempt.getTest().getDuration());
         attempt.setEndTime(expirationTime);
@@ -460,14 +450,22 @@ public class TestAttemptServiceImpl implements TestAttemptService {
         }
 
         attempt.setScore(totalScore);
+        attempt.setAiGradingSentAt(LocalDateTime.now());
         attemptRepository.save(attempt);
 
-        aiGradingService.processAttemptForAiGrading(attempt)
-                .exceptionally(ex -> {
-                    log.error("Error during async AI grading for expired attempt {}: {}",
-                            attempt.getId(), ex.getMessage(), ex);
-                    return false;
-                });
+        cacheService.clearAttemptRelatedCaches();
+        cacheService.clearStudentRelatedCaches();
+        cacheService.clearTeacherRelatedCaches();
+        cacheService.clearAdminRelatedCaches();
+
+        try {
+            aiGradingService.processAttemptForAiGrading(attempt);
+            log.info("Sent expired attempt {} for AI grading", attempt.getId());
+        } catch (Exception ex) {
+            log.error("Error sending expired attempt {} for AI grading: {}",
+                    attempt.getId(), ex.getMessage(), ex);
+            resetAiGradingTimestamp(attempt.getId());
+        }
     }
 
     private boolean isChoiceQuestionType(QuestionType questionType) {
@@ -481,7 +479,7 @@ public class TestAttemptServiceImpl implements TestAttemptService {
     }
 
     private Attempt getAttemptById(Long attemptId) {
-        return attemptRepository.findById(attemptId)
+        return attemptRepository.findByIdWithSubmissions(attemptId)
                 .orElseThrow(() -> new ResourceNotFoundException("Attempt", attemptId.toString(), null));
     }
 
@@ -493,5 +491,20 @@ public class TestAttemptServiceImpl implements TestAttemptService {
     private User getUserFromPrincipal(Principal principal) {
         return userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> ResourceNotFoundException.user(principal.getName()));
+    }
+
+    @Transactional(readOnly = true)
+    public AttemptResultResponse completeAttemptAsync(Long attemptId) {
+        Attempt gradedAttempt = getAttemptById(attemptId);
+        gradedAttempt.setStatus(AttemptStatus.REVIEWED);
+        gradedAttempt = attemptRepository.save(gradedAttempt);
+        return dtoMapper.buildAttemptResult(gradedAttempt);
+    }
+
+    @Transactional
+    public void resetAiGradingTimestamp(Long attemptId) {
+        Attempt attempt = getAttemptById(attemptId);
+        attempt.setAiGradingSentAt(null);
+        attemptRepository.save(attempt);
     }
 }

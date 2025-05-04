@@ -8,6 +8,7 @@ import com.altester.ai_grading_service.util.PromptBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -18,9 +19,38 @@ public abstract class AbstractAiProviderService implements AiProviderService {
     protected final PromptBuilder promptBuilder;
 
     @Override
-    public GradingResult evaluateSubmission(Submission submission, Question question, String apiKey) {
+    public List<GradingResult> evaluateSubmissionsBatch(List<Submission> submissions, String apiKey, Long promptId) {
+        int batchSize = 5;
+        List<GradingResult> allResults = new ArrayList<>();
+
+        for (int i = 0; i < submissions.size(); i += batchSize) {
+            int endIndex = Math.min(i + batchSize, submissions.size());
+            List<Submission> batch = submissions.subList(i, endIndex);
+
+            try {
+                String batchPrompt = buildBatchPrompt(batch, promptId);
+                log.debug("Sending batch prompt to {}: {} questions", getProviderName(), batch.size());
+
+                String response = sendPromptToAi(batchPrompt, apiKey, calculateMaxScoreForBatch(batch));
+                log.debug("Received batch response from {}", getProviderName());
+
+                List<GradingResult> batchResults = parseBatchGradingResponse(response, batch);
+                allResults.addAll(batchResults);
+            } catch (Exception e) {
+                log.error("Error evaluating batch with {}: {}", getProviderName(), e.getMessage(), e);
+                for (Submission submission : batch) {
+                    allResults.add(evaluateSubmission(submission, submission.getQuestion(), apiKey, promptId));
+                }
+            }
+        }
+
+        return allResults;
+    }
+
+    @Override
+    public GradingResult evaluateSubmission(Submission submission, Question question, String apiKey, Long promptId) {
         try {
-            String prompt = buildPrompt(submission, question);
+            String prompt = buildPrompt(submission, question, promptId);
             log.debug("Sending prompt to {}: {}", getProviderName(), prompt);
 
             String response = sendPromptToAi(prompt, apiKey, question.getScore());
@@ -37,7 +67,24 @@ public abstract class AbstractAiProviderService implements AiProviderService {
 
     protected abstract String getProviderName();
 
-    protected String buildPrompt(Submission submission, Question question) {
+    protected String buildBatchPrompt(List<Submission> submissions, Long promptId) {
+        StringBuilder batchPrompt = new StringBuilder();
+        batchPrompt.append("Please evaluate the following student submissions.\n\n");
+        batchPrompt.append("For each submission, provide the response in this exact format:\n");
+        batchPrompt.append("=== Submission ID: [submission_id] ===\n");
+        batchPrompt.append("Score: [number]\n");
+        batchPrompt.append("Feedback: [your feedback]\n\n");
+
+        for (Submission submission : submissions) {
+            batchPrompt.append("=== Submission ID: ").append(submission.getId()).append(" ===\n");
+            batchPrompt.append(buildPrompt(submission, submission.getQuestion(), promptId));
+            batchPrompt.append("\n\n");
+        }
+
+        return batchPrompt.toString();
+    }
+
+    protected String buildPrompt(Submission submission, Question question, Long promptId) {
         StringBuilder studentAnswer = new StringBuilder();
 
         if (submission.getAnswerText() != null && !submission.getAnswerText().isEmpty()) {
@@ -69,8 +116,48 @@ public abstract class AbstractAiProviderService implements AiProviderService {
                 question.getQuestionText(),
                 correctAnswer,
                 studentAnswer.toString(),
-                question.getScore()
+                question.getScore(),
+                promptId
         );
+    }
+
+    protected List<GradingResult> parseBatchGradingResponse(String response, List<Submission> submissions) {
+        List<GradingResult> results = new ArrayList<>();
+        String[] sections = response.split("=== Submission ID:");
+
+        for (int i = 1; i < sections.length; i++) {
+            String section = sections[i];
+            try {
+                int idEndIndex = section.indexOf(" ===");
+                if (idEndIndex == -1) continue;
+
+                String submissionIdStr = section.substring(0, idEndIndex).trim();
+                long submissionId = Long.parseLong(submissionIdStr);
+
+                Submission matchingSubmission = submissions.stream()
+                        .filter(s -> s.getId() == submissionId)
+                        .findFirst()
+                        .orElse(null);
+
+                if (matchingSubmission == null) continue;
+
+                String submissionContent = section.substring(idEndIndex + 4);
+                GradingResult result = parseGradingResponse(submissionContent, matchingSubmission.getQuestion().getScore());
+                results.add(result);
+            } catch (Exception e) {
+                log.error("Error parsing batch response section: {}", e.getMessage());
+                results.add(new GradingResult(0, "Error parsing grading response"));
+            }
+        }
+
+        if (results.size() < submissions.size()) {
+            log.warn("Batch response missing some results, filling with error responses");
+            while (results.size() < submissions.size()) {
+                results.add(new GradingResult(0, "No grading response received"));
+            }
+        }
+
+        return results;
     }
 
     protected GradingResult parseGradingResponse(String response, int maxScore) {
@@ -138,5 +225,11 @@ public abstract class AbstractAiProviderService implements AiProviderService {
             log.error("Error parsing grading response: {}", e.getMessage(), e);
             return new GradingResult(0, "Error evaluating submission: " + e.getMessage());
         }
+    }
+
+    private int calculateMaxScoreForBatch(List<Submission> submissions) {
+        return submissions.stream()
+                .mapToInt(s -> s.getQuestion().getScore())
+                .sum();
     }
 }

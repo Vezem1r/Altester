@@ -9,30 +9,12 @@ import java.util.List;
 public interface SubmissionService {
 
     /**
-     * Get all submissions for an attempt
-     *
-     * @param attempt The test attempt
-     * @return List of submissions
-     */
-    List<Submission> getSubmissionsForAttempt(Attempt attempt);
-
-    /**
      * Get all submissions for an attempt that need AI grading
      *
      * @param attempt The test attempt
      * @return List of submissions requiring AI grading
      */
     List<Submission> getSubmissionsForAiGrading(Attempt attempt);
-
-    /**
-     * Update a submission with AI grading results
-     *
-     * @param submission The submission to update
-     * @param score The assigned score
-     * @param feedback The feedback from AI
-     * @return The updated submission
-     */
-    Submission updateSubmissionWithGradingResults(Submission submission, Integer score, String feedback);
 
     /**
      * Save multiple grading results

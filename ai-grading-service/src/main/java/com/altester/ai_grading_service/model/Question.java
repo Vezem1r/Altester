@@ -1,5 +1,6 @@
 package com.altester.ai_grading_service.model;
 
+import com.altester.ai_grading_service.model.enums.QuestionType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -33,7 +34,8 @@ public class Question {
     private String correctAnswer;
 
     @Column(nullable = false)
-    private String questionType;
+    @Enumerated(EnumType.STRING)
+    private QuestionType questionType;
 
     @Column(nullable = false)
     private String difficulty;

@@ -48,6 +48,7 @@ public class SecurityConfig {
                         .requestMatchers(whiteList).permitAll()
                         .requestMatchers("/admin/**").hasAnyRole(RolesEnum.ADMIN.name())
                         .requestMatchers("/teacher/**").hasAnyRole(RolesEnum.TEACHER.name(), RolesEnum.ADMIN.name())
+                        .requestMatchers("/internal/ai-grading/**").permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))

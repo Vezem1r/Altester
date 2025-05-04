@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
@@ -24,7 +25,6 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 @Service
 @Slf4j
@@ -34,30 +34,30 @@ public class AiGradingServiceImpl implements AiGradingService {
     private final GroupRepository groupRepository;
     private final TestGroupAssignmentRepository assignmentRepository;
     private final RestTemplate restTemplate;
-    private final ApiKeyEncryptionUtil apiKeyEncryptionUtil;
     private final ApiKeyEncryptionUtil encryptionUtil;
+
 
     @Value("${AI_SERVICE_URL}")
     private String aiGradingServiceUrl;
 
     @Override
     @Async
-    public CompletableFuture<Boolean> processAttemptForAiGrading(Attempt attempt) {
+    public void processAttemptForAiGrading(Attempt attempt) {
         log.info("Checking if attempt {} is eligible for AI grading", attempt.getId());
 
         try {
             Optional<ApiKey> apiKeyOpt = findApiKeyForEvaluation(attempt);
             if (apiKeyOpt.isEmpty()) {
                 log.debug("No AI evaluation configured for attempt {}", attempt.getId());
-                return CompletableFuture.completedFuture(false);
+                return;
             }
 
             ApiKey apiKey = apiKeyOpt.get();
-            sendAttemptForGrading(attempt, apiKey);
-            return CompletableFuture.completedFuture(true);
+            Long promptId = findPromptForAttempt(attempt);
+
+            sendAttemptForGrading(attempt, apiKey, promptId);
         } catch (Exception e) {
                 log.error("Failed to send attempt {} for AI grading: {}", attempt.getId(), e.getMessage(), e);
-                return CompletableFuture.completedFuture(false);
         }
     }
 
@@ -92,19 +92,18 @@ public class AiGradingServiceImpl implements AiGradingService {
     }
 
     /**
-     * Sends an attempt for AI grading
+     * Sends an attempt for AI grading and waits for response
      *
-     * @param attempt The attempt to be graded
-     * @param apiKey The API key to use for grading
+     * @param attempt  The attempt to be graded
+     * @param apiKey   The API key to use for grading
+     * @param promptId The prompt ID to use for grading
      */
-    private void sendAttemptForGrading(Attempt attempt, ApiKey apiKey) {
+    private void sendAttemptForGrading(Attempt attempt, ApiKey apiKey, Long promptId) {
         log.info("Sending attempt {} for AI grading with service: {}",
                 attempt.getId(), apiKey.getAiServiceName());
 
         try {
             String decryptedKey = encryptionUtil.decrypt(apiKey.getEncryptedKey());
-
-            Long promptId = findPromptForAttempt(attempt);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -119,21 +118,23 @@ public class AiGradingServiceImpl implements AiGradingService {
             HttpEntity<GradingRequest> entity = new HttpEntity<>(request, headers);
 
             String endpoint = aiGradingServiceUrl + "/ai/grade";
-            restTemplate.postForEntity(endpoint, entity, Void.class);
+            ResponseEntity<Void> response = restTemplate.postForEntity(endpoint, entity, Void.class);
 
-            log.info("AI grading request for attempt {} sent successfully", attempt.getId());
+            if (response.getStatusCode().is2xxSuccessful()) {
+                log.info("AI grading for attempt {} completed successfully", attempt.getId());
+            } else {
+                log.error("AI grading for attempt {} failed with status: {}",
+                        attempt.getId(), response.getStatusCode());
+            }
         } catch (RestClientException e) {
             log.error("REST client error when sending attempt {} for AI grading: {}",
                     attempt.getId(), e.getMessage(), e);
-            throw e;
         } catch (ApiKeyException e) {
             log.error("API key decryption error for attempt {}: {}",
                     attempt.getId(), e.getMessage(), e);
-            throw e;
         } catch (Exception e) {
             log.error("Unexpected error sending attempt {} for AI grading: {}",
                     attempt.getId(), e.getMessage(), e);
-            throw e;
         }
     }
 

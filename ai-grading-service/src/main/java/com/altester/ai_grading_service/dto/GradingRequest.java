@@ -20,4 +20,6 @@ public class GradingRequest {
 
     @NotNull
     private String aiServiceName;
+
+    private Long promptId;
 }

@@ -21,22 +21,8 @@ public class SubmissionServiceImpl implements SubmissionService {
     private final SubmissionRepository submissionRepository;
 
     @Override
-    public List<Submission> getSubmissionsForAttempt(Attempt attempt) {
-        return submissionRepository.findByAttempt(attempt);
-    }
-
-    @Override
     public List<Submission> getSubmissionsForAiGrading(Attempt attempt) {
         return submissionRepository.findByAttemptAndAiGraded(attempt, false);
-    }
-
-    @Override
-    @Transactional
-    public Submission updateSubmissionWithGradingResults(Submission submission, Integer score, String feedback) {
-        submission.setScore(score);
-        submission.setTeacherFeedback(feedback);
-        submission.setAiGraded(true);
-        return submissionRepository.save(submission);
     }
 
     @Override
