@@ -293,11 +293,25 @@ public class TestAttemptServiceImpl implements TestAttemptService {
         User student = getUserFromPrincipal(principal);
         validationService.ensureStudentRole(student);
 
+        String processingKey = "attempt_" + request.getAttemptId();
+        Boolean isProcessing = cacheService.getProcessingFlag(processingKey, Boolean.class);
+
+        if (Boolean.TRUE.equals(isProcessing)) {
+            log.debug("[COMPLETE ATTEMPT] Attempt {} is currently being processed by another request",
+                    request.getAttemptId());
+            throw new StateConflictException("attempt", "processing",
+                    "This attempt is already being submitted and is in the process of being graded. Please wait.");
+        }
+        cacheService.putProcessingFlag(processingKey, true, 30);
+
         try {
             Attempt attempt = getAttemptById(request.getAttemptId());
             validationService.validateAttemptOwnership(attempt, student);
 
-            if (attempt.getStatus() == AttemptStatus.COMPLETED) {
+            if (attempt.getStatus() == AttemptStatus.COMPLETED ||
+                    attempt.getStatus() == AttemptStatus.REVIEWED) {
+                log.debug("[COMPLETE ATTEMPT] Attempt {} is already {}, returning existing result",
+                        attempt.getId(), attempt.getStatus());
                 return dtoMapper.buildAttemptResult(attempt);
             }
 
@@ -310,11 +324,9 @@ public class TestAttemptServiceImpl implements TestAttemptService {
             }
 
             int totalScore = 0;
-
             if (attempt.getSubmissions() != null) {
                 for (Submission submission : attempt.getSubmissions()) {
                     Question question = submission.getQuestion();
-
                     if (isChoiceQuestionType(question.getQuestionType())) {
                         totalScore += gradingService.gradeMultipleSelectionQuestion(submission);
                     }
@@ -328,43 +340,66 @@ public class TestAttemptServiceImpl implements TestAttemptService {
 
             attemptRepository.save(attempt);
 
+            log.info("[AI GRADING] Sending attempt: {} for AI grading", attempt.getId());
             CompletableFuture<GradingResponse> futureResponse = aiGradingService.processAttemptForAiGrading(attempt);
+
+            int finalTotalScore = totalScore;
 
             try {
                 GradingResponse gradingResponse = futureResponse.get(AI_GRADING_TIMEOUT_SEC, TimeUnit.SECONDS);
 
                 if (gradingResponse != null && gradingResponse.isSuccess()) {
+                    log.info("[AI GRADING] Received successful result for attempt: {} with score: {}",
+                            attempt.getId(), gradingResponse.getAttemptScore());
 
-                    attempt.setScore(attempt.getScore() + gradingResponse.getAttemptScore());
+                    attempt.setScore(finalTotalScore + gradingResponse.getAttemptScore());
                     attempt.setStatus(AttemptStatus.REVIEWED);
-                    attemptRepository.save(attempt);
 
+                    attemptRepository.save(attempt);
                     clearCashes();
-                    AttemptResultResponse result = dtoMapper.buildAttemptResult(attempt);
 
                     notificationDispatchService.notifyTestGradedByAi(attempt);
 
-                    return result;
+                    return dtoMapper.buildAttemptResult(attempt);
+                } else {
+                    log.info("[AI GRADING] Received unsuccessful result for attempt: {}", attempt.getId());
                 }
-            } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                log.info("Timed out waiting for AI grading result for attempt: {}", attempt.getId());
+            } catch (TimeoutException e) {
+                log.debug("[AI GRADING] Result not available within {} seconds for attempt: {}",
+                        AI_GRADING_TIMEOUT_SEC, attempt.getId());
+                futureResponse.thenAccept(gradingResponse -> {
+                    try {
+                        if (gradingResponse != null && gradingResponse.isSuccess()) {
+                            Attempt updatedAttempt = getAttemptById(attempt.getId());
+                            if (updatedAttempt != null) {
+                                updatedAttempt.setScore(finalTotalScore + gradingResponse.getAttemptScore());
+                                updatedAttempt.setStatus(AttemptStatus.REVIEWED);
+                                attemptRepository.save(updatedAttempt);
+                                notificationDispatchService.notifyTestGradedByAi(updatedAttempt);
+                                log.debug("[AI GRADING] Successfully processed delayed result for attempt: {}",
+                                        attempt.getId());
+                            }
+                        }
+                    } catch (Exception ex) {
+                        log.error("[AI GRADING] Error processing delayed result for attempt: {}: {}",
+                                attempt.getId(), ex.getMessage());
+                    }
+                });
+            } catch (InterruptedException | ExecutionException e) {
+                log.error("[AI GRADING] Error getting AI grading result for attempt: {}: {}",
+                        attempt.getId(), e.getMessage());
             }
-
             clearCashes();
-
             return dtoMapper.buildAttemptResult(attempt);
 
         } catch (OptimisticLockException | StaleObjectStateException e) {
-            log.info("Optimistic lock detected for attempt: {}, retrying...", request.getAttemptId());
+            log.info("[OPTIMISTIC LOCK] Detected for attempt: {}, returning current state",
+                    request.getAttemptId());
 
-            Attempt freshAttempt = getAttemptById(request.getAttemptId());
-
-            if (freshAttempt.getStatus() == AttemptStatus.COMPLETED) {
-                return dtoMapper.buildAttemptResult(freshAttempt);
-            } else {
-                throw new StateConflictException("attempt", "processing",
-                        "The attempt is currently being processed. Please try again.");
-            }
+            throw new StateConflictException("attempt", "processing",
+                    "This attempt is already being submitted and is in the process of being graded. Please wait.");
+        } finally {
+            cacheService.removeProcessingFlag(processingKey);
         }
     }
 

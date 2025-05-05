@@ -4,8 +4,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.Arrays;
 
 @Service
@@ -14,6 +16,7 @@ import java.util.Arrays;
 public class CacheService {
 
     private final CacheManager cacheManager;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     public void clearAllCaches() {
         cacheManager.getCacheNames().forEach(
@@ -124,6 +127,43 @@ public class CacheService {
                 "promptDetails"
         );
         log.debug("All prompt-related caches have been cleared");
+    }
+
+    /**
+     * Store a processing flag with a specified TTL
+     * @param key The key to store the flag under
+     * @param value The value to store
+     * @param ttlSeconds The time-to-live in seconds
+     */
+    public <T> void putProcessingFlag(String key, T value, long ttlSeconds) {
+        String flagKey = "processingFlag:" + key;
+        redisTemplate.opsForValue().set(flagKey, value, Duration.ofSeconds(ttlSeconds));
+        log.debug("Set processing flag '{}' with TTL {} seconds", key, ttlSeconds);
+    }
+
+    /**
+     * Get a processing flag value
+     * @param key The key to retrieve
+     * @param type The expected type of the value
+     * @return The value or null if not found
+     */
+    public <T> T getProcessingFlag(String key, Class<T> type) {
+        String flagKey = "processingFlag:" + key;
+        Object value = redisTemplate.opsForValue().get(flagKey);
+        if (value != null && type.isInstance(value)) {
+            return type.cast(value);
+        }
+        return null;
+    }
+
+    /**
+     * Remove a processing flag
+     * @param key The key to remove
+     */
+    public void removeProcessingFlag(String key) {
+        String flagKey = "processingFlag:" + key;
+        redisTemplate.delete(flagKey);
+        log.debug("Removed processing flag '{}'", key);
     }
 
     public void clearCaches(String... cacheNames) {
