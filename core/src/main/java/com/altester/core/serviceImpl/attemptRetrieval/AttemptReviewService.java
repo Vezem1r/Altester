@@ -55,7 +55,7 @@ public class AttemptReviewService {
                     .collect(Collectors.toList());
 
             questionReviews.add(QuestionReviewDTO.builder()
-                    .questionId(question.getId())
+                    .submissionId(submission.getId())
                     .questionText(question.getQuestionText())
                     .imagePath(question.getImagePath())
                     .options(optionReviews)

@@ -9,7 +9,9 @@ import com.altester.core.model.subject.*;
 import com.altester.core.model.subject.enums.AttemptStatus;
 import com.altester.core.model.subject.enums.Semester;
 import com.altester.core.repository.*;
+import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.service.StudentService;
+import com.altester.core.serviceImpl.CacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -31,6 +33,9 @@ public class StudentServiceImpl implements StudentService {
     private final StudentMapper studentMapper;
     private final StudentGroupFilterService groupFilterService;
     private final StudentAccessValidator accessValidator;
+    private final SubmissionRepository submissionRepository;
+    private final NotificationDispatchService notificationDispatchService;
+    private final CacheService cacheService;
 
     @Override
     @Cacheable(value = "studentDashboard",
@@ -163,7 +168,7 @@ public class StudentServiceImpl implements StudentService {
                     .map(submission -> {
                         Question question = submission.getQuestion();
                         return QuestionReviewDTO.builder()
-                                .questionId(question.getId())
+                                .submissionId(submission.getId())
                                 .questionText(question.getQuestionText())
                                 .imagePath(question.getImagePath())
                                 .score(submission.getScore() != null ? submission.getScore() : 0)
@@ -183,6 +188,73 @@ public class StudentServiceImpl implements StudentService {
                 .endTime(attempt.getEndTime())
                 .questions(questionReviews)
                 .build();
+    }
+
+    @Override
+    public void requestRegrade(Principal principal, RegradeRequestDTO regradeRequest) {
+        log.info("Student {} requesting regrade for submissions: {}",
+                principal.getName(), regradeRequest.getSubmissionIds());
+
+        User student = getUserFromPrincipal(principal);
+        accessValidator.ensureStudentRole(student);
+
+        if (regradeRequest.getSubmissionIds().isEmpty()) {
+            throw new IllegalArgumentException("Submission IDs list cannot be empty");
+        }
+
+        List<Submission> submissions = submissionRepository.findAllById(regradeRequest.getSubmissionIds());
+
+        if (submissions.size() != regradeRequest.getSubmissionIds().size()) {
+            throw ResourceNotFoundException.submissions("One or more submissions not found");
+        }
+
+        Attempt attempt = submissions.getFirst().getAttempt();
+        for (Submission submission : submissions) {
+            if (submission.getAttempt().getId() != (attempt.getId())) {
+                throw new StateConflictException("submission", "multiple_attempts",
+                        "All submissions must belong to the same attempt");
+            }
+        }
+
+        accessValidator.validateAttemptOwnership(attempt, student);
+
+        if (attempt.getStatus() != AttemptStatus.REVIEWED) {
+            throw new StateConflictException("attempt", "not_reviewed",
+                    "Can only request regrade for reviewed attempts");
+        }
+
+        Test test = attempt.getTest();
+        List<Group> studentGroups = groupRepository.findAllByStudentId(student.getId());
+
+        Group relevantGroup = studentGroups.stream()
+                .filter(group -> group.getTests().contains(test))
+                .findFirst()
+                .orElseThrow(() -> ResourceNotFoundException.group("Group containing this test and student not found"));
+
+        User teacher = relevantGroup.getTeacher();
+
+        int requestedCount = 0;
+        for (Submission submission : submissions) {
+            if (!submission.isAiGraded()) {
+                throw new StateConflictException("submission", "not_ai_graded",
+                        "Can only request regrade for AI-graded submissions");
+            }
+            if (submission.isRegradeRequested()) {
+                throw new StateConflictException("submission", "already_requested",
+                        "Submission " + submission.getId() + " is already marked for re-grading");
+            }
+
+            submission.setRegradeRequested(true);
+            submissionRepository.save(submission);
+            requestedCount++;
+        }
+
+        notificationDispatchService.notifyRegradeRequested(student, teacher, test, requestedCount);
+
+        cacheService.clearCaches("attemptReview");
+
+        log.info("Successfully marked {} submissions for re-grading for student {} and test {}",
+                requestedCount, student.getUsername(), test.getTitle());
     }
 
     @Override

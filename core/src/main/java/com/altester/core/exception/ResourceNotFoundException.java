@@ -23,6 +23,10 @@ public class ResourceNotFoundException extends AlTesterException {
         return new ResourceNotFoundException("Submission", id.toString(), null);
     }
 
+    public static ResourceNotFoundException submissions(String message) {
+        return new ResourceNotFoundException(null, null, message);
+    }
+
     public static ResourceNotFoundException prompt(Long id) {
         return new ResourceNotFoundException("Prompt", id.toString(), null);
     }

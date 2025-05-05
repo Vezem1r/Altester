@@ -136,6 +136,11 @@ public class AiGradingServiceImpl implements AiGradingService {
         return response;
     }
 
+    private int getScore(Long attemptId) {
+        Attempt attempt = attemptRepository.findById(attemptId).orElseThrow(() -> ResourceNotFoundException.attempt(attemptId));
+        return attempt.getScore();
+    }
+
     private void notifyCoreServiceGradingComplete(Long attemptId) {
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -144,7 +149,7 @@ public class AiGradingServiceImpl implements AiGradingService {
 
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-            String url = coreServiceUrl + "/internal/ai-grading/complete/" + attemptId;
+            String url = coreServiceUrl + "/internal/ai-grading/complete/" + attemptId + "/" + getScore(attemptId);
 
             ResponseEntity<Void> response = restTemplate.exchange(
                     url,

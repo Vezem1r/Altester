@@ -3,6 +3,7 @@ package com.altester.core.controller.page;
 import com.altester.core.dtos.core_service.student.*;
 import com.altester.core.model.subject.enums.Semester;
 import com.altester.core.service.StudentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -57,5 +58,13 @@ public class StudentPageController {
     public ResponseEntity<AttemptReviewDTO> getAttemptReview(Principal principal, @PathVariable Long attemptId) {
         AttemptReviewDTO review = studentService.getAttemptReview(principal, attemptId);
         return ResponseEntity.ok(review);
+    }
+
+    @PostMapping("/request-regrade")
+    public ResponseEntity<String> requestRegrade(
+            Principal principal,
+            @Valid @RequestBody RegradeRequestDTO regradeRequest) {
+        studentService.requestRegrade(principal, regradeRequest);
+        return ResponseEntity.ok("Successfully requested re-grading");
     }
 }

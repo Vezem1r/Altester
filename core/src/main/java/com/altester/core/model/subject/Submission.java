@@ -51,4 +51,7 @@ public class Submission {
 
     @Column(nullable = false)
     private boolean aiGraded = false;
+
+    @Column(nullable = false)
+    private boolean regradeRequested = false;
 }

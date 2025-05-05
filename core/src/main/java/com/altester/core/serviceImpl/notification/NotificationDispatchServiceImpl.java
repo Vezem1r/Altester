@@ -71,6 +71,20 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
     }
 
     @Override
+    public void notifyTestGradedWithScore(Attempt attempt, int score) {
+        NotificationRequest request = NotificationRequest.builder()
+                .usernames(Collections.singletonList(attempt.getStudent().getUsername()))
+                .title("Test Graded")
+                .message("Your attempt for test '" + attempt.getTest().getTitle() + "' has been graded. Score: " + score)
+                .type(NotificationType.TEST_GRADED.toString())
+                .actionUrl("/student/attempt-review/" + attempt.getId())
+                .referenceId(attempt.getId())
+                .build();
+
+        sendNotification(request);
+    }
+
+    @Override
     public void notifyTeacherFeedback(Attempt attempt) {
         NotificationRequest request = NotificationRequest.builder()
                 .usernames(Collections.singletonList(attempt.getStudent().getUsername()))
@@ -162,6 +176,22 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
                 .message("Weekly report: " + activeTests + " active tests, " + activeUsers + " active users, " + submissions + " submitted answers")
                 .type(NotificationType.USAGE_STATISTICS.toString())
                 .actionUrl("/admin/statistics")
+                .build();
+
+        sendNotification(request);
+    }
+
+    @Override
+    public void notifyRegradeRequested(User student, User teacher, Test test, int questionCount) {
+        NotificationRequest request = NotificationRequest.builder()
+                .usernames(Collections.singletonList(teacher.getUsername()))
+                .title("Regrade Request")
+                .message(student.getUsername() +
+                        " has requested re-grading for " + questionCount +
+                        " question(s) in test '" + test.getTitle() + "'")
+                .type(NotificationType.REGRADE_REQUESTED.toString())
+                .actionUrl("/teacher/tests/" + test.getId() + "/attempts")
+                .referenceId(test.getId())
                 .build();
 
         sendNotification(request);

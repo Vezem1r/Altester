@@ -135,7 +135,7 @@ public class StudentMapper {
                 .collect(Collectors.toList());
 
         return QuestionReviewDTO.builder()
-                .questionId(question.getId())
+                .submissionId(submission.getId())
                 .questionText(question.getQuestionText())
                 .imagePath(question.getImagePath())
                 .options(optionReviews)
@@ -144,6 +144,8 @@ public class StudentMapper {
                 .score(submission.getScore() != null ? submission.getScore() : 0)
                 .maxScore(question.getScore())
                 .teacherFeedback(submission.getTeacherFeedback())
+                .isAiGraded(submission.isAiGraded())
+                .isRequested(submission.isRegradeRequested())
                 .build();
     }
 

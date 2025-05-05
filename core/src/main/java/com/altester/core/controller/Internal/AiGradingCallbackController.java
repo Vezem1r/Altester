@@ -27,9 +27,10 @@ public class AiGradingCallbackController {
     @Value("${INTERNAL_API_KEY}")
     private String internalApiKey;
 
-    @PostMapping("/complete/{attemptId}")
+    @PostMapping("/complete/{attemptId}/{score}")
     public ResponseEntity<Void> handleAiGradingComplete(
             @PathVariable Long attemptId,
+            @PathVariable int score,
             @RequestHeader("x-api-key") String apiKey) {
 
         if (!internalApiKey.equals(apiKey)) {
@@ -38,19 +39,14 @@ public class AiGradingCallbackController {
 
         log.info("Received AI grading completion for attempt: {}", attemptId);
 
-        try {
-            Attempt attempt = attemptRepository.findByIdWithSubmissions(attemptId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Attempt", attemptId.toString(), null));
+        Attempt attempt = attemptRepository.findByIdWithSubmissions(attemptId)
+                .orElseThrow(() -> new ResourceNotFoundException("Attempt", attemptId.toString(), null));
 
-            notificationDispatchService.notifyTestGraded(attempt);
+        notificationDispatchService.notifyTestGradedWithScore(attempt, score);
 
-            cacheService.clearAttemptRelatedCaches();
-            cacheService.clearStudentRelatedCaches();
+        cacheService.clearAttemptRelatedCaches();
+        cacheService.clearStudentRelatedCaches();
 
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            log.error("Error handling AI grading completion for attempt {}: {}", attemptId, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        return ResponseEntity.ok().build();
     }
 }

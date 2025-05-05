@@ -12,7 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class QuestionReviewDTO {
-    private long questionId;
+    private long submissionId;
     private String questionText;
     private String imagePath;
     private List<OptionReviewDTO> options;
@@ -21,4 +21,6 @@ public class QuestionReviewDTO {
     private int score;
     private int maxScore;
     private String teacherFeedback;
+    private boolean isAiGraded;
+    private boolean isRequested;
 }

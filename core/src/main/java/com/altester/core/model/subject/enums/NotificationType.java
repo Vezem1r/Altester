@@ -10,6 +10,7 @@ public enum NotificationType {
     // Teacher
     NEW_STUDENT_JOINED,
     ADMIN_TEST_CHANGED,
+    REGRADE_REQUESTED,
 
     // Admin
     SYSTEM_WARNING,

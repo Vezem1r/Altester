@@ -26,6 +26,8 @@ public interface NotificationDispatchService {
      */
     void notifyTestGraded(Attempt attempt);
 
+    void notifyTestGradedWithScore(Attempt attempt, int score);
+
     /**
      * Notifies a student when they have received feedback from a teacher on their attempt.
      * Includes a link to view the detailed feedback.
@@ -71,4 +73,14 @@ public interface NotificationDispatchService {
      * @param submissions Number of submissions in the period
      */
     void notifyUsageStatistics(List<User> admins, int activeTests, int activeUsers, int submissions);
+
+    /**
+     * Notifies teacher when a student requests re-grading of submissions
+     *
+     * @param student The student requesting re-grading
+     * @param teacher The teacher who will review the request
+     * @param test The test containing the submissions
+     * @param questionCount Number of questions requested for re-grading
+     */
+    void notifyRegradeRequested(User student, User teacher, Test test, int questionCount);
 }
