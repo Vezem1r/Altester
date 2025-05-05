@@ -47,13 +47,10 @@ public class NotificationScheduler {
     @Scheduled(cron = "0 0 7 * * ?")
     public void checkTestsWithoutQuestions() {
         try {
-            List<Test> testsWithoutQuestions = testRepository.findAll().stream()
-                    .filter(test -> test.isOpen() &&
-                            (test.getQuestions() == null || test.getQuestions().isEmpty()))
-                    .toList();
+            List<Test> testsWithoutQuestions = testRepository.findAllNonOpenTestsWithoutQuestions();
 
             if (testsWithoutQuestions.isEmpty()) {
-                log.info("No open tests without questions found");
+                log.info("No tests without questions found");
             }
 
             List<User> admins = userRepository.findAllByRole(RolesEnum.ADMIN);

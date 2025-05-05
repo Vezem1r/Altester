@@ -1,6 +1,7 @@
 package com.altester.core.repository;
 
 import com.altester.core.model.subject.Submission;
+import jakarta.persistence.EntityManager;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

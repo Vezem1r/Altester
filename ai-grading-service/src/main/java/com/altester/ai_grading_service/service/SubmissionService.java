@@ -22,5 +22,5 @@ public interface SubmissionService {
      * @param results List of grading results to save
      * @return Number of results saved
      */
-    int saveGradingResults(List<SubmissionGradingResult> results);
+    int saveGradingResults(List<SubmissionGradingResult> results, Attempt attempt);
 }

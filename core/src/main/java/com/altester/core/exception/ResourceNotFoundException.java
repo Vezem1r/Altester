@@ -19,6 +19,10 @@ public class ResourceNotFoundException extends AlTesterException {
         return new ResourceNotFoundException("ApiKey", id.toString(), null);
     }
 
+    public static ResourceNotFoundException submission(Long id) {
+        return new ResourceNotFoundException("Submission", id.toString(), null);
+    }
+
     public static ResourceNotFoundException prompt(Long id) {
         return new ResourceNotFoundException("Prompt", id.toString(), null);
     }

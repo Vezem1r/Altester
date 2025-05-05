@@ -27,6 +27,11 @@ public class AuthController {
     @Value("${AUTH_SERVICE_URL}")
     private String authServiceUrl;
 
+    @Value("${INTERNAL_API_KEY}")
+    private String secretKey;
+
+    private static final String API_KEY_HEADER = "x-api-key";
+
     private String getAuthServiceUrl() {
         return authServiceUrl + "/auth";
     }
@@ -37,6 +42,7 @@ public class AuthController {
 
     private ResponseEntity<?> forwardRequest(String url, HttpMethod method, Object body, Class<?> responseType) {
         HttpHeaders headers = new HttpHeaders();
+        headers.set(API_KEY_HEADER, secretKey);
         HttpEntity<?> requestEntity = new HttpEntity<>(body, headers);
 
         try {

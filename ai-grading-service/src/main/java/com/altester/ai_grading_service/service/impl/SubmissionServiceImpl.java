@@ -4,6 +4,8 @@ import com.altester.ai_grading_service.dto.SubmissionGradingResult;
 import com.altester.ai_grading_service.exception.ResourceNotFoundException;
 import com.altester.ai_grading_service.model.Attempt;
 import com.altester.ai_grading_service.model.Submission;
+import com.altester.ai_grading_service.model.enums.AttemptStatus;
+import com.altester.ai_grading_service.repository.AttemptRepository;
 import com.altester.ai_grading_service.repository.SubmissionRepository;
 import com.altester.ai_grading_service.service.SubmissionService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ import java.util.List;
 public class SubmissionServiceImpl implements SubmissionService {
 
     private final SubmissionRepository submissionRepository;
+    private final AttemptRepository attemptRepository;
 
     @Override
     public List<Submission> getSubmissionsForAiGrading(Attempt attempt) {
@@ -27,8 +30,9 @@ public class SubmissionServiceImpl implements SubmissionService {
 
     @Override
     @Transactional
-    public int saveGradingResults(List<SubmissionGradingResult> results) {
+    public int saveGradingResults(List<SubmissionGradingResult> results, Attempt attempt) {
         int savedCount = 0;
+        int totalScore = 0;
 
         for (SubmissionGradingResult result : results) {
             if (result.isGraded()) {
@@ -41,11 +45,17 @@ public class SubmissionServiceImpl implements SubmissionService {
 
                 submissionRepository.save(submission);
                 savedCount++;
+                totalScore += submission.getScore();
 
                 log.info("Updated submission {} with AI grading results: score={}, feedback={}",
                         submission.getId(), result.getScore(), result.getFeedback());
             }
         }
+
+        attempt.setScore(totalScore);
+        attempt.setStatus(AttemptStatus.REVIEWED);
+        attemptRepository.save(attempt);
+
         return savedCount;
     }
 }

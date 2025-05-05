@@ -23,7 +23,7 @@ public class AiGradingController {
     @PostMapping("/grade")
     public ResponseEntity<GradingResponse> gradeAttempt(@Valid @RequestBody GradingRequest request) {
         log.info("Received grading request for attempt: {}", request.getAttemptId());
-        GradingResponse response = aiGradingService.gradeAttempt(request);
+        GradingResponse response = aiGradingService.gradeAndNotify(request);
         return ResponseEntity.ok(response);
     }
 }

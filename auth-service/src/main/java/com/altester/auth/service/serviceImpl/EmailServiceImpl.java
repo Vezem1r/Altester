@@ -1,4 +1,4 @@
-package com.altester.auth.serviceImpl;
+package com.altester.auth.service.serviceImpl;
 
 import com.altester.auth.service.EmailService;
 import jakarta.mail.MessagingException;

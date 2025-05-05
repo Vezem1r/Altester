@@ -1,5 +1,6 @@
 package com.altester.ai_grading_service.model;
 
+import com.altester.ai_grading_service.model.enums.AttemptStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -34,7 +35,8 @@ public class Attempt {
     private Integer score;
 
     @Column(nullable = false)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private AttemptStatus status;
 
     @ManyToOne
     @JoinColumn(name = "test_id", nullable = false)

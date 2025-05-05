@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface TestRepository extends JpaRepository<Test, Long> {
 
@@ -58,4 +60,7 @@ public interface TestRepository extends JpaRepository<Test, Long> {
 
     @Query("SELECT COUNT(t) FROM Test t WHERE t.isOpen = true")
     int countOpenTests();
+
+    @Query("SELECT t FROM Test t LEFT JOIN FETCH t.questions WHERE t.isOpen = false AND (t.questions IS EMPTY OR SIZE(t.questions) = 0)")
+    List<Test> findAllNonOpenTestsWithoutQuestions();
 }

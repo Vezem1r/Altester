@@ -42,7 +42,6 @@ public class AiGradingServiceImpl implements AiGradingService {
     private final RestTemplate restTemplate;
 
     @Override
-    @Transactional
     public GradingResponse gradeAttempt(GradingRequest request) {
         log.info("Processing grading request for attempt: {}, using AI service: {}, with prompt ID: {}",
                 request.getAttemptId(), request.getAiServiceName(), request.getPromptId());
@@ -103,9 +102,7 @@ public class AiGradingServiceImpl implements AiGradingService {
                         .build());
             }
 
-            int savedCount = submissionService.saveGradingResults(submissionResults);
-
-            notifyCoreServiceGradingComplete(request.getAttemptId());
+            int savedCount = submissionService.saveGradingResults(submissionResults, attempt);
 
             return GradingResponse.builder()
                     .attemptId(request.getAttemptId())
@@ -125,6 +122,18 @@ public class AiGradingServiceImpl implements AiGradingService {
         QuestionType questionType = submission.getQuestion().getQuestionType();
         return QuestionType.MULTIPLE_CHOICE.equals(questionType) ||
                 QuestionType.IMAGE_WITH_MULTIPLE_CHOICE.equals(questionType);
+    }
+
+    @Override
+    @Transactional
+    public GradingResponse gradeAndNotify(GradingRequest request) {
+        GradingResponse response = gradeAttempt(request);
+
+        if (response.isSuccess()) {
+            notifyCoreServiceGradingComplete(request.getAttemptId());
+        }
+
+        return response;
     }
 
     private void notifyCoreServiceGradingComplete(Long attemptId) {

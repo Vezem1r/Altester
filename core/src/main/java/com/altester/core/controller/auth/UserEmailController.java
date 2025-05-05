@@ -30,6 +30,11 @@ public class UserEmailController {
     @Value("${AUTH_SERVICE_URL}")
     private String authServiceUrl;
 
+    @Value("${INTERNAL_API_KEY}")
+    private String secretKey;
+
+    private static final String API_KEY_HEADER = "x-api-key";
+
     private String getAuthServiceUrl() {
         return authServiceUrl + "/email";
     }
@@ -41,6 +46,16 @@ public class UserEmailController {
 
     private ResponseEntity<?> forwardRequest(String endpoint, HttpMethod method, HttpEntity<?> requestEntity) {
         try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(API_KEY_HEADER, secretKey);
+
+            if (requestEntity != null) {
+                headers.addAll(requestEntity.getHeaders());
+                requestEntity = new HttpEntity<>(requestEntity.getBody(), headers);
+            } else {
+                requestEntity = new HttpEntity<>(headers);
+            }
+
             ResponseEntity<String> responseEntity = restTemplate.exchange(getAuthServiceUrl() + endpoint, method, requestEntity, String.class);
             return ResponseEntity.status(responseEntity.getStatusCode()).body(responseEntity.getBody());
         } catch (HttpClientErrorException | HttpServerErrorException e) {

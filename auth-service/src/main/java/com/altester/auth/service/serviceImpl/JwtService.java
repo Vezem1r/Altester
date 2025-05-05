@@ -1,4 +1,4 @@
-package com.altester.auth.serviceImpl;
+package com.altester.auth.service.serviceImpl;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;

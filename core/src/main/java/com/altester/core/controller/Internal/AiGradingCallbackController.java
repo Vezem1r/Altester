@@ -2,9 +2,8 @@ package com.altester.core.controller.Internal;
 
 import com.altester.core.exception.ResourceNotFoundException;
 import com.altester.core.model.subject.Attempt;
-import com.altester.core.model.subject.Submission;
-import com.altester.core.model.subject.enums.AttemptStatus;
 import com.altester.core.repository.AttemptRepository;
+import com.altester.core.repository.SubmissionRepository;
 import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.serviceImpl.CacheService;
 import lombok.RequiredArgsConstructor;
@@ -13,8 +12,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/internal/ai-grading")
@@ -25,6 +22,7 @@ public class AiGradingCallbackController {
     private final AttemptRepository attemptRepository;
     private final NotificationDispatchService notificationDispatchService;
     private final CacheService cacheService;
+    private final SubmissionRepository submissionRepository;
 
     @Value("${INTERNAL_API_KEY}")
     private String internalApiKey;
@@ -41,19 +39,8 @@ public class AiGradingCallbackController {
         log.info("Received AI grading completion for attempt: {}", attemptId);
 
         try {
-            Attempt attempt = attemptRepository.findById(attemptId)
+            Attempt attempt = attemptRepository.findByIdWithSubmissions(attemptId)
                     .orElseThrow(() -> new ResourceNotFoundException("Attempt", attemptId.toString(), null));
-
-            attempt.setStatus(AttemptStatus.REVIEWED);
-            int total_score = 0;
-
-            List<Submission> submissions = attempt.getSubmissions();
-
-            for (Submission submission : submissions) {
-                total_score += submission.getScore();
-            }
-
-            attemptRepository.save(attempt);
 
             notificationDispatchService.notifyTestGraded(attempt);
 
