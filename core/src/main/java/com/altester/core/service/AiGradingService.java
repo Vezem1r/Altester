@@ -1,7 +1,10 @@
 package com.altester.core.service;
 
+import com.altester.core.dtos.ai_service.GradingResponse;
 import com.altester.core.model.subject.Attempt;
 import org.springframework.scheduling.annotation.Async;
+
+import java.util.concurrent.CompletableFuture;
 
 public interface AiGradingService {
 
@@ -11,7 +14,5 @@ public interface AiGradingService {
      * @param attempt The test attempt to evaluate
      */
     @Async
-    void processAttemptForAiGrading(Attempt attempt);
-
-    void processGradingCallback(Long attemptId, int score, String apiKey);
+    CompletableFuture<GradingResponse> processAttemptForAiGrading(Attempt attempt);
 }

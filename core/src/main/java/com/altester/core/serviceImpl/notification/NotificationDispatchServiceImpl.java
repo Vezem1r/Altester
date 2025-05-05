@@ -71,11 +71,11 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
     }
 
     @Override
-    public void notifyTestGradedWithScore(Attempt attempt, int score) {
+    public void notifyTestGradedByAi(Attempt attempt) {
         NotificationRequest request = NotificationRequest.builder()
                 .usernames(Collections.singletonList(attempt.getStudent().getUsername()))
                 .title("Test Graded")
-                .message("Your attempt for test '" + attempt.getTest().getTitle() + "' has been graded. Score: " + score)
+                .message("Your attempt for test '" + attempt.getTest().getTitle() + "' has been graded by AI. Score: " + attempt.getScore())
                 .type(NotificationType.TEST_GRADED.toString())
                 .actionUrl("/student/attempt-review/" + attempt.getId())
                 .referenceId(attempt.getId())

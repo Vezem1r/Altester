@@ -26,7 +26,13 @@ public interface NotificationDispatchService {
      */
     void notifyTestGraded(Attempt attempt);
 
-    void notifyTestGradedWithScore(Attempt attempt, int score);
+    /**
+     * Notifies a student when their test attempt has been graded by AI.
+     * Includes score information and a link to view the graded attempt.
+     *
+     * @param attempt The attempt that has been graded
+     */
+    void notifyTestGradedByAi(Attempt attempt);
 
     /**
      * Notifies a student when they have received feedback from a teacher on their attempt.

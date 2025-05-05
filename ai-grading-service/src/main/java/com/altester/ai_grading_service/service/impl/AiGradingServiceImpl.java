@@ -7,6 +7,7 @@ import com.altester.ai_grading_service.exception.AiServiceException;
 import com.altester.ai_grading_service.exception.ResourceNotFoundException;
 import com.altester.ai_grading_service.model.Attempt;
 import com.altester.ai_grading_service.model.Submission;
+import com.altester.ai_grading_service.model.enums.AttemptStatus;
 import com.altester.ai_grading_service.model.enums.QuestionType;
 import com.altester.ai_grading_service.repository.AttemptRepository;
 import com.altester.ai_grading_service.service.AiGradingService;
@@ -59,7 +60,7 @@ public class AiGradingServiceImpl implements AiGradingService {
         if (submissions.isEmpty()) {
             return GradingResponse.builder()
                     .attemptId(request.getAttemptId())
-                    .success(true)
+                    .success(false)
                     .message("No submissions found that require AI grading")
                     .results(new ArrayList<>())
                     .build();
@@ -74,7 +75,7 @@ public class AiGradingServiceImpl implements AiGradingService {
         if (submissionsForAiGrading.isEmpty()) {
             return GradingResponse.builder()
                     .attemptId(request.getAttemptId())
-                    .success(true)
+                    .success(false)
                     .message("All submissions are already graded or auto-gradable")
                     .results(new ArrayList<>())
                     .build();
@@ -88,6 +89,8 @@ public class AiGradingServiceImpl implements AiGradingService {
                     request.getPromptId()
             );
 
+            int totalScore = 0;
+
             // Convert results to SubmissionGradingResult
             List<SubmissionGradingResult> submissionResults = new ArrayList<>();
             for (int i = 0; i < submissionsForAiGrading.size() && i < gradingResults.size(); i++) {
@@ -100,6 +103,8 @@ public class AiGradingServiceImpl implements AiGradingService {
                         .feedback(result.feedback())
                         .graded(true)
                         .build());
+
+                totalScore += result.score();
             }
 
             int savedCount = submissionService.saveGradingResults(submissionResults, attempt);
@@ -107,6 +112,7 @@ public class AiGradingServiceImpl implements AiGradingService {
             return GradingResponse.builder()
                     .attemptId(request.getAttemptId())
                     .success(true)
+                    .attemptScore(totalScore)
                     .message(String.format("Successfully graded %d out of %d submissions",
                             savedCount, submissionsForAiGrading.size()))
                     .results(submissionResults)
@@ -122,51 +128,5 @@ public class AiGradingServiceImpl implements AiGradingService {
         QuestionType questionType = submission.getQuestion().getQuestionType();
         return QuestionType.MULTIPLE_CHOICE.equals(questionType) ||
                 QuestionType.IMAGE_WITH_MULTIPLE_CHOICE.equals(questionType);
-    }
-
-    @Override
-    @Transactional
-    public GradingResponse gradeAndNotify(GradingRequest request) {
-        GradingResponse response = gradeAttempt(request);
-
-        if (response.isSuccess()) {
-            notifyCoreServiceGradingComplete(request.getAttemptId());
-        }
-
-        return response;
-    }
-
-    private int getScore(Long attemptId) {
-        Attempt attempt = attemptRepository.findById(attemptId).orElseThrow(() -> ResourceNotFoundException.attempt(attemptId));
-        return attempt.getScore();
-    }
-
-    private void notifyCoreServiceGradingComplete(Long attemptId) {
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("x-api-key", internalApiKey);
-            headers.setContentType(MediaType.APPLICATION_JSON);
-
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-
-            String url = coreServiceUrl + "/internal/ai-grading/complete/" + attemptId + "/" + getScore(attemptId);
-
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.POST,
-                    entity,
-                    Void.class
-            );
-
-            if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("Successfully notified core service about completion of grading for attempt {}", attemptId);
-            } else {
-                log.error("Failed to notify core service about completion for attempt {}. Status: {}",
-                        attemptId, response.getStatusCode());
-            }
-        } catch (Exception e) {
-            log.error("Error notifying core service about completion for attempt {}: {}",
-                    attemptId, e.getMessage(), e);
-        }
     }
 }

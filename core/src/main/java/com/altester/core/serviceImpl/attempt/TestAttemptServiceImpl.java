@@ -1,5 +1,6 @@
 package com.altester.core.serviceImpl.attempt;
 
+import com.altester.core.dtos.ai_service.GradingResponse;
 import com.altester.core.dtos.core_service.attempt.*;
 import com.altester.core.exception.ResourceNotFoundException;
 import com.altester.core.exception.StateConflictException;
@@ -10,6 +11,7 @@ import com.altester.core.model.subject.enums.AttemptStatus;
 import com.altester.core.model.subject.enums.QuestionType;
 import com.altester.core.repository.*;
 import com.altester.core.service.AiGradingService;
+import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.service.TestAttemptService;
 import com.altester.core.serviceImpl.CacheService;
 import jakarta.persistence.OptimisticLockException;
@@ -23,6 +25,10 @@ import java.security.Principal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Service
 @RequiredArgsConstructor
@@ -35,11 +41,14 @@ public class TestAttemptServiceImpl implements TestAttemptService {
     private final QuestionRepository questionRepository;
     private final CacheService cacheService;
     private final AiGradingService aiGradingService;
+    private final NotificationDispatchService notificationDispatchService;
 
     private final TestAttemptDTOMapper dtoMapper;
     private final TestAttemptValidation validationService;
     private final AttemptAutoGrading gradingService;
     private final AttemptQuestionService questionService;
+
+    private static final int AI_GRADING_TIMEOUT_SEC = 10;
 
     @Override
     @Transactional
@@ -319,12 +328,29 @@ public class TestAttemptServiceImpl implements TestAttemptService {
 
             attemptRepository.save(attempt);
 
-            aiGradingService.processAttemptForAiGrading(attempt);
+            CompletableFuture<GradingResponse> futureResponse = aiGradingService.processAttemptForAiGrading(attempt);
 
-            cacheService.clearAttemptRelatedCaches();
-            cacheService.clearStudentRelatedCaches();
-            cacheService.clearTeacherRelatedCaches();
-            cacheService.clearAdminRelatedCaches();
+            try {
+                GradingResponse gradingResponse = futureResponse.get(AI_GRADING_TIMEOUT_SEC, TimeUnit.SECONDS);
+
+                if (gradingResponse != null && gradingResponse.isSuccess()) {
+
+                    attempt.setScore(attempt.getScore() + gradingResponse.getAttemptScore());
+                    attempt.setStatus(AttemptStatus.REVIEWED);
+                    attemptRepository.save(attempt);
+
+                    clearCashes();
+                    AttemptResultResponse result = dtoMapper.buildAttemptResult(attempt);
+
+                    notificationDispatchService.notifyTestGradedByAi(attempt);
+
+                    return result;
+                }
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                log.info("Timed out waiting for AI grading result for attempt: {}", attempt.getId());
+            }
+
+            clearCashes();
 
             return dtoMapper.buildAttemptResult(attempt);
 
@@ -453,10 +479,7 @@ public class TestAttemptServiceImpl implements TestAttemptService {
         attempt.setAiGradingSentAt(LocalDateTime.now());
         attemptRepository.save(attempt);
 
-        cacheService.clearAttemptRelatedCaches();
-        cacheService.clearStudentRelatedCaches();
-        cacheService.clearTeacherRelatedCaches();
-        cacheService.clearAdminRelatedCaches();
+        clearCashes();
 
         try {
             aiGradingService.processAttemptForAiGrading(attempt);
@@ -491,6 +514,13 @@ public class TestAttemptServiceImpl implements TestAttemptService {
     private User getUserFromPrincipal(Principal principal) {
         return userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> ResourceNotFoundException.user(principal.getName()));
+    }
+
+    private void clearCashes() {
+        cacheService.clearAttemptRelatedCaches();
+        cacheService.clearStudentRelatedCaches();
+        cacheService.clearTeacherRelatedCaches();
+        cacheService.clearAdminRelatedCaches();
     }
 
     @Transactional(readOnly = true)
