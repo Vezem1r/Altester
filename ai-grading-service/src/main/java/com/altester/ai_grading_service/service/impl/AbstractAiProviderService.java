@@ -19,7 +19,7 @@ public abstract class AbstractAiProviderService implements AiProviderService {
     protected final PromptBuilder promptBuilder;
 
     @Override
-    public List<GradingResult> evaluateSubmissionsBatch(List<Submission> submissions, String apiKey, Long promptId) {
+    public List<GradingResult> evaluateSubmissionsBatch(List<Submission> submissions, String apiKey, String model, Long promptId) {
         int batchSize = 5;
         List<GradingResult> allResults = new ArrayList<>();
 
@@ -31,7 +31,7 @@ public abstract class AbstractAiProviderService implements AiProviderService {
                 String batchPrompt = buildBatchPrompt(batch, promptId);
                 log.debug("Sending batch prompt to {}: {} questions", getProviderName(), batch.size());
 
-                String response = sendPromptToAi(batchPrompt, apiKey, calculateMaxScoreForBatch(batch));
+                String response = sendPromptToAi(batchPrompt, apiKey, model, calculateMaxScoreForBatch(batch));
                 log.debug("Received batch response from {}", getProviderName());
 
                 List<GradingResult> batchResults = parseBatchGradingResponse(response, batch);
@@ -39,7 +39,7 @@ public abstract class AbstractAiProviderService implements AiProviderService {
             } catch (Exception e) {
                 log.error("Error evaluating batch with {}: {}", getProviderName(), e.getMessage(), e);
                 for (Submission submission : batch) {
-                    allResults.add(evaluateSubmission(submission, submission.getQuestion(), apiKey, promptId));
+                    allResults.add(evaluateSubmission(submission, submission.getQuestion(), apiKey, model, promptId));
                 }
             }
         }
@@ -48,12 +48,12 @@ public abstract class AbstractAiProviderService implements AiProviderService {
     }
 
     @Override
-    public GradingResult evaluateSubmission(Submission submission, Question question, String apiKey, Long promptId) {
+    public GradingResult evaluateSubmission(Submission submission, Question question, String apiKey, String model, Long promptId) {
         try {
             String prompt = buildPrompt(submission, question, promptId);
             log.debug("Sending prompt to {}: {}", getProviderName(), prompt);
 
-            String response = sendPromptToAi(prompt, apiKey, question.getScore());
+            String response = sendPromptToAi(prompt, apiKey, model, question.getScore());
             log.debug("Received response from {}: {}", getProviderName(), response);
 
             return parseGradingResponse(response, question.getScore());
@@ -63,7 +63,7 @@ public abstract class AbstractAiProviderService implements AiProviderService {
         }
     }
 
-    protected abstract String sendPromptToAi(String prompt, String apiKey, int maxScore);
+    protected abstract String sendPromptToAi(String prompt, String apiKey, String model, int maxScore);
 
     protected abstract String getProviderName();
 

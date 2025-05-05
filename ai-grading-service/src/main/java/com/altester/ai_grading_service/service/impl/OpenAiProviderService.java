@@ -13,23 +13,23 @@ import java.time.Duration;
 @Slf4j
 public class OpenAiProviderService extends AbstractAiProviderService {
 
-    @Value("${ai.openai.model}")
-    private String model;
-
-    @Value("${ai.openai.timeout}")
+    @Value("${ai.timeout}")
     private int timeout;
+
+    @Value("${ai.temperature}")
+    private double temperature;
 
     public OpenAiProviderService(PromptBuilder promptBuilder) {
         super(promptBuilder);
     }
 
     @Override
-    protected String sendPromptToAi(String prompt, String apiKey, int maxScore) {
+    protected String sendPromptToAi(String prompt, String apiKey, String model, int maxScore) {
         try {
             OpenAiChatModel chatModel = new OpenAiChatModel(
                     apiKey,
                     model,
-                    0.1,
+                    temperature,
                     Duration.ofSeconds(timeout)
             );
 

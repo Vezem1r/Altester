@@ -15,9 +15,9 @@ public interface AiProviderService {
      * @param apiKey The API key for the AI service
      * @return GradingResult containing score and feedback
      */
-    GradingResult evaluateSubmission(Submission submission, Question question, String apiKey, Long promptId);
+    GradingResult evaluateSubmission(Submission submission, Question question, String apiKey, String model, Long promptId);
 
-    List<GradingResult> evaluateSubmissionsBatch(List<Submission> submissions, String apiKey, Long promptId);
+    List<GradingResult> evaluateSubmissionsBatch(List<Submission> submissions, String apiKey, String model, Long promptId);
 
     /**
      * Checks if the AI provider is supported

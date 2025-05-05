@@ -7,7 +7,6 @@ import com.altester.ai_grading_service.exception.AiServiceException;
 import com.altester.ai_grading_service.exception.ResourceNotFoundException;
 import com.altester.ai_grading_service.model.Attempt;
 import com.altester.ai_grading_service.model.Submission;
-import com.altester.ai_grading_service.model.enums.AttemptStatus;
 import com.altester.ai_grading_service.model.enums.QuestionType;
 import com.altester.ai_grading_service.repository.AttemptRepository;
 import com.altester.ai_grading_service.service.AiGradingService;
@@ -15,11 +14,7 @@ import com.altester.ai_grading_service.service.AiProviderService;
 import com.altester.ai_grading_service.service.SubmissionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,14 +28,6 @@ public class AiGradingServiceImpl implements AiGradingService {
     private final AttemptRepository attemptRepository;
     private final SubmissionService submissionService;
     private final List<AiProviderService> aiProviderServices;
-
-    @Value("${CORE_SERVICE_URL}")
-    private String coreServiceUrl;
-
-    @Value("${INTERNAL_API_KEY}")
-    private String internalApiKey;
-
-    private final RestTemplate restTemplate;
 
     @Override
     public GradingResponse gradeAttempt(GradingRequest request) {
@@ -86,6 +73,7 @@ public class AiGradingServiceImpl implements AiGradingService {
             List<AiProviderService.GradingResult> gradingResults = provider.evaluateSubmissionsBatch(
                     submissionsForAiGrading,
                     request.getApiKey(),
+                    request.getModel(),
                     request.getPromptId()
             );
 

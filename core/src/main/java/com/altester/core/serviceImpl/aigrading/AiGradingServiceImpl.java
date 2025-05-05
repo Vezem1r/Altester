@@ -139,6 +139,7 @@ public class AiGradingServiceImpl implements AiGradingService {
                 .attemptId(attempt.getId())
                 .apiKey(decryptedKey)
                 .aiServiceName(apiKey.getAiServiceName())
+                .model(apiKey.getModel())
                 .promptId(promptId)
                 .build();
 

@@ -13,23 +13,23 @@ import java.time.Duration;
 @Slf4j
 public class AnthropicClaudeProviderService extends AbstractAiProviderService {
 
-    @Value("${ai.anthropic.model}")
-    private String model;
-
-    @Value("${ai.anthropic.timeout}")
+    @Value("${ai.timeout}")
     private int timeout;
+
+    @Value("${ai.temperature}")
+    private double temperature;
 
     public AnthropicClaudeProviderService(PromptBuilder promptBuilder) {
         super(promptBuilder);
     }
 
     @Override
-    protected String sendPromptToAi(String prompt, String apiKey, int maxScore) {
+    protected String sendPromptToAi(String prompt, String apiKey, String model, int maxScore) {
         try {
             ClaudeChatModel chatModel = new ClaudeChatModel(
                     apiKey,
                     model,
-                    0.1,
+                    temperature,
                     Duration.ofSeconds(timeout)
             );
 

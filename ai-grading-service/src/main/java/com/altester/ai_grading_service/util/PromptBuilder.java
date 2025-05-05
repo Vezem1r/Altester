@@ -17,11 +17,6 @@ public class PromptBuilder {
         return buildPromptFromTemplate(promptTemplate, questionText, correctAnswer, studentAnswer, maxScore);
     }
 
-    public String buildDefaultGradingPrompt(String questionText, String correctAnswer, String studentAnswer, int maxScore) {
-        String promptTemplate = promptService.getDefaultPrompt();
-        return buildPromptFromTemplate(promptTemplate, questionText, correctAnswer, studentAnswer, maxScore);
-    }
-
     private String buildPromptFromTemplate(String promptTemplate, String questionText, String correctAnswer, String studentAnswer, int maxScore) {
         String prompt = promptTemplate;
 

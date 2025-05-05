@@ -13,23 +13,23 @@ import java.time.Duration;
 @Slf4j
 public class DeepseekProviderService extends AbstractAiProviderService {
 
-    @Value("${ai.deepseek.model}")
-    private String model;
-
-    @Value("${ai.deepseek.timeout}")
+    @Value("${ai.timeout}")
     private int timeout;
+
+    @Value("${ai.temperature}")
+    private double temperature;
 
     public DeepseekProviderService(PromptBuilder promptBuilder) {
         super(promptBuilder);
     }
 
     @Override
-    protected String sendPromptToAi(String prompt, String apiKey, int maxScore) {
+    protected String sendPromptToAi(String prompt, String apiKey, String model, int maxScore) {
         try {
             DeepseekChatModel chatModel = new DeepseekChatModel(
                     apiKey,
                     model,
-                    0.1,
+                    temperature,
                     Duration.ofSeconds(timeout)
             );
 

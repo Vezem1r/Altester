@@ -755,7 +755,7 @@ public class DataInit {
             User admin = userRepository.findByUsername("ADMIN")
                     .orElseThrow(() -> ResourceNotFoundException.user("ADMIN"));
 
-            ClassPathResource resource = new ClassPathResource("grading_prompt.txt");
+            ClassPathResource resource = new ClassPathResource("prompts/grading_prompt.txt");
             String promptContent = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 
             Prompt defaultPrompt = Prompt.builder()

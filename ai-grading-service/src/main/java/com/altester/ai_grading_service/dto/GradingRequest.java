@@ -14,12 +14,11 @@ public class GradingRequest {
 
     @NotNull
     private Long attemptId;
-
     @NotNull
     private String apiKey;
-
+    @NotNull
+    private String model;
     @NotNull
     private String aiServiceName;
-
     private Long promptId;
 }
