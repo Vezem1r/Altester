@@ -12,4 +12,6 @@ public interface AiGradingService {
      */
     @Async
     void processAttemptForAiGrading(Attempt attempt);
+
+    void processGradingCallback(Long attemptId, int score, String apiKey);
 }

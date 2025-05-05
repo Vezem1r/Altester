@@ -1,4 +1,4 @@
-package com.altester.ai_grading_service.dto;
+package com.altester.core.dtos.ai_service;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

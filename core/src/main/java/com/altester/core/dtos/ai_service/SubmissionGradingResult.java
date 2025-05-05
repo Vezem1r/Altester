@@ -1,4 +1,4 @@
-package com.altester.ai_grading_service.dto;
+package com.altester.core.dtos.ai_service;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SubmissionGradingResult {
+
     private Long submissionId;
     private Integer score;
     private String feedback;

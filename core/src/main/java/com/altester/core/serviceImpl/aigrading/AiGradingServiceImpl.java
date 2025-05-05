@@ -2,14 +2,19 @@ package com.altester.core.serviceImpl.aigrading;
 
 import com.altester.core.dtos.ai_service.GradingRequest;
 import com.altester.core.exception.ApiKeyException;
+import com.altester.core.exception.JwtAuthenticationException;
+import com.altester.core.exception.ResourceNotFoundException;
 import com.altester.core.model.ApiKey.ApiKey;
 import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.altester.core.model.subject.Attempt;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Test;
+import com.altester.core.repository.AttemptRepository;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.TestGroupAssignmentRepository;
 import com.altester.core.service.AiGradingService;
+import com.altester.core.service.NotificationDispatchService;
+import com.altester.core.serviceImpl.CacheService;
 import com.altester.core.util.ApiKeyEncryptionUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,7 +40,12 @@ public class AiGradingServiceImpl implements AiGradingService {
     private final TestGroupAssignmentRepository assignmentRepository;
     private final RestTemplate restTemplate;
     private final ApiKeyEncryptionUtil encryptionUtil;
+    private final AttemptRepository attemptRepository;
+    private final CacheService cacheService;
+    private final NotificationDispatchService notificationDispatchService;
 
+    @Value("${INTERNAL_API_KEY}")
+    private String internalApiKey;
 
     @Value("${AI_SERVICE_URL}")
     private String aiGradingServiceUrl;
@@ -59,6 +69,22 @@ public class AiGradingServiceImpl implements AiGradingService {
         } catch (Exception e) {
                 log.error("Failed to send attempt {} for AI grading: {}", attempt.getId(), e.getMessage(), e);
         }
+    }
+
+    @Override
+    public void processGradingCallback(Long attemptId, int score, String apiKey) {
+        if (!internalApiKey.equals(apiKey)) {
+            throw JwtAuthenticationException.invalidXApiKey();
+        }
+
+        log.debug("Received AI grading completion for attempt: {}", attemptId);
+
+        Attempt attempt = attemptRepository.findByIdWithSubmissions(attemptId)
+                .orElseThrow(() -> new ResourceNotFoundException("Attempt", attemptId.toString(), null));
+
+        notificationDispatchService.notifyTestGradedWithScore(attempt, score);
+        cacheService.clearAttemptRelatedCaches();
+        cacheService.clearStudentRelatedCaches();
     }
 
     /**

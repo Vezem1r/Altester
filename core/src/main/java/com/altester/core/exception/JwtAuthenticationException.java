@@ -12,6 +12,10 @@ public class JwtAuthenticationException extends RuntimeException {
         this.errorCode = errorCode;
     }
 
+    public static JwtAuthenticationException invalidXApiKey() {
+        return new JwtAuthenticationException("Invalid internal key", "AUTH-604");
+    }
+
     public static JwtAuthenticationException invalidToken() {
         return new JwtAuthenticationException("Invalid authentication token", "AUTH-601");
     }
