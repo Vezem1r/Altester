@@ -29,6 +29,10 @@ public class ValidationException extends AlTesterException {
         return new ValidationException(message, "options", "INVALID_OPTION");
     }
 
+    public static ValidationException invalidAiModel(String message) {
+        return new ValidationException(message, "models", "INVALID_MODEL");
+    }
+
     public static ValidationException missingCorrectOption(String message) {
         return new ValidationException(message, "options", "MISSING_CORRECT_OPTION");
     }

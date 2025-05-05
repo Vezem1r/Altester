@@ -16,6 +16,7 @@ public class AvailableKeys {
     private String name;
     private String keyMasked;
     private AiServiceName aiServiceName;
+    private String model;
 
     public static AvailableKeys fromApiKey(ApiKey apiKey) {
         String maskedKey = apiKey.getKeyPrefix() + "*".repeat(8) + apiKey.getKeySuffix();
@@ -25,6 +26,7 @@ public class AvailableKeys {
                 .name(apiKey.getName())
                 .keyMasked(maskedKey)
                 .aiServiceName(apiKey.getAiServiceName())
+                .model(apiKey.getModel())
                 .build();
     }
 }

@@ -127,7 +127,7 @@ public class DataInit {
         }
 
         if (userRepository.findByUsername("ADMIN").isEmpty()) {
-            String pass = passwordEncoder.encode("1234");
+            String pass = passwordEncoder.encode(password);
             User admin = User.builder()
                     .name("Admin")
                     .surname("Super")

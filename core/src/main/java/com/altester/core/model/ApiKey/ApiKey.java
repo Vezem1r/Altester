@@ -37,6 +37,9 @@ public class ApiKey {
     @Enumerated(EnumType.STRING)
     private AiServiceName aiServiceName;
 
+    @Column
+    private String model;
+
     @Column(nullable = false)
     private boolean isGlobal;
 

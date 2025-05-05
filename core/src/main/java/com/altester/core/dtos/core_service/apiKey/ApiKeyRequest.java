@@ -20,6 +20,9 @@ public class ApiKeyRequest {
     @NotBlank(message = "AI service name is required")
     private AiServiceName aiServiceName;
 
+    @NotBlank(message = "AI model name is required")
+    private String model;
+
     @NotNull(message = "Global flag is required")
     private Boolean isGlobal;
 

@@ -1,10 +1,12 @@
 package com.altester.core.serviceImpl.apiKey;
 
+import com.altester.core.config.AiModelConfiguration;
 import com.altester.core.dtos.ai_service.AssignmentPromptRequest;
 import com.altester.core.dtos.core_service.apiKey.*;
 import com.altester.core.exception.*;
 import com.altester.core.model.ApiKey.Prompt;
 import com.altester.core.model.ApiKey.TestGroupAssignment;
+import com.altester.core.model.ApiKey.enums.AiServiceName;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.ApiKey.ApiKey;
@@ -42,6 +44,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     private final TestRepository testRepository;
     private final GroupRepository groupRepository;
     private final TestGroupAssignmentRepository assignmentRepository;
+    private final AiModelConfiguration modelConfiguration;
 
     private final ApiKeyAccessValidator accessValidator;
     private final TestGroupAssignmentManager assignmentManager;
@@ -81,6 +84,8 @@ public class ApiKeyServiceImpl implements ApiKeyService {
 
         accessValidator.validateGlobalApiKeyRequest(currentUser, request.getIsGlobal());
 
+        validateModelForService(request.getAiServiceName(), request.getModel());
+
         try {
             String encryptedKey = encryptionUtil.encrypt(request.getApiKey());
             String keyPrefix = encryptionUtil.extractPrefix(request.getApiKey(), PREFIX_LENGTH);
@@ -92,6 +97,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
                     .keyPrefix(keyPrefix)
                     .keySuffix(keySuffix)
                     .aiServiceName(request.getAiServiceName())
+                    .model(request.getModel())
                     .isGlobal(request.getIsGlobal())
                     .owner(request.getIsGlobal() ? null : currentUser)
                     .createdAt(LocalDateTime.now())
@@ -139,9 +145,17 @@ public class ApiKeyServiceImpl implements ApiKeyService {
             throw AccessDeniedException.apiKeyAccess("Only admins can change the global status of an API key");
         }
 
+        if (request.getModel() != null) {
+            validateModelForService(request.getAiServiceName(), request.getModel());
+        }
+
         apiKey.setName(request.getName());
         apiKey.setDescription(request.getDescription());
         apiKey.setAiServiceName(request.getAiServiceName());
+
+        if (request.getModel() != null) {
+            apiKey.setModel(request.getModel());
+        }
 
         if (request.getApiKey() != null && !request.getApiKey().isEmpty()) {
             try {
@@ -336,6 +350,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
                     .apiKeyName(apiKey.getName())
                     .maskedKey(maskedKey)
                     .aiServiceName(apiKey.getAiServiceName())
+                    .model(apiKey.getModel())
                     .promptName(assignment.getPrompt().getTitle())
                     .group(groupTeacherDTO)
                     .aiEvaluationEnabled(assignment.isAiEvaluation())
@@ -404,5 +419,19 @@ public class ApiKeyServiceImpl implements ApiKeyService {
 
         log.info("Prompt {} assigned to test {} for group {} by user {}",
                 prompt.getId(), test.getId(), group.getId(), currentUser.getUsername());
+    }
+
+    private void validateModelForService(AiServiceName serviceName, String model) {
+        if (model == null || model.isEmpty()) {
+            throw ValidationException.invalidAiModel("Model must be specified");
+        }
+
+        List<String> availableModels = modelConfiguration.getAvailableModels(serviceName);
+        if (!availableModels.contains(model)) {
+            throw ValidationException.invalidAiModel(String.format(
+                    "Model '%s' is not available for service '%s'. Available models: %s",
+                    model, serviceName, String.join(", ", availableModels)
+            ));
+        }
     }
 }

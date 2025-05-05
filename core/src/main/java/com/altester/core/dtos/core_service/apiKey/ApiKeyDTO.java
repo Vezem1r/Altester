@@ -18,6 +18,7 @@ public class ApiKeyDTO {
     private String name;
     private String keyMasked;
     private AiServiceName aiServiceName;
+    private String model;
     private boolean isGlobal;
     private Long ownerId;
     private String ownerUsername;
@@ -34,6 +35,7 @@ public class ApiKeyDTO {
                 .name(apiKey.getName())
                 .keyMasked(maskedKey)
                 .aiServiceName(apiKey.getAiServiceName())
+                .model(apiKey.getModel())
                 .isGlobal(apiKey.isGlobal())
                 .ownerId(apiKey.getOwner() != null ? apiKey.getOwner().getId() : null)
                 .ownerUsername(apiKey.getOwner() != null ? apiKey.getOwner().getUsername() : "System")
