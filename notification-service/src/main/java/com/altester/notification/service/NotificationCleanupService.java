@@ -1,5 +1,6 @@
 package com.altester.notification.service;
 
+import com.altester.notification.exception.InternalServerException;
 import com.altester.notification.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,9 +20,14 @@ public class NotificationCleanupService {
     @Scheduled(cron = "0 0 3 * * ?")
     @Transactional
     public void cleanupOldNotifications() {
-        LocalDateTime twoWeeksAgo = LocalDateTime.now().minusWeeks(2);
-        log.info("Initializing notifications cleanup{}", twoWeeksAgo);
-        int deletedCount = notificationRepository.deleteByReadTrueAndCreatedAtBefore(twoWeeksAgo);
-        log.info("Deleted {} old notifications", deletedCount);
+        try {
+            LocalDateTime twoWeeksAgo = LocalDateTime.now().minusWeeks(2);
+            log.info("Initializing notifications cleanup for notifications older than {}", twoWeeksAgo);
+            int deletedCount = notificationRepository.deleteByReadTrueAndCreatedAtBefore(twoWeeksAgo);
+            log.info("Deleted {} old notifications", deletedCount);
+        } catch (Exception e) {
+            log.error("Error during notification cleanup: {}", e.getMessage(), e);
+            throw new InternalServerException("Failed to cleanup old notifications", e);
+        }
     }
 }

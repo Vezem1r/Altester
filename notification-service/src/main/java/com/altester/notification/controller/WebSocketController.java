@@ -1,13 +1,13 @@
 package com.altester.notification.controller;
 
 import com.altester.notification.dto.NotificationDTO;
+import com.altester.notification.exception.AuthenticationException;
 import com.altester.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.annotation.SendToUser;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
@@ -22,30 +22,27 @@ public class WebSocketController {
     private final NotificationService notificationService;
 
     @MessageMapping("/notifications.connect")
-    @SendToUser("/queue/notifications.connection")
+    @SendToUser("/queue/notifications")
     public Map<String, Object> handleConnection(SimpMessageHeaderAccessor headerAccessor) {
         Principal user = headerAccessor.getUser();
         if (user == null) {
             log.error("No authenticated user found in message headers");
-            throw new SecurityException("Authentication required");
+            throw new AuthenticationException("Authentication required");
         }
 
         String username = user.getName();
-        log.debug("Handling connection for user: {}", username);
+        log.info("WebSocket connection established for user: {}", username);
 
         List<NotificationDTO> unreadNotifications = notificationService.getUnreadNotifications(username);
         long unreadCount = notificationService.getUnreadCount(username);
 
+        log.info("Sending initial data to user {}: {} unread notifications",
+                username, unreadNotifications.size());
+
         return Map.of(
+                "type", "INITIAL_DATA",
                 "unreadNotifications", unreadNotifications,
                 "unreadCount", unreadCount
         );
-    }
-
-    @MessageMapping("/notifications.acknowledge")
-    @SendToUser("/queue/notifications.ack")
-    public NotificationDTO acknowledgeNotification(
-            @Payload NotificationDTO notificationDTO) {
-        return notificationDTO;
     }
 }

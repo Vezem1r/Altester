@@ -14,32 +14,44 @@ import java.util.List;
 
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
-    List<Notification> findByUsernameAndReadOrderByCreatedAtDesc(String username, boolean read);
-    long countByUsernameAndRead(String username, boolean read);
 
     @Modifying
     int deleteByReadTrueAndCreatedAtBefore(LocalDateTime date);
 
-    Page<Notification> findByUsernameOrderByCreatedAtDesc(String username, Pageable pageable);
+    @Query("SELECT n FROM Notification n WHERE n.username = :username AND n.read = false ORDER BY n.createdAt DESC")
+    List<Notification> findUnreadNotifications(@Param("username") String username);
 
-    Page<Notification> findByUsernameAndReadOrderByCreatedAtDesc(String username, boolean read, Pageable pageable);
+    @Query("SELECT COUNT(n) FROM Notification n WHERE n.username = :username AND n.read = false")
+    long countUnreadNotifications(@Param("username") String username);
 
-    @Query("SELECT n FROM Notification n WHERE n.username = :username AND " +
-            "(LOWER(n.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-            "LOWER(n.message) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
+    @Modifying
+    @Query("UPDATE Notification n SET n.read = true WHERE n.username = :username AND n.read = false")
+    void markAllAsRead(@Param("username") String username);
+
+    @Query("SELECT n FROM Notification n WHERE n.username = :username AND (n.read = :read) ORDER BY n.createdAt DESC")
+    Page<Notification> findByUsernameAndRead(@Param("username") String username, @Param("read") boolean read, Pageable pageable);
+
+    @Query("SELECT n FROM Notification n WHERE n.username = :username ORDER BY n.createdAt DESC")
+    Page<Notification> findByUsername(@Param("username") String username, Pageable pageable);
+
+    @Query("SELECT n FROM Notification n WHERE n.username = :username " +
+            "AND (n.read = :read) " +
+            "AND (LOWER(n.title) LIKE LOWER(CONCAT('%', :search, '%')) " +
+            "OR LOWER(n.message) LIKE LOWER(CONCAT('%', :search, '%'))) " +
             "ORDER BY n.createdAt DESC")
-    Page<Notification> searchByUsernameAndTerm(
-            @Param("username") String username,
-            @Param("searchTerm") String searchTerm,
-            Pageable pageable);
-
-    @Query("SELECT n FROM Notification n WHERE n.username = :username AND n.read = :read AND " +
-            "(LOWER(n.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-            "LOWER(n.message) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
-            "ORDER BY n.createdAt DESC")
-    Page<Notification> searchByUsernameAndReadAndTerm(
+    Page<Notification> findByUsernameAndReadAndSearchTerm(
             @Param("username") String username,
             @Param("read") boolean read,
-            @Param("searchTerm") String searchTerm,
+            @Param("search") String search,
+            Pageable pageable);
+
+    @Query("SELECT n FROM Notification n WHERE n.username = :username " +
+            "AND (LOWER(n.title) " +
+            "LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(n.message) " +
+            "LIKE LOWER(CONCAT('%', :search, '%'))) " +
+            "ORDER BY n.createdAt DESC")
+    Page<Notification> findByUsernameAndSearchTerm(
+            @Param("username") String username,
+            @Param("search") String search,
             Pageable pageable);
 }

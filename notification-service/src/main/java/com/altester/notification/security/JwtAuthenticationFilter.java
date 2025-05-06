@@ -47,6 +47,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 filterChain.doFilter(request, response);
             } else {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.getWriter().write("{\"status\":\"UNAUTHORIZED\",\"errorCode\":\"INVALID_API_KEY\",\"message\":\"Invalid API key\"}");
+                response.setContentType("application/json");
             }
             return;
         }
