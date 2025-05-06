@@ -134,6 +134,7 @@ public class AiGradingServiceImpl implements AiGradingService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("x-api-key", internalApiKey);
 
         GradingRequest request = GradingRequest.builder()
                 .attemptId(attempt.getId())
