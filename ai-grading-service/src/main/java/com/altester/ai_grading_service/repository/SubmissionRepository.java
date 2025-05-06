@@ -9,6 +9,5 @@ import java.util.List;
 
 @Repository
 public interface SubmissionRepository extends JpaRepository<Submission, Long> {
-    List<Submission> findByAttempt(Attempt attempt);
     List<Submission> findByAttemptAndAiGraded(Attempt attempt, boolean aiGraded);
 }
