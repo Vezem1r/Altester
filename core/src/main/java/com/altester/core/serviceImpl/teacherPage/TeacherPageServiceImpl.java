@@ -64,7 +64,7 @@ public class TeacherPageServiceImpl implements TeacherPageService {
 
         if (teacherGroups.isEmpty()) {
             log.debug("No groups found for teacher {}, returning empty page", teacher.getUsername());
-            return new TeacherPageDTO(teacher.getUsername(), teacher.isRegistered(), List.of());
+            return new TeacherPageDTO(teacher.getUsername(), teacher.getName(), teacher.getSurname(), teacher.getEmail(), teacher.isRegistered(), List.of());
         }
 
         Set<Subject> subjects = teacherGroups.stream()
@@ -80,7 +80,7 @@ public class TeacherPageServiceImpl implements TeacherPageService {
                 .collect(Collectors.toList());
 
         log.info("Successfully prepared teacher page data with {} subjects", subjectDTOs.size());
-        return new TeacherPageDTO(teacher.getUsername(), teacher.isRegistered(), subjectDTOs);
+        return new TeacherPageDTO(teacher.getUsername(), teacher.getName(), teacher.getSurname(), teacher.getEmail(), teacher.isRegistered(), subjectDTOs);
     }
 
     @Override

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
     Page<ChatMessage> findByConversationIdOrderByTimestampDesc(Long conversationId, Pageable pageable);
@@ -23,4 +24,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     @Modifying
     @Query("DELETE FROM ChatMessage m WHERE m.read = true AND m.timestamp < :beforeDate")
     int deleteOldReadMessages(@Param("beforeDate") LocalDateTime beforeDate);
+
+    @Query("SELECT m FROM ChatMessage m WHERE m.conversation.id = :conversationId AND m.senderId = :senderId AND m.read = true ORDER BY m.timestamp DESC")
+    List<ChatMessage> findRecentlyMarkedAsRead(@Param("conversationId") Long conversationId, @Param("senderId") String senderId);
 }

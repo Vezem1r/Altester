@@ -5,12 +5,12 @@ import com.altester.chat_service.dto.MessageRequest;
 import com.altester.chat_service.model.User;
 import com.altester.chat_service.repository.GroupRepository;
 import com.altester.chat_service.service.ChatService;
+import com.altester.chat_service.service.WebSocketService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.stereotype.Controller;
 
@@ -26,11 +26,11 @@ import java.util.stream.Collectors;
 public class WebSocketController {
 
     private final ChatService chatService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final WebSocketService webSocketService;
     private final GroupRepository groupRepository;
 
-    @MessageMapping("/chat.connect")
-    @SendToUser("/queue/chat.connection")
+    @MessageMapping("/messages.connect")
+    @SendToUser("/queue/messages")
     public Map<String, Object> handleConnection(SimpMessageHeaderAccessor headerAccessor) {
         Principal user = headerAccessor.getUser();
         if (user == null) {
@@ -39,18 +39,22 @@ public class WebSocketController {
         }
 
         String username = user.getName();
-        log.debug("Processing connection for user: {}", username);
+        log.info("WebSocket connection established for user: {}", username);
 
         List<ChatMessageDTO> unreadMessages = chatService.getUnreadMessages(username);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("unreadMessages", unreadMessages);
-        response.put("conversations", chatService.getConversationsForUser(username));
+        Map<String, Object> availableUsers = new HashMap<>();
+        availableUsers.put("users", getAvailableUsersForChat(username));
 
-        List<Map<String, Object>> availableUsers = getAvailableUsersForChat(username);
-        response.put("availableUsers", availableUsers);
+        log.info("Sending initial data to user {}: {} unread messages",
+                username, unreadMessages.size());
 
-        return response;
+        return Map.of(
+                "type", "INITIAL_DATA",
+                "unreadMessages", unreadMessages,
+                "conversations", chatService.getConversationsForUser(username),
+                "availableUsers", availableUsers
+        );
     }
 
     private List<Map<String, Object>> getAvailableUsersForChat(String username) {
@@ -74,17 +78,22 @@ public class WebSocketController {
                 .collect(Collectors.toList());
     }
 
-    @MessageMapping("/chat.sendMessage")
-    @SendToUser("/queue/chat.sent")
-    public ChatMessageDTO sendMessage(@Payload MessageRequest messageRequest, Principal principal) {
+    @MessageMapping("/messages.send")
+    @SendToUser("/queue/messages")
+    public Map<String, Object> sendMessage(@Payload MessageRequest messageRequest, Principal principal) {
         log.debug("Received message from {} to {}: {}",
                 principal.getName(), messageRequest.getReceiverId(), messageRequest.getContent());
 
-        return chatService.sendMessage(principal.getName(), messageRequest);
+        ChatMessageDTO message = chatService.sendMessage(principal.getName(), messageRequest);
+
+        return Map.of(
+                "type", "MESSAGE_SENT",
+                "message", message
+        );
     }
 
-    @MessageMapping("/chat.markRead")
-    @SendToUser("/queue/chat.marked")
+    @MessageMapping("/messages.markRead")
+    @SendToUser("/queue/messages")
     public Map<String, Object> markMessagesAsRead(@Payload Map<String, Long> payload, Principal principal) {
         Long conversationId = payload.get("conversationId");
         if (conversationId == null) {
@@ -93,27 +102,23 @@ public class WebSocketController {
 
         int count = chatService.markMessagesAsRead(principal.getName(), conversationId);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("conversationId", conversationId);
-        response.put("markedCount", count);
-
-        return response;
+        return Map.of(
+                "type", "MESSAGES_MARKED_READ",
+                "conversationId", conversationId,
+                "markedCount", count
+        );
     }
 
-    @MessageMapping("/chat.typing")
+    @MessageMapping("/messages.typing")
     public void typingIndicator(@Payload Map<String, Object> payload, Principal principal) {
         String receiverId = (String) payload.get("receiverId");
         Long conversationId = ((Number) payload.get("conversationId")).longValue();
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("senderUsername", principal.getName());
-        response.put("conversationId", conversationId);
-        response.put("isTyping", true);
-
-        messagingTemplate.convertAndSendToUser(
+        webSocketService.sendTypingIndicator(
                 receiverId,
-                "/queue/typing",
-                response
+                principal.getName(),
+                conversationId,
+                true
         );
     }
 }

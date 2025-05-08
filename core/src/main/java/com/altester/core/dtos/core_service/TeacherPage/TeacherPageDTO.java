@@ -13,6 +13,9 @@ import java.util.List;
 @Builder
 public class TeacherPageDTO {
     private String username;
+    private String name;
+    private String surname;
+    private String email;
     private boolean isRegistered;
     private List<TeacherSubjectDTO> subjects;
 }

@@ -111,7 +111,6 @@ public class ChatService {
                 .build();
 
         ChatMessage savedMessage = chatMessageRepository.save(message);
-
         conversation.setLastMessageTime(savedMessage.getTimestamp());
         conversationRepository.save(conversation);
 
@@ -183,6 +182,13 @@ public class ChatService {
         int updatedCount = chatMessageRepository.markMessagesAsRead(conversationId, otherParticipantId);
 
         if (updatedCount > 0) {
+            List<ChatMessage> markedMessages = chatMessageRepository.findRecentlyMarkedAsRead(
+                    conversationId, otherParticipantId);
+
+            for (ChatMessage message : markedMessages) {
+                webSocketService.sendMessageReadUpdate(message.getSenderId(), message.getId(), true);
+            }
+
             long newUnreadCount = chatMessageRepository.countUnreadMessagesByConversation(
                     conversationId, otherParticipantId);
             webSocketService.sendUnreadCount(userId, conversationId, newUnreadCount);

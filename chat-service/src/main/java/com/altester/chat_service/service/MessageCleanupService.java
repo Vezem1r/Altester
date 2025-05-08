@@ -19,9 +19,9 @@ public class MessageCleanupService {
     @Scheduled(cron = "0 0 0 * * ?")
     @Transactional
     public void cleanupOldMessages() {
-        LocalDateTime twoWeeksAgo = LocalDateTime.now().minusWeeks(2);
-        log.info("Starting cleanup of old messages before {}", twoWeeksAgo);
-        int deletedCount = chatMessageRepository.deleteOldReadMessages(twoWeeksAgo);
+        LocalDateTime fourWeeksAgo = LocalDateTime.now().minusWeeks(4);
+        log.info("Starting cleanup of old messages before {}", fourWeeksAgo);
+        int deletedCount = chatMessageRepository.deleteOldReadMessages(fourWeeksAgo);
         log.info("Deleted {} old messages", deletedCount);
     }
 }
