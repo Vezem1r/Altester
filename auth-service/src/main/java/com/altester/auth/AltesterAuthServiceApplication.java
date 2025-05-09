@@ -8,8 +8,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class AltesterAuthServiceApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(AltesterAuthServiceApplication.class, args);
-	}
-
+  public static void main(String[] args) {
+    SpringApplication.run(AltesterAuthServiceApplication.class, args);
+  }
 }

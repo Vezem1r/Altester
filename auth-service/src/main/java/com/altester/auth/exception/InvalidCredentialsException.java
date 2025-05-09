@@ -4,7 +4,7 @@ import lombok.Getter;
 
 @Getter
 public class InvalidCredentialsException extends AuthException {
-    public InvalidCredentialsException() {
-        super("Invalid credentials provided", AuthErrorCode.INVALID_CREDENTIALS);
-    }
+  public InvalidCredentialsException() {
+    super("Invalid credentials provided", AuthErrorCode.INVALID_CREDENTIALS);
+  }
 }

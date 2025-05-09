@@ -7,13 +7,9 @@ import lombok.Data;
 @Data
 public class EmailInitDTO {
 
-    @Email
-    @NotBlank
-    private String email;
+  @Email @NotBlank private String email;
 
-    @NotBlank
-    private String password;
+  @NotBlank private String password;
 
-    @NotBlank
-    private String username;
+  @NotBlank private String username;
 }

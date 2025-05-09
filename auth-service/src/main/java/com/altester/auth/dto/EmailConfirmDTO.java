@@ -7,13 +7,9 @@ import lombok.Data;
 
 @Data
 public class EmailConfirmDTO {
-    @NotNull
-    private Long userId;
+  @NotNull private Long userId;
 
-    @Email
-    @NotBlank
-    private String email;
+  @Email @NotBlank private String email;
 
-    @NotBlank
-    private String emailCode;
+  @NotBlank private String emailCode;
 }

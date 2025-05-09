@@ -1,7 +1,7 @@
 package com.altester.auth.controller;
 
-import com.altester.auth.dto.LdapLoginRequest;
 import com.altester.auth.dto.Auth.LoginResponse;
+import com.altester.auth.dto.LdapLoginRequest;
 import com.altester.auth.service.LdapAuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,12 +15,12 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 public class LdapAuthController {
 
-    private final LdapAuthService ldapAuthService;
+  private final LdapAuthService ldapAuthService;
 
-    @PostMapping("/login")
-    public ResponseEntity<LoginResponse> authenticate(@Valid @RequestBody LdapLoginRequest request) {
-        log.info("Received LDAP login request for user: {}", request.getLogin());
-        LoginResponse response = ldapAuthService.login(request);
-        return ResponseEntity.ok(response);
-    }
+  @PostMapping("/login")
+  public ResponseEntity<LoginResponse> authenticate(@Valid @RequestBody LdapLoginRequest request) {
+    log.info("Received LDAP login request for user: {}", request.getLogin());
+    LoginResponse response = ldapAuthService.login(request);
+    return ResponseEntity.ok(response);
+  }
 }

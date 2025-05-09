@@ -6,14 +6,14 @@ import org.springframework.http.HttpStatus;
 @Getter
 public abstract class AuthException extends RuntimeException {
 
-    private final AuthErrorCode errorCode;
+  private final AuthErrorCode errorCode;
 
-    protected AuthException(String message, AuthErrorCode errorCode) {
-        super(message);
-        this.errorCode = errorCode;
-    }
+  protected AuthException(String message, AuthErrorCode errorCode) {
+    super(message);
+    this.errorCode = errorCode;
+  }
 
-    public HttpStatus getHttpStatus() {
-        return errorCode.getHttpStatus();
-    }
+  public HttpStatus getHttpStatus() {
+    return errorCode.getHttpStatus();
+  }
 }
