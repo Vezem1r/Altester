@@ -1,9 +1,7 @@
 package com.altester.notification.config;
 
 import com.altester.notification.security.JwtWebSocketInterceptor;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -21,13 +19,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
   private static final int SEND_TIME_LIMIT = 20 * 1000;
   private static final int SEND_BUFFER_SIZE = 512 * 1024;
   private static final int MESSAGE_SIZE_LIMIT = 128 * 1024;
-
-  @Value("${cors.allowed.origins}")
-  private String allowedOrigins;
-
-  private List<String> getAllowedOrigins() {
-    return List.of(allowedOrigins.split(","));
-  }
+  private final AppConfig appConfig;
 
   @Override
   public void configureMessageBroker(MessageBrokerRegistry config) {
@@ -40,7 +32,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
   public void registerStompEndpoints(StompEndpointRegistry registry) {
     registry
         .addEndpoint("/ws")
-        .setAllowedOrigins(getAllowedOrigins().toArray(new String[0]))
+        .setAllowedOrigins(appConfig.getAllowedOrigins().toArray(new String[0]))
         .withSockJS();
   }
 

@@ -1,7 +1,6 @@
 package com.altester.notification.config;
 
-import java.util.List;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
@@ -11,20 +10,16 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
+@RequiredArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
 
-  @Value("${cors.allowed.origins}")
-  private String allowedOrigins;
-
-  private List<String> getAllowedOrigins() {
-    return List.of(allowedOrigins.split(","));
-  }
+  private final AppConfig appConfig;
 
   @Override
   public void addCorsMappings(CorsRegistry registry) {
     registry
         .addMapping("/**")
-        .allowedOrigins(getAllowedOrigins().toArray(new String[0]))
+        .allowedOrigins(appConfig.getAllowedOrigins().toArray(new String[0]))
         .allowedMethods("GET", "POST", "PUT", "DELETE")
         .allowedHeaders("*")
         .allowCredentials(true)
@@ -37,7 +32,7 @@ public class WebConfig implements WebMvcConfigurer {
     CorsConfiguration config = new CorsConfiguration();
     config.setAllowCredentials(true);
 
-    getAllowedOrigins().forEach(config::addAllowedOrigin);
+    appConfig.getAllowedOrigins().forEach(config::addAllowedOrigin);
 
     config.addAllowedHeader("*");
     config.addAllowedMethod("*");
