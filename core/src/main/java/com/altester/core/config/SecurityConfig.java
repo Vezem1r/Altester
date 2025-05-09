@@ -28,7 +28,7 @@ public class SecurityConfig {
   @Value("${cors.allowed.origins}")
   private String allowedOrigins;
 
-  private final String[] BASE_WHITE_LIST = {"/password/**", "/auth/config"};
+  private final String[] BASE_WHITE_LIST = {"/password/**", "/auth/config", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**"};
 
   private final AuthenticationProvider authenticationProvider;
   private final JwtAuthFilter jwtAuthFilter;
