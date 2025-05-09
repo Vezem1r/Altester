@@ -1,9 +1,8 @@
 package com.altester.notification.model;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.time.LocalDateTime;
+import lombok.*;
 
 @Entity
 @Table(name = "notifications")
@@ -14,31 +13,27 @@ import java.time.LocalDateTime;
 @Builder
 public class Notification {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @Column
-    private String username;
+  @Column private String username;
 
-    @Column
-    private String title;
+  @Column private String title;
 
-    @Column(length = 1000)
-    private String message;
+  @Column(length = 1000)
+  private String message;
 
-    @Column(nullable = false)
-    private boolean read;
+  @Column(nullable = false)
+  private boolean read;
 
-    @Column(nullable = false)
-    private String type;
+  @Column(nullable = false)
+  private String type;
 
-    @Column
-    private String actionUrl;
+  @Column private String actionUrl;
 
-    @Column
-    private Long referenceId;
+  @Column private Long referenceId;
 
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
+  @Column(nullable = false)
+  private LocalDateTime createdAt;
 }
