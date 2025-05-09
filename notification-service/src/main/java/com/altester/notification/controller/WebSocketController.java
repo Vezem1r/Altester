@@ -1,8 +1,10 @@
 package com.altester.notification.controller;
 
 import com.altester.notification.dto.NotificationDTO;
+import com.altester.notification.dto.NotificationMessageType;
 import com.altester.notification.exception.AuthenticationException;
 import com.altester.notification.service.NotificationService;
+import com.altester.notification.util.WebSocketUtils;
 import java.security.Principal;
 import java.util.List;
 import java.util.Map;
@@ -41,9 +43,7 @@ public class WebSocketController {
         username,
         unreadNotifications.size());
 
-    return Map.of(
-        "type", "INITIAL_DATA",
-        "unreadNotifications", unreadNotifications,
-        "unreadCount", unreadCount);
+    return WebSocketUtils.createInitialDataResponse(
+        NotificationMessageType.INITIAL_DATA, unreadNotifications, unreadCount);
   }
 }
