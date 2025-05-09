@@ -32,6 +32,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
   private final HandlerExceptionResolver handlerExceptionResolver;
   private final JwtService jwtService;
   private final UserDetailsService userDetailsService;
+  private final String BEARER_PREFIX = "Bearer ";
 
   private final List<String> whitelistedPaths =
       Arrays.asList(
@@ -59,13 +60,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     final String authHeader = request.getHeader("Authorization");
 
-    if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+    if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
       filterChain.doFilter(request, response);
       return;
     }
 
     try {
-      String jwt = authHeader.substring(7);
+      String jwt = authHeader.substring(BEARER_PREFIX.length());
       String username = jwtService.extractUsername(jwt);
 
       if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
