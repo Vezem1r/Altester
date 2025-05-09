@@ -3,7 +3,11 @@ package com.altester.ai_grading_service.util;
 import com.altester.ai_grading_service.service.PromptService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.text.StringSubstitutor;
 import org.springframework.stereotype.Component;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 @Slf4j
@@ -29,24 +33,19 @@ public class PromptBuilder {
       String correctAnswer,
       String studentAnswer,
       int maxScore) {
-    String prompt = promptTemplate;
 
-    prompt = prompt.replace("{{QUESTION}}", questionText);
-    prompt = prompt.replace("{{MAX_SCORE}}", String.valueOf(maxScore));
-    prompt = prompt.replace("{{STUDENT_ANSWER}}", studentAnswer);
+    Map<String, String> valuesMap = new HashMap<>();
+    valuesMap.put("QUESTION", questionText);
+    valuesMap.put("MAX_SCORE", String.valueOf(maxScore));
+    valuesMap.put("STUDENT_ANSWER", studentAnswer);
 
-    if (correctAnswer != null && !correctAnswer.isEmpty()) {
-      prompt =
-          prompt.replace(
-              "{{CORRECT_ANSWER_SECTION}}",
-              "Here is the correct answer to guide your evaluation:\n\n" + correctAnswer);
-    } else {
-      prompt =
-          prompt.replace(
-              "{{CORRECT_ANSWER_SECTION}}",
-              "No specific correct answer is provided. Use your knowledge to evaluate the student's answer.");
-    }
+    String correctAnswerSection = correctAnswer != null && !correctAnswer.isEmpty()
+            ? "Here is the correct answer to guide your evaluation:\n\n" + correctAnswer
+            : "No specific correct answer is provided. Use your knowledge to evaluate the student's answer.";
 
-    return prompt;
+    valuesMap.put("CORRECT_ANSWER_SECTION", correctAnswerSection);
+
+    StringSubstitutor sub = new StringSubstitutor(valuesMap, "{{", "}}");
+    return sub.replace(promptTemplate);
   }
 }

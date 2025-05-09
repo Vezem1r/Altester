@@ -19,7 +19,6 @@ import com.altester.auth.utils.UserUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -36,7 +35,6 @@ public class AuthServiceImpl implements AuthService {
   private final CodeRepository codeRepository;
   private final EmailUtils emailUtils;
   private final JwtService jwtService;
-  private final Random random;
 
   @Override
   public void register(RegisterUserDTO registerUserDTO) {

@@ -36,7 +36,7 @@ public enum RolesEnum {
   public List<SimpleGrantedAuthority> getAuthorities() {
     var authorities =
         permission.stream()
-            .map(p -> new SimpleGrantedAuthority(p.getPermission()))
+            .map(p -> new SimpleGrantedAuthority(p.getPermissions()))
             .collect(Collectors.toList());
     authorities.add(new SimpleGrantedAuthority("ROLE_" + this.name()));
     log.info("Authorities: {}", authorities);

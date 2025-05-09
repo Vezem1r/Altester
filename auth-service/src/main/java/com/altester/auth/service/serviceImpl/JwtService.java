@@ -1,5 +1,6 @@
 package com.altester.auth.service.serviceImpl;
 
+import com.altester.auth.config.AppConfig;
 import com.altester.auth.utils.Constants;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -9,24 +10,23 @@ import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class JwtService {
 
-  @Value("${security.jwt.secret-key}")
-  private String secretKey;
-
-  @Value("${security.jwt.expiration-time}")
-  private long jwtExpiration;
+  private final AppConfig appConfig;
 
   public String generateToken(UserDetails userDetails, String role, boolean rememberMe) {
     Map<String, Object> extraClaims = new HashMap<>();
     extraClaims.put("role", role);
     long expirationTime =
-        rememberMe ? jwtExpiration * Constants.JET_RME_MULTIPLICATIVE : jwtExpiration;
+        rememberMe
+            ? appConfig.getJwtExpiration() * Constants.JET_RME_MULTIPLICATIVE
+            : appConfig.getJwtExpiration();
     return generateToken(extraClaims, userDetails, expirationTime);
   }
 
@@ -47,7 +47,7 @@ public class JwtService {
   }
 
   private Key getSignInKey() {
-    byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+    byte[] keyBytes = Decoders.BASE64.decode(appConfig.getSecretKey());
     return Keys.hmacShaKeyFor(keyBytes);
   }
 }

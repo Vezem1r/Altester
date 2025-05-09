@@ -16,6 +16,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+  private static final String VALIDATION_ERROR = "validationErrors";
+
   @ExceptionHandler(AuthException.class)
   public ResponseEntity<ErrorResponse> handleAuthException(AuthException ex) {
     ErrorResponse errorResponse = ErrorResponse.from(ex);
@@ -39,7 +41,7 @@ public class GlobalExceptionHandler {
         .getFieldErrors()
         .forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
 
-    errorResponse.addDetail("validationErrors", errors);
+    errorResponse.addDetail(VALIDATION_ERROR, errors);
 
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
   }
@@ -88,7 +90,7 @@ public class GlobalExceptionHandler {
               errors.put(field, violation.getMessage());
             });
 
-    errorResponse.addDetail("validationErrors", errors);
+    errorResponse.addDetail(VALIDATION_ERROR, errors);
 
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
   }
@@ -109,7 +111,7 @@ public class GlobalExceptionHandler {
               errors.put(fieldName, errorMessage);
             });
 
-    errorResponse.addDetail("validationErrors", errors);
+    errorResponse.addDetail(VALIDATION_ERROR, errors);
 
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
   }

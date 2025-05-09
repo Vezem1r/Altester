@@ -10,12 +10,18 @@ public class CodeRequestTooSoonException extends AuthException {
   public CodeRequestTooSoonException(String codeType, String email) {
     super(
         codeType + " code was requested less than a minute ago for: " + email,
-        codeType.equals("Verification")
-            ? AuthErrorCode.VERIFICATION_TOO_SOON
-            : codeType.equals("Password reset")
-                ? AuthErrorCode.PASSWORD_RESET_TOO_SOON
-                : AuthErrorCode.EMAIL_CHANGE_TOO_SOON);
+        determineErrorCode(codeType));
     this.codeType = codeType;
     this.email = email;
+  }
+
+  private static AuthErrorCode determineErrorCode(String codeType) {
+    if (codeType.equals("Verification")) {
+      return AuthErrorCode.VERIFICATION_TOO_SOON;
+    } else if (codeType.equals("Password reset")) {
+      return AuthErrorCode.PASSWORD_RESET_TOO_SOON;
+    } else {
+      return AuthErrorCode.EMAIL_CHANGE_TOO_SOON;
+    }
   }
 }

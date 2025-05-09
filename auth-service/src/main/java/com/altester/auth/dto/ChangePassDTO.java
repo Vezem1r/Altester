@@ -13,7 +13,7 @@ public class ChangePassDTO {
   private String email;
 
   @NotBlank(message = "Verification code cannot be empty")
-  @Pattern(regexp = "^[0-9]{6}$", message = "Verification code must be a 6-digit number")
+  @Pattern(regexp = "^\\d{6}$", message = "Verification code must be a 6-digit number")
   private String verificationCode;
 
   @NotBlank(message = "New password cannot be empty")

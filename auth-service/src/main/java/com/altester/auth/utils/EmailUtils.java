@@ -1,5 +1,6 @@
 package com.altester.auth.utils;
 
+import com.altester.auth.exception.InvalidEmailTypeException;
 import com.altester.auth.exception.PasswordResetCodeNotFoundException;
 import com.altester.auth.exception.VerificationCodeNotFoundException;
 import com.altester.auth.models.Codes;
@@ -23,6 +24,9 @@ import org.thymeleaf.context.Context;
 @RequiredArgsConstructor
 public class EmailUtils {
 
+  private static final String DATE_TIME_FORMAT = "yyyy-MM-dd HH:mm";
+  private static final String EXPIRATION_VARIABLE = "expiration";
+
   private final CodeRepository codeRepository;
   private final EmailService emailService;
   private final TemplateEngine templateEngine;
@@ -41,8 +45,8 @@ public class EmailUtils {
       Context context = new Context();
       context.setVariable("verificationCode", code.getCode());
       context.setVariable(
-          "expiration",
-          code.getExpiration().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+          EXPIRATION_VARIABLE,
+          code.getExpiration().format(DateTimeFormatter.ofPattern(DATE_TIME_FORMAT)));
       context.setVariable("year", LocalDate.now().getYear());
 
       String htmlMessage = templateEngine.process("verification-email", context);
@@ -63,8 +67,8 @@ public class EmailUtils {
       Context context = new Context();
       context.setVariable("resetCode", code.getCode());
       context.setVariable(
-          "expiration",
-          code.getExpiration().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+          EXPIRATION_VARIABLE,
+          code.getExpiration().format(DateTimeFormatter.ofPattern(DATE_TIME_FORMAT)));
       context.setVariable("year", LocalDate.now().getYear());
 
       String htmlMessage = templateEngine.process("password-reset-email", context);
@@ -88,8 +92,8 @@ public class EmailUtils {
       Context context = new Context();
       context.setVariable("emailcode", code.getCode());
       context.setVariable(
-          "expiration",
-          code.getExpiration().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+          EXPIRATION_VARIABLE,
+          code.getExpiration().format(DateTimeFormatter.ofPattern(DATE_TIME_FORMAT)));
       context.setVariable("year", LocalDate.now().getYear());
 
       String htmlMessage = templateEngine.process("email-change", context);
@@ -98,7 +102,7 @@ public class EmailUtils {
 
       sendEmail(email, subject, htmlMessage);
     } else {
-      throw new RuntimeException("Function expects email type to be 'CHANGE_EMAIL'");
+      throw new InvalidEmailTypeException("Function expects email type to be 'CHANGE_EMAIL'");
     }
   }
 
