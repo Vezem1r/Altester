@@ -17,6 +17,10 @@ import com.altester.core.repository.UserRepository;
 import com.altester.core.service.AdminPageService;
 import com.altester.core.serviceImpl.CacheService;
 import com.altester.core.util.CacheablePage;
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -28,215 +32,243 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import jakarta.persistence.criteria.Predicate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdminPageServiceImpl implements AdminPageService {
 
-    private static final int PAGE_SIZE = 20;
-    private static final String LDAP_FILTER = "ldap";
-    private static final String REGISTERED_FILTER = "registered";
+  private static final int PAGE_SIZE = 20;
+  private static final String LDAP_FILTER = "ldap";
+  private static final String REGISTERED_FILTER = "registered";
 
-    private final UserRepository userRepository;
-    private final TestRepository testRepository;
-    private final GroupRepository groupRepository;
-    private final SubjectRepository subjectRepository;
-    private final UserMapper userMapper;
-    private final CacheService cacheService;
+  private final UserRepository userRepository;
+  private final TestRepository testRepository;
+  private final GroupRepository groupRepository;
+  private final SubjectRepository subjectRepository;
+  private final UserMapper userMapper;
+  private final CacheService cacheService;
 
-    private User getUserByUsername(String username) {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> {
-                    log.error("Username {} not found", username);
-                    return ResourceNotFoundException.user(username);
-                });
-    }
+  private User getUserByUsername(String username) {
+    return userRepository
+        .findByUsername(username)
+        .orElseThrow(
+            () -> {
+              log.error("Username {} not found", username);
+              return ResourceNotFoundException.user(username);
+            });
+  }
 
-    @Override
-    @Cacheable(value = "students", key = "'page:' + #page +" +
-            "':search:' + (#searchQuery == null ? '' : #searchQuery) +" +
-            "':field:' + #searchField +" +
-            "':filter:' + #registrationFilter")
-    public CacheablePage<UsersListDTO> getStudents(int page, String searchQuery, String searchField, String registrationFilter) {
-        log.debug("Getting students: page={}, searchQuery={}, searchField={}, filter={}",
-                page, searchQuery, searchField, registrationFilter);
+  @Override
+  @Cacheable(
+      value = "students",
+      key =
+          "'page:' + #page +"
+              + "':search:' + (#searchQuery == null ? '' : #searchQuery) +"
+              + "':field:' + #searchField +"
+              + "':filter:' + #registrationFilter")
+  public CacheablePage<UsersListDTO> getStudents(
+      int page, String searchQuery, String searchField, String registrationFilter) {
+    log.debug(
+        "Getting students: page={}, searchQuery={}, searchField={}, filter={}",
+        page,
+        searchQuery,
+        searchField,
+        registrationFilter);
 
-        Specification<User> spec = createUserSpecification(RolesEnum.STUDENT, searchQuery, searchField, registrationFilter);
+    Specification<User> spec =
+        createUserSpecification(RolesEnum.STUDENT, searchQuery, searchField, registrationFilter);
 
-        PageRequest pageRequest = PageRequest.of(page, PAGE_SIZE, Sort.by(Sort.Direction.ASC, "isRegistered")
-                .and(Sort.by(Sort.Direction.ASC, "name")));
+    PageRequest pageRequest =
+        PageRequest.of(
+            page,
+            PAGE_SIZE,
+            Sort.by(Sort.Direction.ASC, "isRegistered").and(Sort.by(Sort.Direction.ASC, "name")));
 
-        Page<UsersListDTO> result = userRepository.findAll(spec, pageRequest).map(userMapper::convertToUsersListDTO);
-        return new CacheablePage<>(result);
-    }
+    Page<UsersListDTO> result =
+        userRepository.findAll(spec, pageRequest).map(userMapper::convertToUsersListDTO);
+    return new CacheablePage<>(result);
+  }
 
-    @Override
-    @Cacheable(value = "teachers", key = "'page:' + #page +" +
-            "':search:' + (#searchQuery == null ? '' : #searchQuery) +" +
-            "':field:' + #searchField +" +
-            "':filter:' + #registrationFilter")
-    public CacheablePage<UsersListDTO> getTeachers(int page, String searchQuery, String searchField, String registrationFilter) {
-        log.debug("Getting teachers: page={}, searchQuery={}, searchField={}, filter={}",
-                page, searchQuery, searchField, registrationFilter);
-        Specification<User> spec = createUserSpecification(RolesEnum.TEACHER, searchQuery, searchField, registrationFilter);
+  @Override
+  @Cacheable(
+      value = "teachers",
+      key =
+          "'page:' + #page +"
+              + "':search:' + (#searchQuery == null ? '' : #searchQuery) +"
+              + "':field:' + #searchField +"
+              + "':filter:' + #registrationFilter")
+  public CacheablePage<UsersListDTO> getTeachers(
+      int page, String searchQuery, String searchField, String registrationFilter) {
+    log.debug(
+        "Getting teachers: page={}, searchQuery={}, searchField={}, filter={}",
+        page,
+        searchQuery,
+        searchField,
+        registrationFilter);
+    Specification<User> spec =
+        createUserSpecification(RolesEnum.TEACHER, searchQuery, searchField, registrationFilter);
 
-        PageRequest pageRequest = PageRequest.of(page, PAGE_SIZE, Sort.by(Sort.Direction.ASC, "isRegistered")
-                .and(Sort.by(Sort.Direction.ASC, "name")));
+    PageRequest pageRequest =
+        PageRequest.of(
+            page,
+            PAGE_SIZE,
+            Sort.by(Sort.Direction.ASC, "isRegistered").and(Sort.by(Sort.Direction.ASC, "name")));
 
-        Page<UsersListDTO> result = userRepository.findAll(spec, pageRequest).map(userMapper::convertToUsersListDTO);
-        return new CacheablePage<>(result);
-    }
+    Page<UsersListDTO> result =
+        userRepository.findAll(spec, pageRequest).map(userMapper::convertToUsersListDTO);
+    return new CacheablePage<>(result);
+  }
 
-    private Specification<User> createUserSpecification(RolesEnum role, String searchQuery, String searchField, String registrationFilter) {
-        return (root, query, criteriaBuilder) -> {
-            List<Predicate> predicates = new ArrayList<>();
+  private Specification<User> createUserSpecification(
+      RolesEnum role, String searchQuery, String searchField, String registrationFilter) {
+    return (root, query, criteriaBuilder) -> {
+      List<Predicate> predicates = new ArrayList<>();
 
-            predicates.add(criteriaBuilder.equal(root.get("role"), role));
+      predicates.add(criteriaBuilder.equal(root.get("role"), role));
 
-            if (LDAP_FILTER.equals(registrationFilter)) {
-                predicates.add(criteriaBuilder.equal(root.get("isRegistered"), false));
-            } else if (REGISTERED_FILTER.equals(registrationFilter)) {
-                predicates.add(criteriaBuilder.equal(root.get("isRegistered"), true));
-            }
+      if (LDAP_FILTER.equals(registrationFilter)) {
+        predicates.add(criteriaBuilder.equal(root.get("isRegistered"), false));
+      } else if (REGISTERED_FILTER.equals(registrationFilter)) {
+        predicates.add(criteriaBuilder.equal(root.get("isRegistered"), true));
+      }
 
-            if (StringUtils.hasText(searchQuery)) {
-                String likePattern = "%" + searchQuery.toLowerCase() + "%";
+      if (StringUtils.hasText(searchQuery)) {
+        String likePattern = "%" + searchQuery.toLowerCase() + "%";
 
-                if ("all".equals(searchField)) {
-                    predicates.add(criteriaBuilder.or(
-                            criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), likePattern),
-                            criteriaBuilder.like(criteriaBuilder.lower(root.get("surname")), likePattern),
-                            criteriaBuilder.like(criteriaBuilder.lower(root.get("email")), likePattern),
-                            criteriaBuilder.like(criteriaBuilder.lower(root.get("username")), likePattern)
-                    ));
-                } else if ("name".equals(searchField)) {
-                    predicates.add(criteriaBuilder.or(
-                            criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), likePattern),
-                            criteriaBuilder.like(criteriaBuilder.lower(root.get("surname")), likePattern)
-                    ));
-                } else if ("firstName".equals(searchField)) {
-                    predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), likePattern));
-                } else if ("lastName".equals(searchField)) {
-                    predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("surname")), likePattern));
-                } else if ("email".equals(searchField)) {
-                    predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("email")), likePattern));
-                } else if ("username".equals(searchField)) {
-                    predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("username")), likePattern));
-                }
-            }
-
-            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
-        };
-    }
-
-    @Override
-    @Cacheable(value = "adminStats", key = "#username")
-    public AdminPageDTO getPage(String username) {
-        log.debug("Fetching admin page data for user: {}", username);
-        getUserByUsername(username);
-
-        AdminPageDTO dto = new AdminPageDTO();
-        dto.setStudentsCount(userRepository.countByRole(RolesEnum.STUDENT));
-        dto.setTeachersCount(userRepository.countByRole(RolesEnum.TEACHER));
-        dto.setGroupsCount(groupRepository.count());
-        dto.setSubjectsCount(subjectRepository.count());
-        dto.setTestsCount(testRepository.count());
-        dto.setUsername(username);
-        return dto;
-    }
-
-    @Override
-    @Transactional
-    public void demoteToStudent(String username) {
-        User user = getUserByUsername(username);
-
-        if (user.getRole() == RolesEnum.STUDENT) {
-            log.warn("User {} is already a student", user.getUsername());
-            throw StateConflictException.roleConflict("User is already a student");
+        if ("all".equals(searchField)) {
+          predicates.add(
+              criteriaBuilder.or(
+                  criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), likePattern),
+                  criteriaBuilder.like(criteriaBuilder.lower(root.get("surname")), likePattern),
+                  criteriaBuilder.like(criteriaBuilder.lower(root.get("email")), likePattern),
+                  criteriaBuilder.like(criteriaBuilder.lower(root.get("username")), likePattern)));
+        } else if ("name".equals(searchField)) {
+          predicates.add(
+              criteriaBuilder.or(
+                  criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), likePattern),
+                  criteriaBuilder.like(criteriaBuilder.lower(root.get("surname")), likePattern)));
+        } else if ("firstName".equals(searchField)) {
+          predicates.add(
+              criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), likePattern));
+        } else if ("lastName".equals(searchField)) {
+          predicates.add(
+              criteriaBuilder.like(criteriaBuilder.lower(root.get("surname")), likePattern));
+        } else if ("email".equals(searchField)) {
+          predicates.add(
+              criteriaBuilder.like(criteriaBuilder.lower(root.get("email")), likePattern));
+        } else if ("username".equals(searchField)) {
+          predicates.add(
+              criteriaBuilder.like(criteriaBuilder.lower(root.get("username")), likePattern));
         }
+      }
 
-        List<Group> teacherGroups = groupRepository.findAllByTeacher(user);
+      return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+    };
+  }
 
-        if (!teacherGroups.isEmpty()) {
-            teacherGroups.forEach(group -> group.setTeacher(null));
-            groupRepository.saveAll(teacherGroups);
-            log.info("Removed user {} from {} teacher roles", username, teacherGroups.size());
-        }
+  @Override
+  @Cacheable(value = "adminStats", key = "#username")
+  public AdminPageDTO getPage(String username) {
+    log.debug("Fetching admin page data for user: {}", username);
+    getUserByUsername(username);
 
-        user.setRole(RolesEnum.STUDENT);
-        userRepository.save(user);
+    AdminPageDTO dto = new AdminPageDTO();
+    dto.setStudentsCount(userRepository.countByRole(RolesEnum.STUDENT));
+    dto.setTeachersCount(userRepository.countByRole(RolesEnum.TEACHER));
+    dto.setGroupsCount(groupRepository.count());
+    dto.setSubjectsCount(subjectRepository.count());
+    dto.setTestsCount(testRepository.count());
+    dto.setUsername(username);
+    return dto;
+  }
 
-        cacheService.clearAdminRelatedCaches();
-        cacheService.clearStudentRelatedCaches();
-        cacheService.clearTeacherRelatedCaches();
+  @Override
+  @Transactional
+  public void demoteToStudent(String username) {
+    User user = getUserByUsername(username);
 
-        log.info("User {} (ID: {}) successfully promoted to STUDENT", user.getUsername(), user.getId());
+    if (user.getRole() == RolesEnum.STUDENT) {
+      log.warn("User {} is already a student", user.getUsername());
+      throw StateConflictException.roleConflict("User is already a student");
     }
 
-    @Override
-    @Transactional
-    public void promoteToTeacher(String username) {
-        User user = getUserByUsername(username);
+    List<Group> teacherGroups = groupRepository.findAllByTeacher(user);
 
-        if (user.getRole() == RolesEnum.TEACHER) {
-            log.warn("User {} is already a teacher", user.getUsername());
-            throw StateConflictException.roleConflict("User is already a teacher");
-        }
-
-        List<Group> studentGroups = groupRepository.findAllByStudentsContaining(user);
-
-        if (!studentGroups.isEmpty()) {
-            studentGroups.forEach(group -> group.getStudents().remove(user));
-            groupRepository.saveAll(studentGroups);
-            log.info("Removed user {} from {} student groups", username, studentGroups.size());
-        }
-
-        user.setRole(RolesEnum.TEACHER);
-        userRepository.save(user);
-
-        cacheService.clearAdminRelatedCaches();
-        cacheService.clearTeacherRelatedCaches();
-        cacheService.clearStudentRelatedCaches();
-
-        log.info("User {} (ID: {}) successfully promoted to TEACHER", user.getUsername(), user.getId());
+    if (!teacherGroups.isEmpty()) {
+      teacherGroups.forEach(group -> group.setTeacher(null));
+      groupRepository.saveAll(teacherGroups);
+      log.info("Removed user {} from {} teacher roles", username, teacherGroups.size());
     }
 
-    @Override
-    @Transactional
-    public UsersListDTO updateUser(UpdateUser updateUser, String username) {
+    user.setRole(RolesEnum.STUDENT);
+    userRepository.save(user);
 
-        User user = getUserByUsername(username);
+    cacheService.clearAdminRelatedCaches();
+    cacheService.clearStudentRelatedCaches();
+    cacheService.clearTeacherRelatedCaches();
 
-        if (!user.isRegistered()) {
-            log.warn("User {} was created via LDAP and cannot be updated", user.getUsername());
-            throw AccessDeniedException.ldapUserModification();
-        }
+    log.info("User {} (ID: {}) successfully promoted to STUDENT", user.getUsername(), user.getId());
+  }
 
-        if (!user.getUsername().equals(updateUser.getUsername())) {
-            Optional<User> optionalUser = userRepository.findByUsername(updateUser.getUsername());
-            if (optionalUser.isPresent()) {
-                log.error("User with username {} already exists", updateUser.getUsername());
-                throw ResourceAlreadyExistsException.user(updateUser.getUsername());
-            }
-        }
+  @Override
+  @Transactional
+  public void promoteToTeacher(String username) {
+    User user = getUserByUsername(username);
 
-        user.setName(updateUser.getName());
-        user.setSurname(updateUser.getLastname());
-        user.setEmail(updateUser.getEmail());
-        user.setUsername(updateUser.getUsername());
-
-        User savedUser = userRepository.save(user);
-
-        cacheService.clearAdminRelatedCaches();
-        cacheService.clearStudentRelatedCaches();
-        cacheService.clearTeacherRelatedCaches();
-
-        log.info("User {} (ID: {}) successfully updated", savedUser.getUsername(), savedUser.getId());
-        return userMapper.convertToUsersListDTO(savedUser);
+    if (user.getRole() == RolesEnum.TEACHER) {
+      log.warn("User {} is already a teacher", user.getUsername());
+      throw StateConflictException.roleConflict("User is already a teacher");
     }
+
+    List<Group> studentGroups = groupRepository.findAllByStudentsContaining(user);
+
+    if (!studentGroups.isEmpty()) {
+      studentGroups.forEach(group -> group.getStudents().remove(user));
+      groupRepository.saveAll(studentGroups);
+      log.info("Removed user {} from {} student groups", username, studentGroups.size());
+    }
+
+    user.setRole(RolesEnum.TEACHER);
+    userRepository.save(user);
+
+    cacheService.clearAdminRelatedCaches();
+    cacheService.clearTeacherRelatedCaches();
+    cacheService.clearStudentRelatedCaches();
+
+    log.info("User {} (ID: {}) successfully promoted to TEACHER", user.getUsername(), user.getId());
+  }
+
+  @Override
+  @Transactional
+  public UsersListDTO updateUser(UpdateUser updateUser, String username) {
+
+    User user = getUserByUsername(username);
+
+    if (!user.isRegistered()) {
+      log.warn("User {} was created via LDAP and cannot be updated", user.getUsername());
+      throw AccessDeniedException.ldapUserModification();
+    }
+
+    if (!user.getUsername().equals(updateUser.getUsername())) {
+      Optional<User> optionalUser = userRepository.findByUsername(updateUser.getUsername());
+      if (optionalUser.isPresent()) {
+        log.error("User with username {} already exists", updateUser.getUsername());
+        throw ResourceAlreadyExistsException.user(updateUser.getUsername());
+      }
+    }
+
+    user.setName(updateUser.getName());
+    user.setSurname(updateUser.getLastname());
+    user.setEmail(updateUser.getEmail());
+    user.setUsername(updateUser.getUsername());
+
+    User savedUser = userRepository.save(user);
+
+    cacheService.clearAdminRelatedCaches();
+    cacheService.clearStudentRelatedCaches();
+    cacheService.clearTeacherRelatedCaches();
+
+    log.info("User {} (ID: {}) successfully updated", savedUser.getUsername(), savedUser.getId());
+    return userMapper.convertToUsersListDTO(savedUser);
+  }
 }

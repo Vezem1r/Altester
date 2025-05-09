@@ -10,9 +10,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OptionReviewDTO {
-    private long optionId;
-    private String text;
-    private String description;
-    private boolean isSelected;
-    private boolean isCorrect;
+  private long optionId;
+  private String text;
+  private String description;
+  private boolean isSelected;
+  private boolean isCorrect;
 }

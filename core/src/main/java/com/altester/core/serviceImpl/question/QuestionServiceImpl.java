@@ -10,15 +10,16 @@ import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Option;
 import com.altester.core.model.subject.Question;
 import com.altester.core.model.subject.Test;
-import com.altester.core.model.subject.enums.QuestionDifficulty;
 import com.altester.core.repository.*;
 import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.service.QuestionService;
 import com.altester.core.serviceImpl.CacheService;
+import com.altester.core.serviceImpl.group.GroupActivityService;
 import com.altester.core.serviceImpl.test.TestAccessValidator;
 import com.altester.core.serviceImpl.test.TestDTOMapper;
-import com.altester.core.serviceImpl.group.GroupActivityService;
 import com.altester.core.serviceImpl.test.TestRequirementsValidator;
+import java.security.Principal;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -26,167 +27,184 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.security.Principal;
-import java.util.List;
-
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class QuestionServiceImpl implements QuestionService {
-    private final QuestionRepository questionRepository;
-    private final TestRepository testRepository;
-    private final UserRepository userRepository;
-    private final OptionRepository optionRepository;
-    private final GroupRepository groupRepository;
-    private final TestAccessValidator testAccessValidator;
-    private final TestDTOMapper testDTOMapper;
-    private final QuestionDTOMapper questionDTOMapper;
-    private final GroupActivityService groupActivityService;
-    private final ImageService imageService;
-    private final QuestionValidator questionValidator;
-    private final CacheService cacheService;
-    private final TestRequirementsValidator testRequirementsValidator;
-    private final NotificationDispatchService notificationService;
+  private final QuestionRepository questionRepository;
+  private final TestRepository testRepository;
+  private final UserRepository userRepository;
+  private final OptionRepository optionRepository;
+  private final GroupRepository groupRepository;
+  private final TestAccessValidator testAccessValidator;
+  private final TestDTOMapper testDTOMapper;
+  private final QuestionDTOMapper questionDTOMapper;
+  private final GroupActivityService groupActivityService;
+  private final ImageService imageService;
+  private final QuestionValidator questionValidator;
+  private final CacheService cacheService;
+  private final TestRequirementsValidator testRequirementsValidator;
+  private final NotificationDispatchService notificationService;
 
-    private User getCurrentUser(Principal principal) {
-        return userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> {
-                    log.error("User {} not found", principal.getName());
-                    return ResourceNotFoundException.user(principal.getName());
-                });
+  private User getCurrentUser(Principal principal) {
+    return userRepository
+        .findByUsername(principal.getName())
+        .orElseThrow(
+            () -> {
+              log.error("User {} not found", principal.getName());
+              return ResourceNotFoundException.user(principal.getName());
+            });
+  }
+
+  private Test getTestById(Long testId) {
+    return testRepository
+        .findById(testId)
+        .orElseThrow(
+            () -> {
+              log.error("Test with ID {} not found", testId);
+              return ResourceNotFoundException.test(testId);
+            });
+  }
+
+  private Question getQuestionById(Long questionId) {
+    return questionRepository
+        .findById(questionId)
+        .orElseThrow(
+            () -> {
+              log.error("Question with ID {} not found", questionId);
+              return ResourceNotFoundException.question(questionId);
+            });
+  }
+
+  @Override
+  @Transactional
+  public QuestionDetailsDTO addQuestion(
+      Long testId, CreateQuestionDTO createQuestionDTO, Principal principal, MultipartFile image) {
+    log.info(
+        "User {} is attempting to add a question to test with ID {}", principal.getName(), testId);
+
+    User currentUser = getCurrentUser(principal);
+    Test test = getTestById(testId);
+
+    verifyTestModificationPermission(currentUser, test);
+
+    questionValidator.validateQuestionData(
+        createQuestionDTO.getQuestionType(),
+        createQuestionDTO.getQuestionText(),
+        image != null && !image.isEmpty(),
+        createQuestionDTO.getOptions());
+
+    String imagePath = null;
+    if (image != null && !image.isEmpty()) {
+      imagePath = imageService.saveImage(image);
+      log.info("Image saved successfully: {}", imagePath);
     }
 
-    private Test getTestById(Long testId) {
-        return testRepository.findById(testId)
-                .orElseThrow(() -> {
-                    log.error("Test with ID {} not found", testId);
-                    return ResourceNotFoundException.test(testId);
-                });
-    }
+    Question question =
+        Question.builder()
+            .questionText(createQuestionDTO.getQuestionText())
+            .imagePath(imagePath)
+            .score(createQuestionDTO.getScore())
+            .questionType(createQuestionDTO.getQuestionType())
+            .correctAnswer(createQuestionDTO.getCorrectAnswer())
+            .difficulty(createQuestionDTO.getDifficulty())
+            .test(test)
+            .build();
 
-    private Question getQuestionById(Long questionId) {
-        return questionRepository.findById(questionId)
-                .orElseThrow(() -> {
-                    log.error("Question with ID {} not found", questionId);
-                    return ResourceNotFoundException.question(questionId);
-                });
-    }
+    Question savedQuestion = questionRepository.save(question);
 
-    @Override
-    @Transactional
-    public QuestionDetailsDTO addQuestion(Long testId, CreateQuestionDTO createQuestionDTO,
-                                          Principal principal, MultipartFile image) {
-        log.info("User {} is attempting to add a question to test with ID {}", principal.getName(), testId);
-
-        User currentUser = getCurrentUser(principal);
-        Test test = getTestById(testId);
-
-        verifyTestModificationPermission(currentUser, test);
-
-        questionValidator.validateQuestionData(
-                createQuestionDTO.getQuestionType(),
-                createQuestionDTO.getQuestionText(),
-                image != null && !image.isEmpty(),
-                createQuestionDTO.getOptions()
-        );
-
-        String imagePath = null;
-        if (image != null && !image.isEmpty()) {
-            imagePath = imageService.saveImage(image);
-            log.info("Image saved successfully: {}", imagePath);
-        }
-
-        Question question = Question.builder()
-                .questionText(createQuestionDTO.getQuestionText())
-                .imagePath(imagePath)
-                .score(createQuestionDTO.getScore())
-                .questionType(createQuestionDTO.getQuestionType())
-                .correctAnswer(createQuestionDTO.getCorrectAnswer())
-                .difficulty(createQuestionDTO.getDifficulty())
-                .test(test)
-                .build();
-
-        Question savedQuestion = questionRepository.save(question);
-
-        if (createQuestionDTO.getOptions() != null && !createQuestionDTO.getOptions().isEmpty()) {
-            createQuestionDTO.getOptions().forEach(optionDTO -> {
-                Option option = Option.builder()
+    if (createQuestionDTO.getOptions() != null && !createQuestionDTO.getOptions().isEmpty()) {
+      createQuestionDTO
+          .getOptions()
+          .forEach(
+              optionDTO -> {
+                Option option =
+                    Option.builder()
                         .text(optionDTO.getText())
                         .description(optionDTO.getDescription())
                         .isCorrect(optionDTO.isCorrect())
                         .question(savedQuestion)
                         .build();
                 optionRepository.save(option);
-            });
-        }
-
-        cacheService.clearQuestionRelatedCaches();
-        cacheService.clearTestRelatedCaches();
-
-        log.info("Question with ID {} added to test with ID {}", savedQuestion.getId(), testId);
-        return questionDTOMapper.convertToQuestionDetailsDTO(savedQuestion);
+              });
     }
 
-    @Override
-    @Transactional
-    public QuestionDetailsDTO updateQuestion(Long questionId, UpdateQuestionDTO updateQuestionDTO,
-                                             Principal principal, MultipartFile image) {
-        log.info("User {} is attempting to update question with ID {}", principal.getName(), questionId);
+    cacheService.clearQuestionRelatedCaches();
+    cacheService.clearTestRelatedCaches();
 
-        User currentUser = getCurrentUser(principal);
-        Question question = getQuestionById(questionId);
-        Test test = question.getTest();
+    log.info("Question with ID {} added to test with ID {}", savedQuestion.getId(), testId);
+    return questionDTOMapper.convertToQuestionDetailsDTO(savedQuestion);
+  }
 
-        verifyTestModificationPermission(currentUser, test);
+  @Override
+  @Transactional
+  public QuestionDetailsDTO updateQuestion(
+      Long questionId,
+      UpdateQuestionDTO updateQuestionDTO,
+      Principal principal,
+      MultipartFile image) {
+    log.info(
+        "User {} is attempting to update question with ID {}", principal.getName(), questionId);
 
-        String imagePath = question.getImagePath();
-        boolean imageChanged = false;
+    User currentUser = getCurrentUser(principal);
+    Question question = getQuestionById(questionId);
+    Test test = question.getTest();
 
-        if (image != null && !image.isEmpty()) {
-            if (imagePath != null) {
-                imageService.deleteImage(imagePath);
-            }
-            imagePath = imageService.saveImage(image);
-            imageChanged = true;
-        } else if (updateQuestionDTO.isRemoveImage() && imagePath != null) {
-            imageService.deleteImage(imagePath);
-            imagePath = null;
-            imageChanged = true;
-        }
+    verifyTestModificationPermission(currentUser, test);
 
-        String questionText = updateQuestionDTO.getQuestionText() != null ?
-                updateQuestionDTO.getQuestionText() : question.getQuestionText();
+    String imagePath = question.getImagePath();
+    boolean imageChanged = false;
 
-        boolean hasImage = imagePath != null || imageChanged;
-        questionValidator.validateQuestionData(
-                updateQuestionDTO.getQuestionType(),
-                questionText,
-                hasImage,
-                updateQuestionDTO.getOptions()
-        );
+    if (image != null && !image.isEmpty()) {
+      if (imagePath != null) {
+        imageService.deleteImage(imagePath);
+      }
+      imagePath = imageService.saveImage(image);
+      imageChanged = true;
+    } else if (updateQuestionDTO.isRemoveImage() && imagePath != null) {
+      imageService.deleteImage(imagePath);
+      imagePath = null;
+      imageChanged = true;
+    }
 
-        if (updateQuestionDTO.getQuestionText() != null) {
-            question.setQuestionText(updateQuestionDTO.getQuestionText());
-        }
+    String questionText =
+        updateQuestionDTO.getQuestionText() != null
+            ? updateQuestionDTO.getQuestionText()
+            : question.getQuestionText();
 
-        if (updateQuestionDTO.getScore() > 0) {
-            question.setScore(updateQuestionDTO.getScore());
-        }
+    boolean hasImage = imagePath != null || imageChanged;
+    questionValidator.validateQuestionData(
+        updateQuestionDTO.getQuestionType(),
+        questionText,
+        hasImage,
+        updateQuestionDTO.getOptions());
 
-        question.setImagePath(imagePath);
-        question.setQuestionType(updateQuestionDTO.getQuestionType());
-        question.setCorrectAnswer(updateQuestionDTO.getCorrectAnswer());
+    if (updateQuestionDTO.getQuestionText() != null) {
+      question.setQuestionText(updateQuestionDTO.getQuestionText());
+    }
 
-        if (updateQuestionDTO.getDifficulty() != null) {
-            question.setDifficulty(updateQuestionDTO.getDifficulty());
-        }
+    if (updateQuestionDTO.getScore() > 0) {
+      question.setScore(updateQuestionDTO.getScore());
+    }
 
-        if (updateQuestionDTO.getOptions() != null) {
-            optionRepository.deleteAll(question.getOptions());
-            question.getOptions().clear();
+    question.setImagePath(imagePath);
+    question.setQuestionType(updateQuestionDTO.getQuestionType());
+    question.setCorrectAnswer(updateQuestionDTO.getCorrectAnswer());
 
-            updateQuestionDTO.getOptions().forEach(optionDTO -> {
-                Option option = Option.builder()
+    if (updateQuestionDTO.getDifficulty() != null) {
+      question.setDifficulty(updateQuestionDTO.getDifficulty());
+    }
+
+    if (updateQuestionDTO.getOptions() != null) {
+      optionRepository.deleteAll(question.getOptions());
+      question.getOptions().clear();
+
+      updateQuestionDTO
+          .getOptions()
+          .forEach(
+              optionDTO -> {
+                Option option =
+                    Option.builder()
                         .text(optionDTO.getText())
                         .description(optionDTO.getDescription())
                         .isCorrect(optionDTO.isCorrect())
@@ -194,104 +212,109 @@ public class QuestionServiceImpl implements QuestionService {
                         .build();
                 optionRepository.save(option);
                 question.getOptions().add(option);
-            });
-        }
-
-        Question updatedQuestion = questionRepository.save(question);
-
-        cacheService.clearQuestionRelatedCaches();
-        cacheService.clearTestRelatedCaches();
-
-        log.info("Question with ID {} updated", questionId);
-
-        return questionDTOMapper.convertToQuestionDetailsDTO(updatedQuestion);
+              });
     }
 
-    @Override
-    @Transactional
-    public void deleteQuestion(Long questionId, Principal principal) {
-        log.info("User {} is attempting to delete question with ID {}", principal.getName(), questionId);
+    Question updatedQuestion = questionRepository.save(question);
 
-        User currentUser = getCurrentUser(principal);
-        Question question = getQuestionById(questionId);
-        Test test = question.getTest();
-        boolean wasTestOpen = test.isOpen();
+    cacheService.clearQuestionRelatedCaches();
+    cacheService.clearTestRelatedCaches();
 
-        verifyTestModificationPermission(currentUser, test);
+    log.info("Question with ID {} updated", questionId);
 
-        if (question.getImagePath() != null) {
-            imageService.deleteImage(question.getImagePath());
-        }
+    return questionDTOMapper.convertToQuestionDetailsDTO(updatedQuestion);
+  }
 
-        questionRepository.delete(question);
+  @Override
+  @Transactional
+  public void deleteQuestion(Long questionId, Principal principal) {
+    log.info(
+        "User {} is attempting to delete question with ID {}", principal.getName(), questionId);
 
-        cacheService.clearQuestionRelatedCaches();
-        cacheService.clearTestRelatedCaches();
+    User currentUser = getCurrentUser(principal);
+    Question question = getQuestionById(questionId);
+    Test test = question.getTest();
+    boolean wasTestOpen = test.isOpen();
 
-        if (wasTestOpen) {
-            updateTestOpenStatus(test);
-        }
+    verifyTestModificationPermission(currentUser, test);
 
-        log.info("Question with ID {} deleted", questionId);
+    if (question.getImagePath() != null) {
+      imageService.deleteImage(question.getImagePath());
     }
 
-    @Transactional
-    public void updateTestOpenStatus(Test test) {
+    questionRepository.delete(question);
 
-        if (!testRequirementsValidator.requirementsMet(test)) {
-            test.setOpen(false);
-            testRepository.save(test);
+    cacheService.clearQuestionRelatedCaches();
+    cacheService.clearTestRelatedCaches();
 
-            String message = testRequirementsValidator.getMissingRequirements(test);
-            log.info("Test with ID {} was closed because it no longer meets difficulty requirements: {}",
-                    test.getId(), message);
-
-            List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
-            for (Group group : testGroups) {
-                notificationService.notifyTestParametersChanged(test, group);
-            }
-        }
-        cacheService.clearTestRelatedCaches();
+    if (wasTestOpen) {
+      updateTestOpenStatus(test);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    @Cacheable(value = "question", key = "'id:' + #questionId")
-    public QuestionDetailsDTO getQuestion(Long questionId, Principal principal) {
-        log.info("User {} is attempting to get question with ID {}", principal.getName(), questionId);
+    log.info("Question with ID {} deleted", questionId);
+  }
 
-        User currentUser = getCurrentUser(principal);
-        Question question = getQuestionById(questionId);
-        Test test = question.getTest();
+  @Transactional
+  public void updateTestOpenStatus(Test test) {
 
-        testAccessValidator.validateTestAccess(currentUser, test);
+    if (!testRequirementsValidator.requirementsMet(test)) {
+      test.setOpen(false);
+      testRepository.save(test);
 
-        return questionDTOMapper.convertToQuestionDetailsDTO(question);
+      String message = testRequirementsValidator.getMissingRequirements(test);
+      log.info(
+          "Test with ID {} was closed because it no longer meets difficulty requirements: {}",
+          test.getId(),
+          message);
+
+      List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
+      for (Group group : testGroups) {
+        notificationService.notifyTestParametersChanged(test, group);
+      }
+    }
+    cacheService.clearTestRelatedCaches();
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  @Cacheable(value = "question", key = "'id:' + #questionId")
+  public QuestionDetailsDTO getQuestion(Long questionId, Principal principal) {
+    log.info("User {} is attempting to get question with ID {}", principal.getName(), questionId);
+
+    User currentUser = getCurrentUser(principal);
+    Question question = getQuestionById(questionId);
+    Test test = question.getTest();
+
+    testAccessValidator.validateTestAccess(currentUser, test);
+
+    return questionDTOMapper.convertToQuestionDetailsDTO(question);
+  }
+
+  /**
+   * Verifies that the current user has permission to modify the test. For teachers, checks if they
+   * can edit the specific test. Also verifies that all groups associated with the test are active.
+   *
+   * @throws AccessDeniedException If the user does not have permission to modify the test
+   * @throws StateConflictException If trying to modify a test in a past semester group
+   */
+  private void verifyTestModificationPermission(User currentUser, Test test) {
+    if (currentUser.getRole() == RolesEnum.TEACHER) {
+      List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
+      testAccessValidator.validateTeacherEditAccess(currentUser, test, teacherGroups);
+    } else if (currentUser.getRole() != RolesEnum.ADMIN) {
+      log.warn(
+          "User {} with role {} attempted to modify test",
+          currentUser.getUsername(),
+          currentUser.getRole());
+      throw AccessDeniedException.testEdit();
     }
 
-    /**
-     * Verifies that the current user has permission to modify the test.
-     * For teachers, checks if they can edit the specific test.
-     * Also verifies that all groups associated with the test are active.
-     *
-     * @throws AccessDeniedException If the user does not have permission to modify the test
-     * @throws StateConflictException If trying to modify a test in a past semester group
-     */
-    private void verifyTestModificationPermission(User currentUser, Test test) {
-        if (currentUser.getRole() == RolesEnum.TEACHER) {
-            List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
-            testAccessValidator.validateTeacherEditAccess(currentUser, test, teacherGroups);
-        } else if (currentUser.getRole() != RolesEnum.ADMIN) {
-            log.warn("User {} with role {} attempted to modify test", currentUser.getUsername(), currentUser.getRole());
-            throw AccessDeniedException.testEdit();
-        }
-
-        List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
-        for (Group group : testGroups) {
-            if (!groupActivityService.canModifyGroup(group)) {
-                log.warn("Attempt to modify test in past semester group");
-                throw StateConflictException.inactiveGroup(group.getName());
-            }
-        }
+    List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
+    for (Group group : testGroups) {
+      if (!groupActivityService.canModifyGroup(group)) {
+        log.warn("Attempt to modify test in past semester group");
+        throw StateConflictException.inactiveGroup(group.getName());
+      }
     }
+  }
 }

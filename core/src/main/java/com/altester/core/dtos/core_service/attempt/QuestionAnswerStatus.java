@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class QuestionAnswerStatus {
-    private int questionNumber;
-    private long questionId;
-    private boolean isAnswered;
+  private int questionNumber;
+  private long questionId;
+  private boolean isAnswered;
 }

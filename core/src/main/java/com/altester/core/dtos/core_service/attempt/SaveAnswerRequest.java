@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SaveAnswerRequest {
-    private long attemptId;
-    private AnswerDTO answer;
+  private long attemptId;
+  private AnswerDTO answer;
 }

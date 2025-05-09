@@ -12,21 +12,21 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class AvailableKeys {
-    private Long id;
-    private String name;
-    private String keyMasked;
-    private AiServiceName aiServiceName;
-    private String model;
+  private Long id;
+  private String name;
+  private String keyMasked;
+  private AiServiceName aiServiceName;
+  private String model;
 
-    public static AvailableKeys fromApiKey(ApiKey apiKey) {
-        String maskedKey = apiKey.getKeyPrefix() + "*".repeat(8) + apiKey.getKeySuffix();
+  public static AvailableKeys fromApiKey(ApiKey apiKey) {
+    String maskedKey = apiKey.getKeyPrefix() + "*".repeat(8) + apiKey.getKeySuffix();
 
-        return AvailableKeys.builder()
-                .id(apiKey.getId())
-                .name(apiKey.getName())
-                .keyMasked(maskedKey)
-                .aiServiceName(apiKey.getAiServiceName())
-                .model(apiKey.getModel())
-                .build();
-    }
+    return AvailableKeys.builder()
+        .id(apiKey.getId())
+        .name(apiKey.getName())
+        .keyMasked(maskedKey)
+        .aiServiceName(apiKey.getAiServiceName())
+        .model(apiKey.getModel())
+        .build();
+  }
 }

@@ -11,9 +11,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GradingRequest {
-    private Long attemptId;
-    private String apiKey;
-    private AiServiceName aiServiceName;
-    private String model;
-    private Long promptId;
+  private Long attemptId;
+  private String apiKey;
+  private AiServiceName aiServiceName;
+  private String model;
+  private Long promptId;
 }

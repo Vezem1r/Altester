@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class QuestionReviewSubmissionDTO {
-    private Long questionId;
-    private Integer score;
-    private String teacherFeedback;
+  private Long questionId;
+  private Integer score;
+  private String teacherFeedback;
 }

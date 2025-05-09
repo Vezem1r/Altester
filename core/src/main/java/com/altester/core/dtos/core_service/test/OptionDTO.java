@@ -10,8 +10,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class OptionDTO {
-    private Long id;
-    private String text;
-    private String description;
-    private boolean isCorrect;
+  private Long id;
+  private String text;
+  private String description;
+  private boolean isCorrect;
 }

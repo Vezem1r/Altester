@@ -10,8 +10,10 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface PromptRepository extends JpaRepository<Prompt, Long> {
-    Page<Prompt> findByAuthor(User author, Pageable pageable);
-    @Query("SELECT p FROM Prompt p WHERE p.isPublic = true")
-    Page<Prompt> findAllIsPublicTrue(Pageable pageable);
-    long countByAuthor(User author);
+  Page<Prompt> findByAuthor(User author, Pageable pageable);
+
+  @Query("SELECT p FROM Prompt p WHERE p.isPublic = true")
+  Page<Prompt> findAllIsPublicTrue(Pageable pageable);
+
+  long countByAuthor(User author);
 }

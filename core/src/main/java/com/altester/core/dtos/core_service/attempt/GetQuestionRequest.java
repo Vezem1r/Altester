@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GetQuestionRequest {
-    private long attemptId;
-    private int questionNumber;
+  private long attemptId;
+  private int questionNumber;
 }

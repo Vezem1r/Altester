@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class SubjectGroupDTO {
-    private long id;
-    private String name;
-    private String status;
+  private long id;
+  private String name;
+  private String status;
 }

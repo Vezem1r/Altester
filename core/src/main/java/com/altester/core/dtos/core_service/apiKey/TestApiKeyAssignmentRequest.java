@@ -10,11 +10,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class TestApiKeyAssignmentRequest {
 
-    @NotNull(message = "Test ID is required")
-    private Long testId;
+  @NotNull(message = "Test ID is required")
+  private Long testId;
 
-    @NotNull(message = "API key ID is required")
-    private Long apiKeyId;
+  @NotNull(message = "API key ID is required")
+  private Long apiKeyId;
 
-    private Long groupId;
+  private Long groupId;
 }

@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OptionDTO {
-    private long id;
-    private String text;
-    private String description;
+  private long id;
+  private String text;
+  private String description;
 }

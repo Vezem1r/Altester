@@ -1,20 +1,19 @@
 package com.altester.core.repository;
 
-import com.altester.core.model.auth.User;
 import com.altester.core.model.ApiKey.ApiKey;
+import com.altester.core.model.auth.User;
 import io.lettuce.core.dynamic.annotation.Param;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-
 @Repository
 public interface ApiKeyRepository extends JpaRepository<ApiKey, Long> {
 
-    @Query("SELECT k FROM ApiKey k WHERE k.isGlobal = true OR k.owner = :user")
-    List<ApiKey> findAllGlobalOrOwnedBy(@Param("user")User user);
+  @Query("SELECT k FROM ApiKey k WHERE k.isGlobal = true OR k.owner = :user")
+  List<ApiKey> findAllGlobalOrOwnedBy(@Param("user") User user);
 
-    @Query("SELECT a FROM ApiKey a WHERE a.isGlobal = true")
-    List<ApiKey> findAllIsGlobalTrue();
+  @Query("SELECT a FROM ApiKey a WHERE a.isGlobal = true")
+  List<ApiKey> findAllIsGlobalTrue();
 }

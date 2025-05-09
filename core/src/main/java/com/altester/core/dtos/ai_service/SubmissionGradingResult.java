@@ -11,8 +11,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SubmissionGradingResult {
 
-    private Long submissionId;
-    private Integer score;
-    private String feedback;
-    private boolean graded;
+  private Long submissionId;
+  private Integer score;
+  private String feedback;
+  private boolean graded;
 }

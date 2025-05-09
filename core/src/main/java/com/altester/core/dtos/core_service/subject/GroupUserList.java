@@ -10,8 +10,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class GroupUserList {
-    private long userId;
-    private String name;
-    private String surname;
-    private String username;
+  private long userId;
+  private String name;
+  private String surname;
+  private String username;
 }

@@ -9,6 +9,9 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,95 +24,94 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class JwtAuthFilter extends OncePerRequestFilter {
 
-    private final HandlerExceptionResolver handlerExceptionResolver;
-    private final JwtService jwtService;
-    private final UserDetailsService userDetailsService;
+  private final HandlerExceptionResolver handlerExceptionResolver;
+  private final JwtService jwtService;
+  private final UserDetailsService userDetailsService;
 
-    private final List<String> whitelistedPaths = Arrays.asList(
-            "/auth/signin",
-            "/auth/signup",
-            "/auth/verify",
-            "/auth/resend",
-            "/auth/ldap/signin",
-            "/auth/config",
-            "/password/"
-    );
+  private final List<String> whitelistedPaths =
+      Arrays.asList(
+          "/auth/signin",
+          "/auth/signup",
+          "/auth/verify",
+          "/auth/resend",
+          "/auth/ldap/signin",
+          "/auth/config",
+          "/password/");
 
-    @Override
-    protected void doFilterInternal(@NonNull HttpServletRequest request,
-                                    @NonNull HttpServletResponse response,
-                                    @NonNull FilterChain filterChain)
-            throws ServletException, IOException {
+  @Override
+  protected void doFilterInternal(
+      @NonNull HttpServletRequest request,
+      @NonNull HttpServletResponse response,
+      @NonNull FilterChain filterChain)
+      throws ServletException, IOException {
 
-        final String requestPath = request.getServletPath();
+    final String requestPath = request.getServletPath();
 
-        if (shouldSkipAuthentication(requestPath)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        final String authHeader = request.getHeader("Authorization");
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        try {
-            String jwt = authHeader.substring(7);
-            String username = jwtService.extractUsername(jwt);
-
-            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
-
-                if (jwtService.isTokenValid(jwt, userDetails)) {
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            userDetails, null, userDetails.getAuthorities());
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                } else {
-                    throw JwtAuthenticationException.invalidToken();
-                }
-            }
-
-            filterChain.doFilter(request, response);
-        } catch (ExpiredJwtException e) {
-            log.debug("Token expired for request: {}", requestPath);
-            handlerExceptionResolver.resolveException(request, response, null,
-                    JwtAuthenticationException.expiredToken());
-        } catch (SignatureException | MalformedJwtException e) {
-            log.debug("Invalid token for request: {}", requestPath);
-            handlerExceptionResolver.resolveException(request, response, null,
-                    JwtAuthenticationException.invalidToken());
-        } catch (Exception e) {
-            log.error("Authentication error: {}", e.getMessage());
-            handlerExceptionResolver.resolveException(request, response, null,
-                    JwtAuthenticationException.malformedToken());
-        }
+    if (shouldSkipAuthentication(requestPath)) {
+      filterChain.doFilter(request, response);
+      return;
     }
 
-    private boolean shouldSkipAuthentication(String requestPath) {
-        return whitelistedPaths.stream()
-                .anyMatch(path -> {
-                    if (path.endsWith("/")) {
-                        return requestPath.startsWith(path);
-                    } else {
-                        return requestPath.equals(path);
-                    }
-                });
+    final String authHeader = request.getHeader("Authorization");
+
+    if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+      filterChain.doFilter(request, response);
+      return;
     }
 
-    @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-        return shouldSkipAuthentication(request.getServletPath());
+    try {
+      String jwt = authHeader.substring(7);
+      String username = jwtService.extractUsername(jwt);
+
+      if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+        UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+
+        if (jwtService.isTokenValid(jwt, userDetails)) {
+          UsernamePasswordAuthenticationToken authToken =
+              new UsernamePasswordAuthenticationToken(
+                  userDetails, null, userDetails.getAuthorities());
+          authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+          SecurityContextHolder.getContext().setAuthentication(authToken);
+        } else {
+          throw JwtAuthenticationException.invalidToken();
+        }
+      }
+
+      filterChain.doFilter(request, response);
+    } catch (ExpiredJwtException e) {
+      log.debug("Token expired for request: {}", requestPath);
+      handlerExceptionResolver.resolveException(
+          request, response, null, JwtAuthenticationException.expiredToken());
+    } catch (SignatureException | MalformedJwtException e) {
+      log.debug("Invalid token for request: {}", requestPath);
+      handlerExceptionResolver.resolveException(
+          request, response, null, JwtAuthenticationException.invalidToken());
+    } catch (Exception e) {
+      log.error("Authentication error: {}", e.getMessage());
+      handlerExceptionResolver.resolveException(
+          request, response, null, JwtAuthenticationException.malformedToken());
     }
+  }
+
+  private boolean shouldSkipAuthentication(String requestPath) {
+    return whitelistedPaths.stream()
+        .anyMatch(
+            path -> {
+              if (path.endsWith("/")) {
+                return requestPath.startsWith(path);
+              } else {
+                return requestPath.equals(path);
+              }
+            });
+  }
+
+  @Override
+  protected boolean shouldNotFilter(HttpServletRequest request) {
+    return shouldSkipAuthentication(request.getServletPath());
+  }
 }

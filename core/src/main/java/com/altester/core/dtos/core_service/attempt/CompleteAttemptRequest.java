@@ -10,5 +10,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CompleteAttemptRequest {
-    private long attemptId;
+  private long attemptId;
 }

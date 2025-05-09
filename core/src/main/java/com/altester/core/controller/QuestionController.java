@@ -6,6 +6,7 @@ import com.altester.core.dtos.core_service.question.UpdateQuestionDTO;
 import com.altester.core.service.QuestionService;
 import com.altester.core.util.FileValidator;
 import jakarta.validation.Valid;
+import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -15,8 +16,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.security.Principal;
-
 @RestController
 @RequestMapping("/questions")
 @Slf4j
@@ -24,74 +23,80 @@ import java.security.Principal;
 @Validated
 public class QuestionController {
 
-    private final QuestionService questionService;
-    private final FileValidator fileValidator;
+  private final QuestionService questionService;
+  private final FileValidator fileValidator;
 
-    @PostMapping(value = "/tests/{testId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<QuestionDetailsDTO> addQuestion(
-            @PathVariable Long testId,
-            @Valid @RequestPart("questionData") CreateQuestionDTO createQuestionDTO,
-            @RequestPart(value = "image", required = false) MultipartFile image,
-            Principal principal) {
+  @PostMapping(value = "/tests/{testId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<QuestionDetailsDTO> addQuestion(
+      @PathVariable Long testId,
+      @Valid @RequestPart("questionData") CreateQuestionDTO createQuestionDTO,
+      @RequestPart(value = "image", required = false) MultipartFile image,
+      Principal principal) {
 
-        log.info("User {} adding question to test ID: {}, question type: {}",
-                principal.getName(), testId, createQuestionDTO.getQuestionType());
+    log.info(
+        "User {} adding question to test ID: {}, question type: {}",
+        principal.getName(),
+        testId,
+        createQuestionDTO.getQuestionType());
 
-        if (image != null) {
-            fileValidator.validateImage(image);
-            log.info("Image included with size: {} bytes, content type: {}",
-                    image.getSize(), image.getContentType());
-        }
-
-        QuestionDetailsDTO result = questionService.addQuestion(testId, createQuestionDTO, principal, image);
-        log.info("Question successfully added to test ID: {}, new question ID: {}",
-                testId, result.getId());
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    if (image != null) {
+      fileValidator.validateImage(image);
+      log.info(
+          "Image included with size: {} bytes, content type: {}",
+          image.getSize(),
+          image.getContentType());
     }
 
-    @PutMapping(value = "/{questionId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<QuestionDetailsDTO> updateQuestion(
-            @PathVariable Long questionId,
-            @Valid @RequestPart("questionData") UpdateQuestionDTO updateQuestionDTO,
-            @RequestPart(value = "image", required = false) MultipartFile image,
-            Principal principal) {
+    QuestionDetailsDTO result =
+        questionService.addQuestion(testId, createQuestionDTO, principal, image);
+    log.info(
+        "Question successfully added to test ID: {}, new question ID: {}", testId, result.getId());
 
-        log.info("User {} updating question ID: {}", principal.getName(), questionId);
+    return ResponseEntity.status(HttpStatus.CREATED).body(result);
+  }
 
-        if (image != null) {
-            fileValidator.validateImage(image);
-            log.info("New image included with size: {} bytes, content type: {}",
-                    image.getSize(), image.getContentType());
-        }
+  @PutMapping(value = "/{questionId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<QuestionDetailsDTO> updateQuestion(
+      @PathVariable Long questionId,
+      @Valid @RequestPart("questionData") UpdateQuestionDTO updateQuestionDTO,
+      @RequestPart(value = "image", required = false) MultipartFile image,
+      Principal principal) {
 
-        QuestionDetailsDTO result = questionService.updateQuestion(questionId, updateQuestionDTO, principal, image);
-        log.info("Question ID: {} successfully updated", questionId);
+    log.info("User {} updating question ID: {}", principal.getName(), questionId);
 
-        return ResponseEntity.ok(result);
+    if (image != null) {
+      fileValidator.validateImage(image);
+      log.info(
+          "New image included with size: {} bytes, content type: {}",
+          image.getSize(),
+          image.getContentType());
     }
 
-    @DeleteMapping("/{questionId}")
-    public ResponseEntity<Void> deleteQuestion(
-            @PathVariable Long questionId,
-            Principal principal) {
+    QuestionDetailsDTO result =
+        questionService.updateQuestion(questionId, updateQuestionDTO, principal, image);
+    log.info("Question ID: {} successfully updated", questionId);
 
-        log.info("User {} deleting question ID: {}", principal.getName(), questionId);
-        questionService.deleteQuestion(questionId, principal);
-        log.info("Question ID: {} successfully deleted", questionId);
+    return ResponseEntity.ok(result);
+  }
 
-        return ResponseEntity.noContent().build();
-    }
+  @DeleteMapping("/{questionId}")
+  public ResponseEntity<Void> deleteQuestion(@PathVariable Long questionId, Principal principal) {
 
-    @GetMapping("/{questionId}")
-    public ResponseEntity<QuestionDetailsDTO> getQuestion(
-            @PathVariable Long questionId,
-            Principal principal) {
+    log.info("User {} deleting question ID: {}", principal.getName(), questionId);
+    questionService.deleteQuestion(questionId, principal);
+    log.info("Question ID: {} successfully deleted", questionId);
 
-        log.info("User {} retrieving question ID: {}", principal.getName(), questionId);
-        QuestionDetailsDTO result = questionService.getQuestion(questionId, principal);
-        log.info("Question ID: {} successfully retrieved", questionId);
+    return ResponseEntity.noContent().build();
+  }
 
-        return ResponseEntity.ok(result);
-    }
+  @GetMapping("/{questionId}")
+  public ResponseEntity<QuestionDetailsDTO> getQuestion(
+      @PathVariable Long questionId, Principal principal) {
+
+    log.info("User {} retrieving question ID: {}", principal.getName(), questionId);
+    QuestionDetailsDTO result = questionService.getQuestion(questionId, principal);
+    log.info("Question ID: {} successfully retrieved", questionId);
+
+    return ResponseEntity.ok(result);
+  }
 }

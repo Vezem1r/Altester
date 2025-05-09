@@ -10,11 +10,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AttemptResultResponse {
-    private long attemptId;
-    private String testTitle;
-    private int score;
-    private int totalScore;
-    private int questionsAnswered;
-    private int totalQuestions;
-    private boolean completed;
+  private long attemptId;
+  private String testTitle;
+  private int score;
+  private int totalScore;
+  private int questionsAnswered;
+  private int totalQuestions;
+  private boolean completed;
 }

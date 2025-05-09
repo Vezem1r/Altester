@@ -1,7 +1,9 @@
 package com.altester.core.config;
 
 import com.altester.core.repository.UserRepository;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -17,41 +19,89 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class AppConfig {
 
-    private final UserRepository userRepository;
+  private final UserRepository userRepository;
 
-    @Bean
-    UserDetailsService userDetailsService() {
-        return usernameOrEmail -> {
-            if (usernameOrEmail.contains("@")) {
-                return userRepository.findByEmail(usernameOrEmail)
-                        .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + usernameOrEmail));
-            } else {
-                return userRepository.findByUsername(usernameOrEmail)
-                        .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + usernameOrEmail));
-            }
-        };
-    }
+  @Value("${AUTH_SERVICE_URL}")
+  private String authServiceUrl;
 
-    @Bean
-    BCryptPasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+  @Value("${INTERNAL_API_KEY}")
+  @Getter
+  private String apiKey;
 
-    @Bean
-    AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    }
+  @Value("${api-key.encryption.secret}")
+  @Getter
+  private String secretKey;
 
-    @Bean
-    AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService());
-        authProvider.setPasswordEncoder(passwordEncoder());
-        return authProvider;
-    }
+  @Value("${NOTIFICATION_SERVICE_URL}")
+  private String notificationServiceUrl;
 
-    @Bean
-    public RestTemplate restTemplate() {
-        return new RestTemplate();
-    }
+  @Value("${AI_SERVICE_URL}")
+  private String aiGradingServiceUrl;
+
+  public String getAuthUrl() {
+    return authServiceUrl + "/auth";
+  }
+
+  public String getLdapUrl() {
+    return authServiceUrl + "/ldap";
+  }
+
+  public String getEmailUrl() {
+    return authServiceUrl + "/email";
+  }
+
+  public String getPasswordUrl() {
+    return authServiceUrl + "/password";
+  }
+
+  public String getNotificationUrl() {
+    return notificationServiceUrl + "/internal/notifications";
+  }
+
+  public String getGraderUrl() {
+    return aiGradingServiceUrl + "/ai/grade";
+  }
+
+  @Bean
+  UserDetailsService userDetailsService() {
+    return usernameOrEmail -> {
+      if (usernameOrEmail.contains("@")) {
+        return userRepository
+            .findByEmail(usernameOrEmail)
+            .orElseThrow(
+                () ->
+                    new UsernameNotFoundException("User not found with email: " + usernameOrEmail));
+      } else {
+        return userRepository
+            .findByUsername(usernameOrEmail)
+            .orElseThrow(
+                () ->
+                    new UsernameNotFoundException(
+                        "User not found with username: " + usernameOrEmail));
+      }
+    };
+  }
+
+  @Bean
+  BCryptPasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
+
+  @Bean
+  AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    return config.getAuthenticationManager();
+  }
+
+  @Bean
+  AuthenticationProvider authenticationProvider() {
+    DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+    authProvider.setUserDetailsService(userDetailsService());
+    authProvider.setPasswordEncoder(passwordEncoder());
+    return authProvider;
+  }
+
+  @Bean
+  public RestTemplate restTemplate() {
+    return new RestTemplate();
+  }
 }

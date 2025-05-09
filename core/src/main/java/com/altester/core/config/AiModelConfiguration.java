@@ -1,38 +1,43 @@
 package com.altester.core.config;
 
 import com.altester.core.model.ApiKey.enums.AiServiceName;
+import java.util.*;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
-
-import java.util.*;
 
 @Configuration
 @Getter
 public class AiModelConfiguration {
 
-    private final Map<AiServiceName, List<String>> availableModels = new HashMap<>();
+  @Value("${prompt.teacher.max-count}")
+  private int maxPromptsPerTeacher;
 
-    public AiModelConfiguration(
-            @Value("${ai.models.openai}") String openaiModels,
-            @Value("${ai.models.anthropic}") String anthropicModels,
-            @Value("${ai.models.deepseek}") String deepseekModels,
-            @Value("${ai.models.gemini}") String geminiModels
-    ) {
-        availableModels.put(AiServiceName.OPENAI, parseModelList(openaiModels));
-        availableModels.put(AiServiceName.ANTHROPIC_CLAUDE, parseModelList(anthropicModels));
-        availableModels.put(AiServiceName.DEEPSEEK, parseModelList(deepseekModels));
-        availableModels.put(AiServiceName.GEMINI, parseModelList(geminiModels));
-    }
+  @Value("${ai.models.openai}")
+  private String openaiModels;
 
-    private List<String> parseModelList(String models) {
-        if (models == null || models.trim().isEmpty()) {
-            return Collections.emptyList();
-        }
-        return Arrays.asList(models.split(","));
-    }
+  @Value("${ai.models.anthropic}")
+  private String anthropicModels;
 
-    public List<String> getAvailableModels(AiServiceName serviceName) {
-        return availableModels.getOrDefault(serviceName, Collections.emptyList());
+  @Value("${ai.models.deepseek}")
+  private String deepseekModels;
+
+  @Value("${ai.models.gemini}")
+  private String geminiModel;
+
+  private List<String> parseModelList(String models) {
+    if (models == null || models.trim().isEmpty()) {
+      return Collections.emptyList();
     }
+    return Arrays.asList(models.split(","));
+  }
+
+  public List<String> getAvailableModels(AiServiceName serviceName) {
+    return switch (serviceName) {
+      case OPENAI -> parseModelList(openaiModels);
+      case ANTHROPIC_CLAUDE -> parseModelList(anthropicModels);
+      case DEEPSEEK -> parseModelList(deepseekModels);
+      case GEMINI -> parseModelList(geminiModel);
+    };
+  }
 }

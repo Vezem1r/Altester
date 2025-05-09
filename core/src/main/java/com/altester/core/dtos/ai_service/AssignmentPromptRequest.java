@@ -7,7 +7,7 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 public class AssignmentPromptRequest {
-    private Long testId;
-    private Long groupId;
-    private Long promptId;
+  private Long testId;
+  private Long groupId;
+  private Long promptId;
 }

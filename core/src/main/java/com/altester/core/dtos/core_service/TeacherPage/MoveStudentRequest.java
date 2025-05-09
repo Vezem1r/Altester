@@ -14,14 +14,14 @@ import lombok.NoArgsConstructor;
 @Builder
 public class MoveStudentRequest {
 
-    @NotBlank(message = "Student username is required")
-    private String studentUsername;
+  @NotBlank(message = "Student username is required")
+  private String studentUsername;
 
-    @NotNull(message = "Source group ID is required")
-    @Positive(message = "Source group ID must be positive")
-    private Long fromGroupId;
+  @NotNull(message = "Source group ID is required")
+  @Positive(message = "Source group ID must be positive")
+  private Long fromGroupId;
 
-    @NotNull(message = "Target group ID is required")
-    @Positive(message = "Target group ID must be positive")
-    private Long toGroupId;
+  @NotNull(message = "Target group ID is required")
+  @Positive(message = "Target group ID must be positive")
+  private Long toGroupId;
 }

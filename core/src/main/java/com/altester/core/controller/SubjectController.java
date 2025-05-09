@@ -20,39 +20,39 @@ import org.springframework.web.bind.annotation.*;
 @Validated
 public class SubjectController {
 
-    private final SubjectService subjectService;
+  private final SubjectService subjectService;
 
-    @PostMapping("/create")
-    public ResponseEntity<String> createSubject(@Valid @RequestBody CreateSubjectDTO createSubjectDTO) {
-        subjectService.createSubject(createSubjectDTO);
-        log.info("Subject created successfully {}", createSubjectDTO.getName());
-        return ResponseEntity.status(HttpStatus.CREATED).body("Subject has been created successfully");
-    }
+  @PostMapping("/create")
+  public ResponseEntity<String> createSubject(
+      @Valid @RequestBody CreateSubjectDTO createSubjectDTO) {
+    subjectService.createSubject(createSubjectDTO);
+    log.info("Subject created successfully {}", createSubjectDTO.getName());
+    return ResponseEntity.status(HttpStatus.CREATED).body("Subject has been created successfully");
+  }
 
-    @DeleteMapping("/delete/{subjectId}")
-    public ResponseEntity<String> deleteSubject(
-            @PathVariable long subjectId) {
-        subjectService.deleteSubject(subjectId);
-        log.info("Subject deleted successfully with id {}", subjectId);
-        return ResponseEntity.ok("Subject has been deleted successfully");
-    }
+  @DeleteMapping("/delete/{subjectId}")
+  public ResponseEntity<String> deleteSubject(@PathVariable long subjectId) {
+    subjectService.deleteSubject(subjectId);
+    log.info("Subject deleted successfully with id {}", subjectId);
+    return ResponseEntity.ok("Subject has been deleted successfully");
+  }
 
-    @PutMapping("/update/{subjectId}")
-    public ResponseEntity<String> updateSubject(
-            @Valid @RequestBody CreateSubjectDTO createSubjectDTO,
-            @PathVariable long subjectId) {
-        subjectService.updateSubject(createSubjectDTO, subjectId);
-        log.info("Subject updated successfully {}", createSubjectDTO.getName());
-        return ResponseEntity.ok("Subject has been updated successfully");
-    }
+  @PutMapping("/update/{subjectId}")
+  public ResponseEntity<String> updateSubject(
+      @Valid @RequestBody CreateSubjectDTO createSubjectDTO, @PathVariable long subjectId) {
+    subjectService.updateSubject(createSubjectDTO, subjectId);
+    log.info("Subject updated successfully {}", createSubjectDTO.getName());
+    return ResponseEntity.ok("Subject has been updated successfully");
+  }
 
-    @GetMapping("/all")
-    public ResponseEntity<Page<SubjectDTO>> getAllSubjects(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String searchQuery) {
-        CacheablePage<SubjectDTO> subjects = subjectService.getAllSubjects(page, size, searchQuery);
-        log.debug("Retrieved {} subjects with search query: {}", subjects.getTotalElements(), searchQuery);
-        return ResponseEntity.ok(subjects);
-    }
+  @GetMapping("/all")
+  public ResponseEntity<Page<SubjectDTO>> getAllSubjects(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "10") int size,
+      @RequestParam(required = false) String searchQuery) {
+    CacheablePage<SubjectDTO> subjects = subjectService.getAllSubjects(page, size, searchQuery);
+    log.debug(
+        "Retrieved {} subjects with search query: {}", subjects.getTotalElements(), searchQuery);
+    return ResponseEntity.ok(subjects);
+  }
 }

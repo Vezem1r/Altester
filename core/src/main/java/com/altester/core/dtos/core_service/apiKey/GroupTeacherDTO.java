@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class GroupTeacherDTO {
-    private Long groupId;
-    private String groupName;
-    private String teacherUsername;
+  private Long groupId;
+  private String groupName;
+  private String teacherUsername;
 }

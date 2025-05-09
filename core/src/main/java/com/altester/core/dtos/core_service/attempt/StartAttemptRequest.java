@@ -10,6 +10,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class StartAttemptRequest {
-    private long testId;
+  private long testId;
 }
-

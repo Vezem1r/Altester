@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class GroupSummaryDTO {
-    private Long id;
-    private String name;
-    private Boolean aiEvaluationEnabled;
+  private Long id;
+  private String name;
+  private Boolean aiEvaluationEnabled;
 }

@@ -13,106 +13,115 @@ import com.altester.core.model.subject.Test;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.PromptRepository;
 import com.altester.core.repository.TestGroupAssignmentRepository;
+import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class TestGroupAssignmentManager {
 
-    private final TestGroupAssignmentRepository assignmentRepository;
-    private final GroupRepository groupRepository;
-    private final PromptRepository promptRepository;
+  private final TestGroupAssignmentRepository assignmentRepository;
+  private final GroupRepository groupRepository;
+  private final PromptRepository promptRepository;
 
-    /**
-     * Assigns an API key to a test for a specific group.
-     *
-     * @param test the test
-     * @param group the group
-     * @param apiKey the API key to assign
-     * @param currentUser the user making the assignment
-     */
-    public void assignApiKeyToTestAndGroup(Test test, Group group, ApiKey apiKey, User currentUser) {
-        TestGroupAssignment assignment = assignmentRepository
-                .findByTestAndGroup(test, group)
-                .orElse(TestGroupAssignment.builder()
-                        .test(test)
-                        .group(group)
-                        .assignedAt(LocalDateTime.now())
-                        .assignedBy(currentUser)
-                        .build());
+  /**
+   * Assigns an API key to a test for a specific group.
+   *
+   * @param test the test
+   * @param group the group
+   * @param apiKey the API key to assign
+   * @param currentUser the user making the assignment
+   */
+  public void assignApiKeyToTestAndGroup(Test test, Group group, ApiKey apiKey, User currentUser) {
+    TestGroupAssignment assignment =
+        assignmentRepository
+            .findByTestAndGroup(test, group)
+            .orElse(
+                TestGroupAssignment.builder()
+                    .test(test)
+                    .group(group)
+                    .assignedAt(LocalDateTime.now())
+                    .assignedBy(currentUser)
+                    .build());
 
-        assignment.setApiKey(apiKey);
+    assignment.setApiKey(apiKey);
 
-        if (assignment.getPrompt() == null) {
-            Prompt defaultPrompt = promptRepository.findById(1L).orElse(null);
-            assignment.setPrompt(defaultPrompt);
-        }
-
-        assignmentRepository.save(assignment);
+    if (assignment.getPrompt() == null) {
+      Prompt defaultPrompt = promptRepository.findById(1L).orElse(null);
+      assignment.setPrompt(defaultPrompt);
     }
 
-    /**
-     * Unassigns an API key from a test-group combination.
-     *
-     * @param test the test
-     * @param group the group
-     * @throws ResourceNotFoundException if the assignment doesn't exist
-     * @throws StateConflictException if no API key is assigned
-     */
-    public void unassignApiKeyFromTestAndGroup(Test test, Group group) {
-        TestGroupAssignment assignment = assignmentRepository
-                .findByTestAndGroup(test, group)
-                .orElseThrow(() -> new ResourceNotFoundException("assignment", "test and group",
-                        test.getId() + " and " + group.getId()));
+    assignmentRepository.save(assignment);
+  }
 
-        if (assignment.getApiKey() == null) {
-            throw new StateConflictException("assignment", "no_api_key",
-                    "This test does not have an API key assigned for the specified group");
-        }
+  /**
+   * Unassigns an API key from a test-group combination.
+   *
+   * @param test the test
+   * @param group the group
+   * @throws ResourceNotFoundException if the assignment doesn't exist
+   * @throws StateConflictException if no API key is assigned
+   */
+  public void unassignApiKeyFromTestAndGroup(Test test, Group group) {
+    TestGroupAssignment assignment =
+        assignmentRepository
+            .findByTestAndGroup(test, group)
+            .orElseThrow(
+                () ->
+                    new ResourceNotFoundException(
+                        "assignment", "test and group", test.getId() + " and " + group.getId()));
 
-        assignment.setApiKey(null);
-        assignment.setAiEvaluation(false);
-        assignmentRepository.save(assignment);
+    if (assignment.getApiKey() == null) {
+      throw new StateConflictException(
+          "assignment",
+          "no_api_key",
+          "This test does not have an API key assigned for the specified group");
     }
 
-    /**
-     * Gets all groups for a test where the specified user is the teacher.
-     *
-     * @param user the user
-     * @param test the test
-     * @return a list of groups
-     * @throws ValidationException if the user is an admin
-     */
-    public List<Group> getTeacherGroupsForTest(User user, Test test) {
-        if (RolesEnum.ADMIN.equals(user.getRole())) {
-            throw ValidationException.invalidParameter("groupId", "Admins must specify a group ID");
-        }
+    assignment.setApiKey(null);
+    assignment.setAiEvaluation(false);
+    assignmentRepository.save(assignment);
+  }
 
-        return groupRepository.findByTeacherAndTestsContaining(user, test);
+  /**
+   * Gets all groups for a test where the specified user is the teacher.
+   *
+   * @param user the user
+   * @param test the test
+   * @return a list of groups
+   * @throws ValidationException if the user is an admin
+   */
+  public List<Group> getTeacherGroupsForTest(User user, Test test) {
+    if (RolesEnum.ADMIN.equals(user.getRole())) {
+      throw ValidationException.invalidParameter("groupId", "Admins must specify a group ID");
     }
 
-    /**
-     * Handles the case when an API key is disabled by unassigning it from all test-group combinations.
-     *
-     * @param apiKey the disabled API key
-     */
-    public void handleDisabledApiKey(ApiKey apiKey) {
-        List<TestGroupAssignment> assignments = assignmentRepository.findByApiKey(apiKey);
-        for (TestGroupAssignment assignment : assignments) {
-            assignment.setAiEvaluation(false);
-            assignment.setApiKey(null);
-        }
-        assignmentRepository.saveAll(assignments);
+    return groupRepository.findByTeacherAndTestsContaining(user, test);
+  }
 
-        if (!assignments.isEmpty()) {
-            log.info("Disabled AI evaluation and unassigned API key {} from {} test-group combinations",
-                    apiKey.getId(), assignments.size());
-        }
+  /**
+   * Handles the case when an API key is disabled by unassigning it from all test-group
+   * combinations.
+   *
+   * @param apiKey the disabled API key
+   */
+  public void handleDisabledApiKey(ApiKey apiKey) {
+    List<TestGroupAssignment> assignments = assignmentRepository.findByApiKey(apiKey);
+    for (TestGroupAssignment assignment : assignments) {
+      assignment.setAiEvaluation(false);
+      assignment.setApiKey(null);
     }
+    assignmentRepository.saveAll(assignments);
+
+    if (!assignments.isEmpty()) {
+      log.info(
+          "Disabled AI evaluation and unassigned API key {} from {} test-group combinations",
+          apiKey.getId(),
+          assignments.size());
+    }
+  }
 }

@@ -11,111 +11,113 @@ import com.altester.core.model.subject.enums.AttemptStatus;
 import com.altester.core.repository.AttemptRepository;
 import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.serviceImpl.CacheService;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AttemptReviewService {
-    private final AttemptRepository attemptRepository;
-    private final NotificationDispatchService notificationService;
-    private final CacheService cacheService;
+  private final AttemptRepository attemptRepository;
+  private final NotificationDispatchService notificationService;
+  private final CacheService cacheService;
 
-    public AttemptReviewDTO createAttemptReviewDTO(Attempt attempt) {
-        Test test = attempt.getTest();
+  public AttemptReviewDTO createAttemptReviewDTO(Attempt attempt) {
+    Test test = attempt.getTest();
 
-        List<QuestionReviewDTO> questionReviews = new ArrayList<>();
-        for (Submission submission : attempt.getSubmissions()) {
-            Question question = submission.getQuestion();
+    List<QuestionReviewDTO> questionReviews = new ArrayList<>();
+    for (Submission submission : attempt.getSubmissions()) {
+      Question question = submission.getQuestion();
 
-            List<OptionReviewDTO> optionReviews = new ArrayList<>();
-            for (Option option : question.getOptions()) {
-                boolean isSelected = submission.getSelectedOptions().contains(option);
+      List<OptionReviewDTO> optionReviews = new ArrayList<>();
+      for (Option option : question.getOptions()) {
+        boolean isSelected = submission.getSelectedOptions().contains(option);
 
-                optionReviews.add(OptionReviewDTO.builder()
-                        .optionId(option.getId())
-                        .text(option.getText())
-                        .description(option.getDescription())
-                        .isSelected(isSelected)
-                        .isCorrect(option.isCorrect())
-                        .build());
-            }
+        optionReviews.add(
+            OptionReviewDTO.builder()
+                .optionId(option.getId())
+                .text(option.getText())
+                .description(option.getDescription())
+                .isSelected(isSelected)
+                .isCorrect(option.isCorrect())
+                .build());
+      }
 
-            List<Long> selectedOptionIds = submission.getSelectedOptions().stream()
-                    .map(Option::getId)
-                    .collect(Collectors.toList());
+      List<Long> selectedOptionIds =
+          submission.getSelectedOptions().stream().map(Option::getId).collect(Collectors.toList());
 
-            questionReviews.add(QuestionReviewDTO.builder()
-                    .submissionId(submission.getId())
-                    .questionText(question.getQuestionText())
-                    .imagePath(question.getImagePath())
-                    .options(optionReviews)
-                    .studentAnswer(submission.getAnswerText())
-                    .selectedOptionIds(selectedOptionIds)
-                    .score(submission.getScore() != null ? submission.getScore() : 0)
-                    .maxScore(question.getScore())
-                    .teacherFeedback(submission.getTeacherFeedback())
-                    .build());
-        }
-
-        return AttemptReviewDTO.builder()
-                .attemptId(attempt.getId())
-                .testTitle(test.getTitle())
-                .testDescription(test.getDescription())
-                .score(attempt.getScore() != null ? attempt.getScore() : 0)
-                .totalScore(test.getTotalScore())
-                .startTime(attempt.getStartTime())
-                .endTime(attempt.getEndTime())
-                .questions(questionReviews)
-                .build();
+      questionReviews.add(
+          QuestionReviewDTO.builder()
+              .submissionId(submission.getId())
+              .questionText(question.getQuestionText())
+              .imagePath(question.getImagePath())
+              .options(optionReviews)
+              .studentAnswer(submission.getAnswerText())
+              .selectedOptionIds(selectedOptionIds)
+              .score(submission.getScore() != null ? submission.getScore() : 0)
+              .maxScore(question.getScore())
+              .teacherFeedback(submission.getTeacherFeedback())
+              .build());
     }
 
-    @Transactional
-    public void processAttemptReviewSubmission(User user, Attempt attempt, AttemptReviewSubmissionDTO reviewSubmission) {
-        Map<Long, Submission> submissionMap = attempt.getSubmissions().stream()
-                .collect(Collectors.toMap(
-                        submission -> submission.getQuestion().getId(),
-                        submission -> submission
-                ));
+    return AttemptReviewDTO.builder()
+        .attemptId(attempt.getId())
+        .testTitle(test.getTitle())
+        .testDescription(test.getDescription())
+        .score(attempt.getScore() != null ? attempt.getScore() : 0)
+        .totalScore(test.getTotalScore())
+        .startTime(attempt.getStartTime())
+        .endTime(attempt.getEndTime())
+        .questions(questionReviews)
+        .build();
+  }
 
-        int totalScore = 0;
+  @Transactional
+  public void processAttemptReviewSubmission(
+      User user, Attempt attempt, AttemptReviewSubmissionDTO reviewSubmission) {
+    Map<Long, Submission> submissionMap =
+        attempt.getSubmissions().stream()
+            .collect(
+                Collectors.toMap(
+                    submission -> submission.getQuestion().getId(), submission -> submission));
 
-        for (QuestionReviewSubmissionDTO questionReview : reviewSubmission.getQuestionReviews()) {
-            Submission submission = submissionMap.get(questionReview.getQuestionId());
+    int totalScore = 0;
 
-            if (submission != null) {
-                submission.setScore(questionReview.getScore());
-                submission.setTeacherFeedback(questionReview.getTeacherFeedback());
+    for (QuestionReviewSubmissionDTO questionReview : reviewSubmission.getQuestionReviews()) {
+      Submission submission = submissionMap.get(questionReview.getQuestionId());
 
-                totalScore += questionReview.getScore() != null ? questionReview.getScore() : 0;
-            }
-        }
+      if (submission != null) {
+        submission.setScore(questionReview.getScore());
+        submission.setTeacherFeedback(questionReview.getTeacherFeedback());
 
-        attempt.setScore(totalScore);
-        attempt.setStatus(AttemptStatus.REVIEWED);
-        attemptRepository.save(attempt);
-
-        cacheService.clearAttemptRelatedCaches();
-        cacheService.clearTeacherRelatedCaches();
-        cacheService.clearStudentRelatedCaches();
-        cacheService.clearAdminRelatedCaches();
-
-        notificationService.notifyTestGraded(attempt);
-
-        boolean hasFeedback = reviewSubmission.getQuestionReviews().stream()
-                .anyMatch(qr -> StringUtils.hasText(qr.getTeacherFeedback()));
-
-        if (hasFeedback) {
-            notificationService.notifyTeacherFeedback(attempt);
-        }
+        totalScore += questionReview.getScore() != null ? questionReview.getScore() : 0;
+      }
     }
+
+    attempt.setScore(totalScore);
+    attempt.setStatus(AttemptStatus.REVIEWED);
+    attemptRepository.save(attempt);
+
+    cacheService.clearAttemptRelatedCaches();
+    cacheService.clearTeacherRelatedCaches();
+    cacheService.clearStudentRelatedCaches();
+    cacheService.clearAdminRelatedCaches();
+
+    notificationService.notifyTestGraded(attempt);
+
+    boolean hasFeedback =
+        reviewSubmission.getQuestionReviews().stream()
+            .anyMatch(qr -> StringUtils.hasText(qr.getTeacherFeedback()));
+
+    if (hasFeedback) {
+      notificationService.notifyTeacherFeedback(attempt);
+    }
+  }
 }

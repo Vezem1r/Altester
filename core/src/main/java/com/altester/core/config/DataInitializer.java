@@ -11,26 +11,26 @@ import org.springframework.context.annotation.Configuration;
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 
-    private final DataInit dataInit;
+  private final DataInit dataInit;
 
-    @Override
-    public void run(String... args) {
+  @Override
+  public void run(String... args) {
 
-        //Creating Students and Teachers
-        dataInit.createStudents(100);
-        dataInit.createTeachers(20);
+    // Creating Students and Teachers
+    dataInit.createStudents(100);
+    dataInit.createTeachers(20);
 
-        //Creating Subjects
-        dataInit.createSubject(20);
+    // Creating Subjects
+    dataInit.createSubject(20);
 
-        // Create groups with various configurations:
-        // - Current semester (active) groups
-        // - Past semester (inactive) groups
-        // - Future semester groups
-        // - Each with assigned tests, questions, and options
-        dataInit.createStudentGroups();
+    // Create groups with various configurations:
+    // - Current semester (active) groups
+    // - Past semester (inactive) groups
+    // - Future semester groups
+    // - Each with assigned tests, questions, and options
+    dataInit.createStudentGroups();
 
-        //Creates default prompt for fallback
-        dataInit.createDefaultPrompt();
-    }
+    // Creates default prompt for fallback
+    dataInit.createDefaultPrompt();
+  }
 }

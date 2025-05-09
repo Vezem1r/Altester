@@ -11,12 +11,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ApiKeyAssignmentDTO {
-    private Long apiKeyId;
-    private String apiKeyName;
-    private String maskedKey;
-    private AiServiceName aiServiceName;
-    private String model;
-    private String promptName;
-    private GroupTeacherDTO group;
-    private boolean aiEvaluationEnabled;
+  private Long apiKeyId;
+  private String apiKeyName;
+  private String maskedKey;
+  private AiServiceName aiServiceName;
+  private String model;
+  private String promptName;
+  private GroupTeacherDTO group;
+  private boolean aiEvaluationEnabled;
 }

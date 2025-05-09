@@ -4,25 +4,25 @@ import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.Attempt;
 import com.altester.core.model.subject.Test;
 import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
 @Repository
 public interface AttemptRepository extends JpaRepository<Attempt, Long> {
-    List<Attempt> findByTestAndStudent(Test test, User student);
-    int countByEndTimeAfter(LocalDateTime date);
+  List<Attempt> findByTestAndStudent(Test test, User student);
 
-    @Query("SELECT a FROM Attempt a LEFT JOIN FETCH a.submissions WHERE a.id = :id")
-    Optional<Attempt> findByIdWithSubmissions(@Param("id") Long id);
+  int countByEndTimeAfter(LocalDateTime date);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT a FROM Attempt a LEFT JOIN FETCH a.submissions WHERE a.id = :id")
-    Optional<Attempt> findByIdWithSubmissionsAndLock(@Param("id") Long id);
+  @Query("SELECT a FROM Attempt a LEFT JOIN FETCH a.submissions WHERE a.id = :id")
+  Optional<Attempt> findByIdWithSubmissions(@Param("id") Long id);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("SELECT a FROM Attempt a LEFT JOIN FETCH a.submissions WHERE a.id = :id")
+  Optional<Attempt> findByIdWithSubmissionsAndLock(@Param("id") Long id);
 }

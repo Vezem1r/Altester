@@ -10,8 +10,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class TeacherGroupDTO {
-    private String groupName;
-    private int studentCount;
-    private int testCount;
-    private boolean active;
+  private String groupName;
+  private int studentCount;
+  private int testCount;
+  private boolean active;
 }

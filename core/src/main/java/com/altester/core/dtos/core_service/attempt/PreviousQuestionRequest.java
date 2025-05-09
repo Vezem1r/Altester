@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PreviousQuestionRequest {
-    private long attemptId;
-    private int currentQuestionNumber;
-    private AnswerDTO currentAnswer;
+  private long attemptId;
+  private int currentQuestionNumber;
+  private AnswerDTO currentAnswer;
 }

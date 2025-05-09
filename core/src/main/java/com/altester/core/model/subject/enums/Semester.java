@@ -4,12 +4,13 @@ import lombok.Getter;
 
 @Getter
 public enum Semester {
-    WINTER("Winter"),
-    SUMMER("Summer"),;
+  WINTER("Winter"),
+  SUMMER("Summer"),
+  ;
 
-    private final String displayName;
+  private final String displayName;
 
-    Semester(String displayName) {
-        this.displayName = displayName;
-    }
+  Semester(String displayName) {
+    this.displayName = displayName;
+  }
 }
