@@ -8,54 +8,58 @@ import com.altester.ai_grading_service.model.enums.AttemptStatus;
 import com.altester.ai_grading_service.repository.AttemptRepository;
 import com.altester.ai_grading_service.repository.SubmissionRepository;
 import com.altester.ai_grading_service.service.SubmissionService;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class SubmissionServiceImpl implements SubmissionService {
 
-    private final SubmissionRepository submissionRepository;
-    private final AttemptRepository attemptRepository;
+  private final SubmissionRepository submissionRepository;
+  private final AttemptRepository attemptRepository;
 
-    @Override
-    public List<Submission> getSubmissionsForAiGrading(Attempt attempt) {
-        return submissionRepository.findByAttemptAndAiGraded(attempt, false);
+  @Override
+  public List<Submission> getSubmissionsForAiGrading(Attempt attempt) {
+    return submissionRepository.findByAttemptAndAiGraded(attempt, false);
+  }
+
+  @Override
+  @Transactional
+  public int saveGradingResults(List<SubmissionGradingResult> results, Attempt attempt) {
+    int savedCount = 0;
+    int totalScore = 0;
+
+    for (SubmissionGradingResult result : results) {
+      if (result.isGraded()) {
+        Submission submission =
+            submissionRepository
+                .findById(result.getSubmissionId())
+                .orElseThrow(() -> ResourceNotFoundException.submission(result.getSubmissionId()));
+
+        submission.setScore(result.getScore());
+        submission.setTeacherFeedback(result.getFeedback());
+        submission.setAiGraded(true);
+
+        submissionRepository.save(submission);
+        savedCount++;
+        totalScore += submission.getScore();
+
+        log.info(
+            "Updated submission {} with AI grading results: score={}, feedback={}",
+            submission.getId(),
+            result.getScore(),
+            result.getFeedback());
+      }
     }
 
-    @Override
-    @Transactional
-    public int saveGradingResults(List<SubmissionGradingResult> results, Attempt attempt) {
-        int savedCount = 0;
-        int totalScore = 0;
+    attempt.setScore(totalScore);
+    attempt.setStatus(AttemptStatus.REVIEWED);
+    attemptRepository.save(attempt);
 
-        for (SubmissionGradingResult result : results) {
-            if (result.isGraded()) {
-                Submission submission = submissionRepository.findById(result.getSubmissionId())
-                        .orElseThrow(() -> ResourceNotFoundException.submission(result.getSubmissionId()));
-
-                submission.setScore(result.getScore());
-                submission.setTeacherFeedback(result.getFeedback());
-                submission.setAiGraded(true);
-
-                submissionRepository.save(submission);
-                savedCount++;
-                totalScore += submission.getScore();
-
-                log.info("Updated submission {} with AI grading results: score={}, feedback={}",
-                        submission.getId(), result.getScore(), result.getFeedback());
-            }
-        }
-
-        attempt.setScore(totalScore);
-        attempt.setStatus(AttemptStatus.REVIEWED);
-        attemptRepository.save(attempt);
-
-        return savedCount;
-    }
+    return savedCount;
+  }
 }

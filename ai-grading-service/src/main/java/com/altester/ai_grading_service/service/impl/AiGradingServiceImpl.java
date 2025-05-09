@@ -12,109 +12,124 @@ import com.altester.ai_grading_service.repository.AttemptRepository;
 import com.altester.ai_grading_service.service.AiGradingService;
 import com.altester.ai_grading_service.service.AiProviderService;
 import com.altester.ai_grading_service.service.SubmissionService;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AiGradingServiceImpl implements AiGradingService {
 
-    private final AttemptRepository attemptRepository;
-    private final SubmissionService submissionService;
-    private final List<AiProviderService> aiProviderServices;
+  private final AttemptRepository attemptRepository;
+  private final SubmissionService submissionService;
+  private final List<AiProviderService> aiProviderServices;
 
-    @Override
-    public GradingResponse gradeAttempt(GradingRequest request) {
-        log.info("Processing grading request for attempt: {}, using AI service: {}, with prompt ID: {}",
-                request.getAttemptId(), request.getAiServiceName(), request.getPromptId());
+  @Override
+  public GradingResponse gradeAttempt(GradingRequest request) {
+    log.info(
+        "Processing grading request for attempt: {}, using AI service: {}, with prompt ID: {}",
+        request.getAttemptId(),
+        request.getAiServiceName(),
+        request.getPromptId());
 
-        Attempt attempt = attemptRepository.findById(request.getAttemptId())
-                .orElseThrow(() -> ResourceNotFoundException.attempt(request.getAttemptId()));
+    Attempt attempt =
+        attemptRepository
+            .findById(request.getAttemptId())
+            .orElseThrow(() -> ResourceNotFoundException.attempt(request.getAttemptId()));
 
-        AiProviderService provider = aiProviderServices.stream()
-                .filter(p -> p.supports(request.getAiServiceName()))
-                .findFirst()
-                .orElseThrow(() -> new AiServiceException("Unsupported AI service: " + request.getAiServiceName()));
+    AiProviderService provider =
+        aiProviderServices.stream()
+            .filter(p -> p.supports(request.getAiServiceName()))
+            .findFirst()
+            .orElseThrow(
+                () ->
+                    new AiServiceException(
+                        "Unsupported AI service: " + request.getAiServiceName()));
 
-        List<Submission> submissions = submissionService.getSubmissionsForAiGrading(attempt);
+    List<Submission> submissions = submissionService.getSubmissionsForAiGrading(attempt);
 
-        if (submissions.isEmpty()) {
-            return GradingResponse.builder()
-                    .attemptId(request.getAttemptId())
-                    .success(false)
-                    .message("No submissions found that require AI grading")
-                    .results(new ArrayList<>())
-                    .build();
-        }
-
-        // Filter out auto-gradable submissions
-        List<Submission> submissionsForAiGrading = submissions.stream()
-                .filter(submission -> !isAutoGradableQuestion(submission))
-                .filter(submission -> !submission.isAiGraded())
-                .collect(Collectors.toList());
-
-        if (submissionsForAiGrading.isEmpty()) {
-            return GradingResponse.builder()
-                    .attemptId(request.getAttemptId())
-                    .success(false)
-                    .message("All submissions are already graded or auto-gradable")
-                    .results(new ArrayList<>())
-                    .build();
-        }
-
-        try {
-            // Process submissions in batches
-            List<AiProviderService.GradingResult> gradingResults = provider.evaluateSubmissionsBatch(
-                    submissionsForAiGrading,
-                    request.getApiKey(),
-                    request.getModel(),
-                    request.getPromptId()
-            );
-
-            int totalScore = 0;
-
-            // Convert results to SubmissionGradingResult
-            List<SubmissionGradingResult> submissionResults = new ArrayList<>();
-            for (int i = 0; i < submissionsForAiGrading.size() && i < gradingResults.size(); i++) {
-                Submission submission = submissionsForAiGrading.get(i);
-                AiProviderService.GradingResult result = gradingResults.get(i);
-
-                submissionResults.add(SubmissionGradingResult.builder()
-                        .submissionId(submission.getId())
-                        .score(result.score())
-                        .feedback(result.feedback())
-                        .graded(true)
-                        .build());
-
-                totalScore += result.score();
-            }
-
-            int savedCount = submissionService.saveGradingResults(submissionResults, attempt);
-
-            return GradingResponse.builder()
-                    .attemptId(request.getAttemptId())
-                    .success(true)
-                    .attemptScore(totalScore)
-                    .message(String.format("Successfully graded %d out of %d submissions",
-                            savedCount, submissionsForAiGrading.size()))
-                    .results(submissionResults)
-                    .build();
-
-        } catch (Exception e) {
-            log.error("Error processing AI grading for attempt {}: {}", request.getAttemptId(), e.getMessage(), e);
-            throw new AiServiceException("Failed to complete grading tasks: " + e.getMessage(), e);
-        }
+    if (submissions.isEmpty()) {
+      return GradingResponse.builder()
+          .attemptId(request.getAttemptId())
+          .success(false)
+          .message("No submissions found that require AI grading")
+          .results(new ArrayList<>())
+          .build();
     }
 
-    private boolean isAutoGradableQuestion(Submission submission) {
-        QuestionType questionType = submission.getQuestion().getQuestionType();
-        return QuestionType.MULTIPLE_CHOICE.equals(questionType) ||
-                QuestionType.IMAGE_WITH_MULTIPLE_CHOICE.equals(questionType);
+    // Filter out auto-gradable submissions
+    List<Submission> submissionsForAiGrading =
+        submissions.stream()
+            .filter(submission -> !isAutoGradableQuestion(submission))
+            .filter(submission -> !submission.isAiGraded())
+            .toList();
+
+    if (submissionsForAiGrading.isEmpty()) {
+      return GradingResponse.builder()
+          .attemptId(request.getAttemptId())
+          .success(false)
+          .message("All submissions are already graded or auto-gradable")
+          .results(new ArrayList<>())
+          .build();
     }
+
+    try {
+      // Process submissions in batches
+      List<AiProviderService.GradingResult> gradingResults =
+          provider.evaluateSubmissionsBatch(
+              submissionsForAiGrading,
+              request.getApiKey(),
+              request.getModel(),
+              request.getPromptId());
+
+      int totalScore = 0;
+
+      // Convert results to SubmissionGradingResult
+      List<SubmissionGradingResult> submissionResults = new ArrayList<>();
+      for (int i = 0; i < submissionsForAiGrading.size() && i < gradingResults.size(); i++) {
+        Submission submission = submissionsForAiGrading.get(i);
+        AiProviderService.GradingResult result = gradingResults.get(i);
+
+        submissionResults.add(
+            SubmissionGradingResult.builder()
+                .submissionId(submission.getId())
+                .score(result.score())
+                .feedback(result.feedback())
+                .graded(true)
+                .build());
+
+        totalScore += result.score();
+      }
+
+      int savedCount = submissionService.saveGradingResults(submissionResults, attempt);
+
+      return GradingResponse.builder()
+          .attemptId(request.getAttemptId())
+          .success(true)
+          .attemptScore(totalScore)
+          .message(
+              String.format(
+                  "Successfully graded %d out of %d submissions",
+                  savedCount, submissionsForAiGrading.size()))
+          .results(submissionResults)
+          .build();
+
+    } catch (Exception e) {
+      log.error(
+          "Error processing AI grading for attempt {}: {}",
+          request.getAttemptId(),
+          e.getMessage(),
+          e);
+      throw new AiServiceException("Failed to complete grading tasks: " + e.getMessage(), e);
+    }
+  }
+
+  private boolean isAutoGradableQuestion(Submission submission) {
+    QuestionType questionType = submission.getQuestion().getQuestionType();
+    return QuestionType.MULTIPLE_CHOICE.equals(questionType)
+        || QuestionType.IMAGE_WITH_MULTIPLE_CHOICE.equals(questionType);
+  }
 }

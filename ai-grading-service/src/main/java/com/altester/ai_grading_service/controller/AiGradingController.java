@@ -19,24 +19,24 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class AiGradingController {
 
-    private final AiGradingService aiGradingService;
+  private final AiGradingService aiGradingService;
 
-    @PostMapping("/grade")
-    public ResponseEntity<GradingResponse> gradeAttempt(@Valid @RequestBody GradingRequest request) {
-        log.info("Received grading request for attempt: {}", request.getAttemptId());
+  @PostMapping("/grade")
+  public ResponseEntity<GradingResponse> gradeAttempt(@Valid @RequestBody GradingRequest request) {
+    log.info("Received grading request for attempt: {}", request.getAttemptId());
 
-        try {
-            GradingResponse response = aiGradingService.gradeAttempt(request);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Error processing synchronous grading request: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    GradingResponse.builder()
-                            .attemptId(request.getAttemptId())
-                            .success(false)
-                            .message("Error processing grading request: " + e.getMessage())
-                            .build()
-            );
-        }
+    try {
+      GradingResponse response = aiGradingService.gradeAttempt(request);
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      log.error("Error processing synchronous grading request: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(
+              GradingResponse.builder()
+                  .attemptId(request.getAttemptId())
+                  .success(false)
+                  .message("Error processing grading request: " + e.getMessage())
+                  .build());
     }
+  }
 }

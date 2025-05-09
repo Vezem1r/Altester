@@ -14,19 +14,18 @@ import lombok.NoArgsConstructor;
 @Data
 public class Option {
 
-    @Id
-    private long id;
+  @Id private long id;
 
-    @Column(nullable = false)
-    private String text;
+  @Column(nullable = false)
+  private String text;
 
-    @Column(length = 1024)
-    private String description;
+  @Column(length = 1024)
+  private String description;
 
-    @Column(nullable = false)
-    private boolean isCorrect;
+  @Column(nullable = false)
+  private boolean isCorrect;
 
-    @ManyToOne
-    @JoinColumn(name = "question_id", nullable = false)
-    private Question question;
+  @ManyToOne
+  @JoinColumn(name = "question_id", nullable = false)
+  private Question question;
 }

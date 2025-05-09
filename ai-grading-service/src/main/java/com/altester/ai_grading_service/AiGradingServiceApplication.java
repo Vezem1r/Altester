@@ -10,8 +10,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableTransactionManagement
 public class AiGradingServiceApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(AiGradingServiceApplication.class, args);
-	}
-
+  public static void main(String[] args) {
+    SpringApplication.run(AiGradingServiceApplication.class, args);
+  }
 }

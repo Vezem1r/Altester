@@ -12,13 +12,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class GradingRequest {
 
-    @NotNull
-    private Long attemptId;
-    @NotNull
-    private String apiKey;
-    @NotNull
-    private String model;
-    @NotNull
-    private String aiServiceName;
-    private Long promptId;
+  @NotNull private Long attemptId;
+  @NotNull private String apiKey;
+  @NotNull private String model;
+  @NotNull private String aiServiceName;
+  private Long promptId;
 }

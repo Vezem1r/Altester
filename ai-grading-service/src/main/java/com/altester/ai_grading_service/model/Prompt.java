@@ -14,12 +14,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class Prompt {
 
-    @Id
-    private Long id;
+  @Id private Long id;
 
-    @Column(columnDefinition = "TEXT", nullable = false)
-    private String prompt;
+  @Column(columnDefinition = "TEXT", nullable = false)
+  private String prompt;
 
-    @Version
-    private Long version;
+  @Version private Long version;
 }
