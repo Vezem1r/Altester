@@ -12,11 +12,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class MessageRequest {
 
-    @NotBlank(message = "Receiver ID cannot be empty")
-    private String receiverId;
+  @NotBlank(message = "Receiver ID cannot be empty")
+  private String receiverId;
 
-    @NotBlank(message = "Message content cannot be empty")
-    private String content;
+  @NotBlank(message = "Message content cannot be empty")
+  private String content;
 
-    private Long conversationId;
+  private Long conversationId;
 }

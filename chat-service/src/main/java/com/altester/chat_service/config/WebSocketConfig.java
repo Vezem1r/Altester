@@ -1,6 +1,7 @@
 package com.altester.chat_service.config;
 
 import com.altester.chat_service.security.JwtWebSocketInterceptor;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -11,45 +12,48 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 
-import java.util.List;
-
 @Configuration
 @EnableWebSocketMessageBroker
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    private final JwtWebSocketInterceptor jwtInterceptor;
+  private final JwtWebSocketInterceptor jwtInterceptor;
+  private static final int TIME_LIMIT = 256 * 1000;
+  private static final int BUFFER_SIZE_LIMIT = 512 * 1024;
+  private static final int MESSAGE_SIZE_LIMIT = 128 * 1024;
 
-    @Value("${cors.allowed.origins}")
-    private String allowedOrigins;
+  @Value("${cors.allowed.origins}")
+  private String allowedOrigins;
 
-    private List<String> getAllowedOrigins() {
-        return List.of(allowedOrigins.split(","));
-    }
+  private List<String> getAllowedOrigins() {
+    return List.of(allowedOrigins.split(","));
+  }
 
-    @Override
-    public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/queue");
-        config.setApplicationDestinationPrefixes("/app");
-        config.setUserDestinationPrefix("/user");
-    }
+  @Override
+  public void configureMessageBroker(MessageBrokerRegistry config) {
+    config.enableSimpleBroker("/queue");
+    config.setApplicationDestinationPrefixes("/app");
+    config.setUserDestinationPrefix("/user");
+  }
 
-    @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws")
-                .setAllowedOrigins(getAllowedOrigins().toArray(new String[0]))
-                .withSockJS();
-    }
+  @Override
+  public void registerStompEndpoints(StompEndpointRegistry registry) {
+    registry
+        .addEndpoint("/ws")
+        .setAllowedOrigins(getAllowedOrigins().toArray(new String[0]))
+        .withSockJS();
+  }
 
-    @Override
-    public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
-        registration.setSendTimeLimit(256 * 1000)
-                .setSendBufferSizeLimit(512 * 1024)
-                .setMessageSizeLimit(128 * 1024);
-    }
+  @Override
+  public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
+    registration
+        .setSendTimeLimit(TIME_LIMIT)
+        .setSendBufferSizeLimit(BUFFER_SIZE_LIMIT)
+        .setMessageSizeLimit(MESSAGE_SIZE_LIMIT);
+  }
 
-    @Override
-    public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(jwtInterceptor);
-    }
+  @Override
+  public void configureClientInboundChannel(ChannelRegistration registration) {
+    registration.interceptors(jwtInterceptor);
+  }
 }
