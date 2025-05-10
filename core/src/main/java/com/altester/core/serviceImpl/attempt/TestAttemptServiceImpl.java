@@ -327,7 +327,7 @@ public class TestAttemptServiceImpl implements TestAttemptService {
       Attempt attempt = getAttemptById(request.getAttemptId());
       validationService.validateAttemptOwnership(attempt, student);
 
-      if (isAlreadyCompletedOrReviewed(attempt)) {
+      if (isAlreadyReviewed(attempt)) {
         return dtoMapper.buildAttemptResult(attempt);
       }
 
@@ -368,9 +368,8 @@ public class TestAttemptServiceImpl implements TestAttemptService {
     cacheService.putProcessingFlag(processingKey, true, 30);
   }
 
-  private boolean isAlreadyCompletedOrReviewed(Attempt attempt) {
-    if (attempt.getStatus() == AttemptStatus.COMPLETED
-        || attempt.getStatus() == AttemptStatus.REVIEWED) {
+  private boolean isAlreadyReviewed(Attempt attempt) {
+    if (attempt.getStatus() == AttemptStatus.REVIEWED) {
       log.debug(
           "[COMPLETE ATTEMPT] Attempt {} is already {}, returning existing result",
           attempt.getId(),
