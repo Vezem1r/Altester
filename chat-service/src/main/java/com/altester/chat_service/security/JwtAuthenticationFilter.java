@@ -24,13 +24,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
   private final JwtService jwtService;
   private final UserDetailsService userDetailsService;
 
+  private static final String BEARER_PREFIX = "Bearer ";
+  private static final String AUTH_HEADER = "Authorization";
+
   @Override
   protected void doFilterInternal(
       @NonNull HttpServletRequest request,
       @NonNull HttpServletResponse response,
       @NonNull FilterChain filterChain)
       throws ServletException, IOException {
-    final String authHeader = request.getHeader("Authorization");
+    final String authHeader = request.getHeader(AUTH_HEADER);
     final String jwt;
     final String username;
 
@@ -39,12 +42,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       return;
     }
 
-    if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+    if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
       filterChain.doFilter(request, response);
       return;
     }
 
-    jwt = authHeader.substring(7);
+    jwt = authHeader.substring(BEARER_PREFIX.length());
     try {
       username = jwtService.extractUsername(jwt);
 

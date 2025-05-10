@@ -27,6 +27,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
   private final AppConfig appConfig;
 
   private static final String BEARER_PREFIX = "Bearer ";
+  private static final String AUTH_HEADER = "Authorization";
 
   @Override
   protected void doFilterInternal(
@@ -34,7 +35,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       @NonNull HttpServletResponse response,
       @NonNull FilterChain filterChain)
       throws ServletException, IOException {
-    final String authHeader = request.getHeader("Authorization");
+    final String authHeader = request.getHeader(AUTH_HEADER);
     final String jwt;
     final String username;
 

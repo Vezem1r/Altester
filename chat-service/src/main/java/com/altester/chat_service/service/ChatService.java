@@ -3,214 +3,92 @@ package com.altester.chat_service.service;
 import com.altester.chat_service.dto.ChatMessageDTO;
 import com.altester.chat_service.dto.ConversationDTO;
 import com.altester.chat_service.dto.MessageRequest;
-import com.altester.chat_service.exception.ChatException;
-import com.altester.chat_service.model.ChatMessage;
 import com.altester.chat_service.model.Conversation;
-import com.altester.chat_service.model.User;
-import com.altester.chat_service.repository.ChatMessageRepository;
-import com.altester.chat_service.repository.ConversationRepository;
-import com.altester.chat_service.repository.GroupRepository;
-import com.altester.chat_service.repository.UserRepository;
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.Map;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-@Service
-@RequiredArgsConstructor
-@Slf4j
-public class ChatService {
+public interface ChatService {
 
-  private final ChatMessageRepository chatMessageRepository;
-  private final ConversationRepository conversationRepository;
-  private final UserRepository userRepository;
-  private final GroupRepository groupRepository;
-  private final WebSocketService webSocketService;
-  private final ChatDTOMapper chatDTOMapper;
+  /**
+   * Retrieves an existing conversation between two users or creates a new one if it doesn't exist.
+   *
+   * @param participant1Id ID of the first participant
+   * @param participant2Id ID of the second participant
+   * @return The existing or newly created Conversation
+   */
+  Conversation getOrCreateConversation(String participant1Id, String participant2Id);
 
-  private boolean canUsersSendMessages(String senderId, String receiverId) {
-    User sender =
-        userRepository
-            .findByUsername(senderId)
-            .orElseThrow(() -> new ChatException("Sender not found: " + senderId));
+  /**
+   * Gets the count of unread messages for each conversation involving the specified user.
+   *
+   * @param userId ID of the user
+   * @return Map of conversation IDs to their unread message counts
+   */
+  Map<Long, Long> getUnreadCountsByConversation(String userId);
 
-    User receiver =
-        userRepository
-            .findByUsername(receiverId)
-            .orElseThrow(() -> new ChatException("Receiver not found: " + receiverId));
+  /**
+   * Sends a message from one user to another.
+   *
+   * @param senderId ID of the message sender
+   * @param request The message request containing content and recipient information
+   * @return DTO representing the sent message
+   */
+  ChatMessageDTO sendMessage(String senderId, MessageRequest request);
 
-    if (sender.isTeacher() && receiver.isStudent()) {
-      return groupRepository.isStudentInTeacherGroup(senderId, receiverId);
-    }
+  /**
+   * Retrieves all conversations for the specified user.
+   *
+   * @param userId ID of the user
+   * @return List of conversation DTOs
+   */
+  List<ConversationDTO> getConversationsForUser(String userId);
 
-    if (sender.isStudent() && receiver.isTeacher()) {
-      return groupRepository.isStudentInTeacherGroup(receiverId, senderId);
-    }
-    return true;
-  }
+  /**
+   * Retrieves paginated conversations for the specified user.
+   *
+   * @param userId ID of the user
+   * @param page Page number (0-based)
+   * @param size Size of each page
+   * @return Page of conversation DTOs
+   */
+  Page<ConversationDTO> getPaginatedConversations(String userId, int page, int size);
 
-  @Transactional
-  public Conversation getOrCreateConversation(String participant1Id, String participant2Id) {
-    if (!canUsersSendMessages(participant1Id, participant2Id)
-        || !canUsersSendMessages(participant2Id, participant1Id)) {
-      throw new ChatException("Users cannot exchange messages");
-    }
+  /**
+   * Retrieves paginated messages for a specific conversation.
+   *
+   * @param userId ID of the requesting user
+   * @param conversationId ID of the conversation
+   * @param page Page number (0-based)
+   * @param size Size of each page
+   * @return Page of message DTOs
+   */
+  Page<ChatMessageDTO> getConversationMessages(
+      String userId, Long conversationId, int page, int size);
 
-    Optional<Conversation> existingConversation =
-        conversationRepository.findConversationBetween(participant1Id, participant2Id);
+  /**
+   * Retrieves all unread messages for the specified user across all conversations.
+   *
+   * @param userId ID of the user
+   * @return List of unread message DTOs
+   */
+  List<ChatMessageDTO> getUnreadMessages(String userId);
 
-    if (existingConversation.isPresent()) {
-      return existingConversation.get();
-    }
+  /**
+   * Marks all messages in a conversation as read for the specified user.
+   *
+   * @param userId ID of the user
+   * @param conversationId ID of the conversation
+   * @return Number of messages marked as read
+   */
+  int markMessagesAsRead(String userId, Long conversationId);
 
-    Conversation newConversation =
-        Conversation.builder()
-            .participant1Id(participant1Id)
-            .participant2Id(participant2Id)
-            .lastMessageTime(LocalDateTime.now())
-            .createdAt(LocalDateTime.now())
-            .build();
-
-    return conversationRepository.save(newConversation);
-  }
-
-  @Transactional
-  public ChatMessageDTO sendMessage(String senderId, MessageRequest request) {
-    String receiverId = request.getReceiverId();
-
-    if (!canUsersSendMessages(senderId, receiverId)) {
-      throw new ChatException("You cannot send messages to this user");
-    }
-
-    Conversation conversation;
-    if (request.getConversationId() != null) {
-      conversation =
-          conversationRepository
-              .findById(request.getConversationId())
-              .orElseThrow(() -> new ChatException("Conversation not found"));
-
-      if (!conversation.hasParticipant(senderId)) {
-        throw new ChatException("You are not a participant in this conversation");
-      }
-
-      if (!conversation.hasParticipant(receiverId)) {
-        throw new ChatException("Receiver is not a participant in this conversation");
-      }
-    } else {
-      conversation = getOrCreateConversation(senderId, receiverId);
-    }
-
-    ChatMessage message =
-        ChatMessage.builder()
-            .conversation(conversation)
-            .senderId(senderId)
-            .content(request.getContent())
-            .timestamp(LocalDateTime.now())
-            .read(false)
-            .build();
-
-    ChatMessage savedMessage = chatMessageRepository.save(message);
-    conversation.setLastMessageTime(savedMessage.getTimestamp());
-    conversationRepository.save(conversation);
-
-    ChatMessageDTO messageDTO = chatDTOMapper.mapToChatMessageDTO(savedMessage, receiverId);
-
-    webSocketService.sendChatMessage(receiverId, messageDTO);
-
-    return messageDTO;
-  }
-
-  @Transactional(readOnly = true)
-  public List<ConversationDTO> getConversationsForUser(String userId) {
-    List<Conversation> conversations = conversationRepository.findConversationsForUser(userId);
-
-    return conversations.stream()
-        .map(conversation -> chatDTOMapper.mapToConversationDTO(conversation, userId))
-        .collect(Collectors.toList());
-  }
-
-  @Transactional(readOnly = true)
-  public Page<ConversationDTO> getPaginatedConversations(String userId, int page, int size) {
-    Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "lastMessageTime"));
-    Page<Conversation> conversationsPage =
-        conversationRepository.findConversationsForUserPaginated(userId, pageable);
-
-    return conversationsPage.map(
-        conversation -> chatDTOMapper.mapToConversationDTO(conversation, userId));
-  }
-
-  @Transactional(readOnly = true)
-  public Page<ChatMessageDTO> getConversationMessages(
-      String userId, Long conversationId, int page, int size) {
-    Conversation conversation =
-        conversationRepository
-            .findById(conversationId)
-            .orElseThrow(() -> new ChatException("Conversation not found"));
-
-    if (!conversation.hasParticipant(userId)) {
-      throw new ChatException("You are not a participant in this conversation");
-    }
-
-    Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "timestamp"));
-    Page<ChatMessage> messagesPage =
-        chatMessageRepository.findByConversationIdOrderByTimestampDesc(conversationId, pageable);
-
-    String otherParticipantId = conversation.getOtherParticipantId(userId);
-    return messagesPage.map(
-        message -> chatDTOMapper.mapToChatMessageDTO(message, otherParticipantId));
-  }
-
-  @Transactional(readOnly = true)
-  public List<ChatMessageDTO> getUnreadMessages(String userId) {
-    List<Conversation> conversations = conversationRepository.findConversationsForUser(userId);
-
-    return conversations.stream()
-        .flatMap(conversation -> conversation.getMessages().stream())
-        .filter(message -> !message.isRead() && !message.getSenderId().equals(userId))
-        .map(
-            message -> {
-              String otherParticipantId = message.getSenderId();
-              return chatDTOMapper.mapToChatMessageDTO(message, otherParticipantId);
-            })
-        .collect(Collectors.toList());
-  }
-
-  @Transactional
-  public int markMessagesAsRead(String userId, Long conversationId) {
-    Conversation conversation =
-        conversationRepository
-            .findById(conversationId)
-            .orElseThrow(() -> new ChatException("Conversation not found"));
-
-    if (!conversation.hasParticipant(userId)) {
-      throw new ChatException("You are not a participant in this conversation");
-    }
-
-    String otherParticipantId = conversation.getOtherParticipantId(userId);
-    int updatedCount = chatMessageRepository.markMessagesAsRead(conversationId, otherParticipantId);
-
-    if (updatedCount > 0) {
-      List<ChatMessage> markedMessages =
-          chatMessageRepository.findRecentlyMarkedAsRead(conversationId, otherParticipantId);
-
-      for (ChatMessage message : markedMessages) {
-        webSocketService.sendMessageReadUpdate(message.getSenderId(), message.getId(), true);
-      }
-
-      long newUnreadCount =
-          chatMessageRepository.countUnreadMessagesByConversation(
-              conversationId, otherParticipantId);
-      webSocketService.sendUnreadCount(userId, conversationId, newUnreadCount);
-    }
-
-    return updatedCount;
-  }
+  /**
+   * Gets the ID of the first unread message in a conversation for the specified user.
+   *
+   * @param userId ID of the user
+   * @param conversationId ID of the conversation
+   * @return ID of the first unread message, or null if none exists
+   */
+  Long getFirstUnreadMessageId(String userId, Long conversationId);
 }

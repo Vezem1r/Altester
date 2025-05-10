@@ -15,8 +15,10 @@ public class ConversationDTO {
   private Long id;
   private String participant1Id;
   private String participant2Id;
+  private String participantName;
   private LocalDateTime lastMessageTime;
-  private List<ChatMessageDTO> messages;
-  private int unreadCount;
   private String lastMessageContent;
+  private Integer unreadCount;
+  private List<ChatMessageDTO> messages;
+  private boolean online;
 }

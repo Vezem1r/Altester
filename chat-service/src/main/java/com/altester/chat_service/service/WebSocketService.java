@@ -1,92 +1,62 @@
 package com.altester.chat_service.service;
 
 import com.altester.chat_service.dto.ChatMessageDTO;
-import java.util.HashMap;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.stereotype.Service;
 
-@Service
-@RequiredArgsConstructor
-@Slf4j
-public class WebSocketService {
+public interface WebSocketService {
 
-  private final SimpMessagingTemplate messagingTemplate;
+  /**
+   * Sends a chat message to a specific user through WebSocket.
+   *
+   * @param username The username of the recipient
+   * @param message The message to send
+   */
+  void sendChatMessage(String username, ChatMessageDTO message);
 
-  public void sendChatMessage(String username, ChatMessageDTO message) {
-    log.info("Sending chat message to user: {}", username);
-    log.debug(
-        "Message details: id={}, content={}, sender={}",
-        message.getId(),
-        message.getContent(),
-        message.getSenderId());
+  /**
+   * Sends an unread count update for a specific conversation to a user.
+   *
+   * @param username The username of the recipient
+   * @param conversationId The ID of the conversation
+   * @param count The number of unread messages
+   */
+  void sendUnreadCount(String username, Long conversationId, long count);
 
-    try {
-      Map<String, Object> wrapper = Map.of("type", "NEW_MESSAGE", "message", message);
+  /**
+   * Sends a breakdown of unread messages across all conversations to a user.
+   *
+   * @param username The username of the recipient
+   * @param totalCount The total number of unread messages
+   * @param conversationCounts Map of conversation IDs to their respective unread counts
+   */
+  void sendUnreadCountWithBreakdown(
+      String username, long totalCount, Map<Long, Long> conversationCounts);
 
-      messagingTemplate.convertAndSendToUser(username, "/queue/messages", wrapper);
-      log.info("Chat message sent successfully to {}", username);
-    } catch (Exception e) {
-      log.error("Error sending chat message to {}: {}", username, e.getMessage(), e);
-    }
-  }
+  /**
+   * Sends a typing indicator notification to a user.
+   *
+   * @param username The username of the recipient
+   * @param senderUsername The username of the user who is typing
+   * @param conversationId The ID of the conversation
+   * @param isTyping True if the user is typing, false if they stopped typing
+   */
+  void sendTypingIndicator(
+      String username, String senderUsername, Long conversationId, boolean isTyping);
 
-  public void sendUnreadCount(String username, Long conversationId, long count) {
-    log.info(
-        "Sending unread count for conversation {}: {} to user: {}",
-        conversationId,
-        count,
-        username);
+  /**
+   * Sends a read status update for a message to a user.
+   *
+   * @param username The username of the recipient
+   * @param messageId The ID of the message
+   * @param isRead True if the message has been read, false otherwise
+   */
+  void sendMessageReadUpdate(String username, Long messageId, boolean isRead);
 
-    try {
-      Map<String, Object> response = new HashMap<>();
-      response.put("type", "UNREAD_COUNT");
-      response.put("conversationId", conversationId);
-      response.put("unreadCount", count);
-
-      messagingTemplate.convertAndSendToUser(username, "/queue/messages", response);
-      log.info("Unread count update sent successfully to {}", username);
-    } catch (Exception e) {
-      log.error("Error sending unread count update to {}: {}", username, e.getMessage(), e);
-    }
-  }
-
-  public void sendTypingIndicator(
-      String username, String senderUsername, Long conversationId, boolean isTyping) {
-    log.info("Sending typing indicator to user: {}", username);
-
-    try {
-      Map<String, Object> response =
-          Map.of(
-              "type", "TYPING_INDICATOR",
-              "senderUsername", senderUsername,
-              "conversationId", conversationId,
-              "isTyping", isTyping);
-
-      messagingTemplate.convertAndSendToUser(username, "/queue/typing", response);
-      log.debug("Typing indicator sent successfully to {}", username);
-    } catch (Exception e) {
-      log.error("Error sending typing indicator to {}: {}", username, e.getMessage(), e);
-    }
-  }
-
-  public void sendMessageReadUpdate(String username, Long messageId, boolean isRead) {
-    log.info(
-        "Sending read status update for message {}: {} to user: {}", messageId, isRead, username);
-
-    try {
-      Map<String, Object> response =
-          Map.of(
-              "type", "MESSAGE_READ_STATUS",
-              "messageId", messageId,
-              "isRead", isRead);
-
-      messagingTemplate.convertAndSendToUser(username, "/queue/messages", response);
-      log.debug("Read status update sent successfully to {}", username);
-    } catch (Exception e) {
-      log.error("Error sending read status update to {}: {}", username, e.getMessage(), e);
-    }
-  }
+  /**
+   * Broadcasts a user's online/offline status to all connected users.
+   *
+   * @param username The username of the user whose status changed
+   * @param isOnline True if the user is now online, false if offline
+   */
+  void broadcastUserStatus(String username, boolean isOnline);
 }

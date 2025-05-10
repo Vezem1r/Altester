@@ -6,53 +6,55 @@ import com.altester.chat_service.model.ChatMessage;
 import com.altester.chat_service.model.Conversation;
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
+@Slf4j
 public class ChatDTOMapper {
 
-  public ChatMessageDTO mapToChatMessageDTO(ChatMessage message, String receiverId) {
-    return ChatMessageDTO.builder()
-        .id(message.getId())
-        .conversationId(message.getConversation().getId())
-        .senderId(message.getSenderId())
-        .receiverId(receiverId)
-        .content(message.getContent())
-        .timestamp(message.getTimestamp())
-        .read(message.isRead())
-        .build();
-  }
+  public ConversationDTO mapToConversationDTO(Conversation conversation, String currentUserId) {
+    String otherParticipantId = conversation.getOtherParticipantId(currentUserId);
 
-  public ConversationDTO mapToConversationDTO(Conversation conversation, String userId) {
-    String otherParticipantId = conversation.getOtherParticipantId(userId);
-
-    List<ChatMessage> recentMessages =
+    List<ChatMessageDTO> messagesList =
         conversation.getMessages().stream()
-            .sorted((m1, m2) -> m2.getTimestamp().compareTo(m1.getTimestamp()))
-            .limit(20)
-            .toList();
-
-    List<ChatMessageDTO> messageDTOs =
-        recentMessages.stream()
             .map(message -> mapToChatMessageDTO(message, otherParticipantId))
             .collect(Collectors.toList());
 
     long unreadCount =
-        recentMessages.stream()
-            .filter(message -> !message.isRead() && !message.getSenderId().equals(userId))
+        conversation.getMessages().stream()
+            .filter(message -> !message.isRead() && !message.getSenderId().equals(currentUserId))
             .count();
 
     String lastMessageContent =
-        recentMessages.isEmpty() ? "" : recentMessages.getFirst().getContent();
+        conversation.getMessages().isEmpty()
+            ? null
+            : conversation.getMessages().getLast().getContent();
 
     return ConversationDTO.builder()
         .id(conversation.getId())
         .participant1Id(conversation.getParticipant1Id())
         .participant2Id(conversation.getParticipant2Id())
+        .participantName(otherParticipantId)
         .lastMessageTime(conversation.getLastMessageTime())
-        .messages(messageDTOs)
-        .unreadCount((int) unreadCount)
         .lastMessageContent(lastMessageContent)
+        .unreadCount((int) unreadCount)
+        .messages(messagesList)
+        .online(false)
+        .build();
+  }
+
+  public ChatMessageDTO mapToChatMessageDTO(ChatMessage message, String otherParticipantId) {
+    return ChatMessageDTO.builder()
+        .id(message.getId())
+        .conversationId(message.getConversation().getId())
+        .senderId(message.getSenderId())
+        .receiverId(otherParticipantId)
+        .content(message.getContent())
+        .timestamp(message.getTimestamp())
+        .read(message.isRead())
         .build();
   }
 }

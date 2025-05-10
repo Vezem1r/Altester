@@ -4,9 +4,11 @@ import com.altester.chat_service.dto.ChatMessageDTO;
 import com.altester.chat_service.dto.ConversationDTO;
 import com.altester.chat_service.dto.MessageRequest;
 import com.altester.chat_service.service.ChatService;
+import com.altester.chat_service.service.UserStatusService;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class ChatController {
 
   private final ChatService chatService;
+  private final UserStatusService userStatusService;
 
   @GetMapping("/conversations")
   public ResponseEntity<Page<ConversationDTO>> getConversations(
@@ -54,8 +57,21 @@ public class ChatController {
     return ResponseEntity.ok(message);
   }
 
-  @GetMapping("/messages/unread")
-  public ResponseEntity<List<ChatMessageDTO>> getUnreadMessages(Principal principal) {
-    return ResponseEntity.ok(chatService.getUnreadMessages(principal.getName()));
+  @GetMapping("/messages/unread/count")
+  public ResponseEntity<Map<String, Integer>> getUnreadCount(Principal principal) {
+    List<ChatMessageDTO> unread = chatService.getUnreadMessages(principal.getName());
+    return ResponseEntity.ok(Map.of("count", unread.size()));
+  }
+
+  @GetMapping("/conversations/{conversationId}/first-unread")
+  public ResponseEntity<Map<String, Long>> getFirstUnreadMessageId(
+      Principal principal, @PathVariable Long conversationId) {
+    Long messageId = chatService.getFirstUnreadMessageId(principal.getName(), conversationId);
+    return ResponseEntity.ok(Map.of("messageId", messageId != null ? messageId : -1L));
+  }
+
+  @GetMapping("/users/online")
+  public ResponseEntity<List<String>> getOnlineUsers() {
+    return ResponseEntity.ok(List.copyOf(userStatusService.getOnlineUsers()));
   }
 }
