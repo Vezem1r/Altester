@@ -1,10 +1,12 @@
-package com.altester.notification.service;
+package com.altester.notification.service.impl;
 
 import com.altester.notification.dto.NotificationDTO;
 import com.altester.notification.dto.NotificationRequest;
 import com.altester.notification.exception.ResourceNotFoundException;
 import com.altester.notification.model.Notification;
 import com.altester.notification.repository.NotificationRepository;
+import com.altester.notification.service.NotificationService;
+import com.altester.notification.service.WebSocketService;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
