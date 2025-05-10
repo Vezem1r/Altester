@@ -321,123 +321,26 @@ public class TestAttemptServiceImpl implements TestAttemptService {
     validationService.ensureStudentRole(student);
 
     String processingKey = "attempt_" + request.getAttemptId();
-    Boolean isProcessing = cacheService.getProcessingFlag(processingKey, Boolean.class);
-
-    if (Boolean.TRUE.equals(isProcessing)) {
-      log.debug(
-          "[COMPLETE ATTEMPT] Attempt {} is currently being processed by another request",
-          request.getAttemptId());
-      throw new StateConflictException(
-          "attempt",
-          "processing",
-          "This attempt is already being submitted and is in the process of being graded. Please wait.");
-    }
-    cacheService.putProcessingFlag(processingKey, true, 30);
+    ensureNotProcessing(processingKey);
 
     try {
       Attempt attempt = getAttemptById(request.getAttemptId());
       validationService.validateAttemptOwnership(attempt, student);
 
-      if (attempt.getStatus() == AttemptStatus.COMPLETED
-          || attempt.getStatus() == AttemptStatus.REVIEWED) {
-        log.debug(
-            "[COMPLETE ATTEMPT] Attempt {} is already {}, returning existing result",
-            attempt.getId(),
-            attempt.getStatus());
+      if (isAlreadyCompletedOrReviewed(attempt)) {
         return dtoMapper.buildAttemptResult(attempt);
       }
 
-      if (attempt.getAiGradingSentAt() != null) {
-        LocalDateTime cooldownEndTime = attempt.getAiGradingSentAt().plusMinutes(5);
-        if (LocalDateTime.now().isBefore(cooldownEndTime)) {
-          throw new StateConflictException(
-              "attempt",
-              "cooldown",
-              "Please wait before submitting again. AI grading is already in progress.");
-        }
-      }
+      checkAiGradingCooldown(attempt);
 
-      int totalScore = 0;
-      if (attempt.getSubmissions() != null) {
-        for (Submission submission : attempt.getSubmissions()) {
-          Question question = submission.getQuestion();
-          if (isChoiceQuestionType(question.getQuestionType())) {
-            totalScore += gradingService.gradeMultipleSelectionQuestion(submission);
-          }
-        }
-      }
+      int totalScore = gradeMultipleChoiceQuestions(attempt);
 
-      attempt.setStatus(AttemptStatus.COMPLETED);
-      attempt.setEndTime(LocalDateTime.now());
-      attempt.setScore(totalScore);
-      attempt.setAiGradingSentAt(LocalDateTime.now());
+      updateAttemptStatus(attempt, totalScore);
 
-      attemptRepository.save(attempt);
+      handleAiGrading(attempt, totalScore);
 
-      log.info("[AI GRADING] Sending attempt: {} for AI grading", attempt.getId());
-      CompletableFuture<GradingResponse> futureResponse =
-          aiGradingService.processAttemptForAiGrading(attempt);
-
-      int finalTotalScore = totalScore;
-
-      try {
-        GradingResponse gradingResponse =
-            futureResponse.get(AI_GRADING_TIMEOUT_SEC, TimeUnit.SECONDS);
-
-        if (gradingResponse != null && gradingResponse.isSuccess()) {
-          log.info(
-              "[AI GRADING] Received successful result for attempt: {} with score: {}",
-              attempt.getId(),
-              gradingResponse.getAttemptScore());
-
-          attempt.setScore(finalTotalScore + gradingResponse.getAttemptScore());
-          attempt.setStatus(AttemptStatus.REVIEWED);
-
-          attemptRepository.save(attempt);
-          clearCashes();
-
-          notificationDispatchService.notifyTestGradedByAi(attempt);
-
-          return dtoMapper.buildAttemptResult(attempt);
-        } else {
-          log.info("[AI GRADING] Received unsuccessful result for attempt: {}", attempt.getId());
-        }
-      } catch (TimeoutException e) {
-        log.debug(
-            "[AI GRADING] Result not available within {} seconds for attempt: {}",
-            AI_GRADING_TIMEOUT_SEC,
-            attempt.getId());
-        futureResponse.thenAccept(
-            gradingResponse -> {
-              try {
-                if (gradingResponse != null && gradingResponse.isSuccess()) {
-                  Attempt updatedAttempt = getAttemptById(attempt.getId());
-                  if (updatedAttempt != null) {
-                    updatedAttempt.setScore(finalTotalScore + gradingResponse.getAttemptScore());
-                    updatedAttempt.setStatus(AttemptStatus.REVIEWED);
-                    attemptRepository.save(updatedAttempt);
-                    notificationDispatchService.notifyTestGradedByAi(updatedAttempt);
-                    log.debug(
-                        "[AI GRADING] Successfully processed delayed result for attempt: {}",
-                        attempt.getId());
-                  }
-                }
-              } catch (Exception ex) {
-                log.error(
-                    "[AI GRADING] Error processing delayed result for attempt: {}: {}",
-                    attempt.getId(),
-                    ex.getMessage());
-              }
-            });
-      } catch (InterruptedException | ExecutionException e) {
-        log.error(
-            "[AI GRADING] Error getting AI grading result for attempt: {}: {}",
-            attempt.getId(),
-            e.getMessage());
-      }
       clearCashes();
       return dtoMapper.buildAttemptResult(attempt);
-
     } catch (OptimisticLockException | StaleObjectStateException e) {
       log.info(
           "[OPTIMISTIC LOCK] Detected for attempt: {}, returning current state",
@@ -450,6 +353,143 @@ public class TestAttemptServiceImpl implements TestAttemptService {
     } finally {
       cacheService.removeProcessingFlag(processingKey);
     }
+  }
+
+  private void ensureNotProcessing(String processingKey) {
+    Boolean isProcessing = cacheService.getProcessingFlag(processingKey, Boolean.class);
+
+    if (Boolean.TRUE.equals(isProcessing)) {
+      log.debug("[COMPLETE ATTEMPT] Attempt is currently being processed by another request");
+      throw new StateConflictException(
+          "attempt",
+          "processing",
+          "This attempt is already being submitted and is in the process of being graded. Please wait.");
+    }
+    cacheService.putProcessingFlag(processingKey, true, 30);
+  }
+
+  private boolean isAlreadyCompletedOrReviewed(Attempt attempt) {
+    if (attempt.getStatus() == AttemptStatus.COMPLETED
+        || attempt.getStatus() == AttemptStatus.REVIEWED) {
+      log.debug(
+          "[COMPLETE ATTEMPT] Attempt {} is already {}, returning existing result",
+          attempt.getId(),
+          attempt.getStatus());
+      return true;
+    }
+    return false;
+  }
+
+  private void checkAiGradingCooldown(Attempt attempt) {
+    if (attempt.getAiGradingSentAt() != null) {
+      LocalDateTime cooldownEndTime = attempt.getAiGradingSentAt().plusMinutes(5);
+      if (LocalDateTime.now().isBefore(cooldownEndTime)) {
+        throw new StateConflictException(
+            "attempt",
+            "cooldown",
+            "Please wait before submitting again. AI grading is already in progress.");
+      }
+    }
+  }
+
+  private int gradeMultipleChoiceQuestions(Attempt attempt) {
+    int totalScore = 0;
+    if (attempt.getSubmissions() != null) {
+      for (Submission submission : attempt.getSubmissions()) {
+        Question question = submission.getQuestion();
+        if (isChoiceQuestionType(question.getQuestionType())) {
+          totalScore += gradingService.gradeMultipleSelectionQuestion(submission);
+        }
+      }
+    }
+    return totalScore;
+  }
+
+  private void updateAttemptStatus(Attempt attempt, int totalScore) {
+    attempt.setStatus(AttemptStatus.COMPLETED);
+    attempt.setEndTime(LocalDateTime.now());
+    attempt.setScore(totalScore);
+    attempt.setAiGradingSentAt(LocalDateTime.now());
+    attemptRepository.save(attempt);
+  }
+
+  private void handleAiGrading(Attempt attempt, int finalTotalScore) {
+    log.info("[AI GRADING] Sending attempt: {} for AI grading", attempt.getId());
+    CompletableFuture<GradingResponse> futureResponse =
+        aiGradingService.processAttemptForAiGrading(attempt);
+
+    try {
+      processAiGradingResponse(attempt, futureResponse, finalTotalScore);
+    } catch (TimeoutException e) {
+      handleAiGradingTimeout(attempt, futureResponse, finalTotalScore);
+    } catch (InterruptedException e) {
+      log.error(
+          "[AI GRADING] Thread interrupted while getting AI grading result for attempt: {}: {}",
+          attempt.getId(),
+          e.getMessage());
+      Thread.currentThread().interrupt();
+    } catch (ExecutionException e) {
+      log.error(
+          "[AI GRADING] Error executing AI grading for attempt: {}: {}",
+          attempt.getId(),
+          e.getMessage());
+    }
+  }
+
+  private void processAiGradingResponse(
+      Attempt attempt, CompletableFuture<GradingResponse> futureResponse, int finalTotalScore)
+      throws InterruptedException, ExecutionException, TimeoutException {
+
+    GradingResponse gradingResponse = futureResponse.get(AI_GRADING_TIMEOUT_SEC, TimeUnit.SECONDS);
+
+    if (gradingResponse != null && gradingResponse.isSuccess()) {
+      log.info(
+          "[AI GRADING] Received successful result for attempt: {} with score: {}",
+          attempt.getId(),
+          gradingResponse.getAttemptScore());
+
+      attempt.setScore(finalTotalScore + gradingResponse.getAttemptScore());
+      attempt.setStatus(AttemptStatus.REVIEWED);
+
+      attemptRepository.save(attempt);
+      clearCashes();
+
+      notificationDispatchService.notifyTestGradedByAi(attempt);
+    } else {
+      log.info("[AI GRADING] Received unsuccessful result for attempt: {}", attempt.getId());
+    }
+  }
+
+  private void handleAiGradingTimeout(
+      Attempt attempt, CompletableFuture<GradingResponse> futureResponse, int finalTotalScore) {
+
+    log.debug(
+        "[AI GRADING] Result not available within {} seconds for attempt: {}",
+        AI_GRADING_TIMEOUT_SEC,
+        attempt.getId());
+
+    futureResponse.thenAccept(
+        gradingResponse -> {
+          try {
+            if (gradingResponse != null && gradingResponse.isSuccess()) {
+              Attempt updatedAttempt = getAttemptById(attempt.getId());
+              if (updatedAttempt != null) {
+                updatedAttempt.setScore(finalTotalScore + gradingResponse.getAttemptScore());
+                updatedAttempt.setStatus(AttemptStatus.REVIEWED);
+                attemptRepository.save(updatedAttempt);
+                notificationDispatchService.notifyTestGradedByAi(updatedAttempt);
+                log.debug(
+                    "[AI GRADING] Successfully processed delayed result for attempt: {}",
+                    attempt.getId());
+              }
+            }
+          } catch (Exception ex) {
+            log.error(
+                "[AI GRADING] Error processing delayed result for attempt: {}: {}",
+                attempt.getId(),
+                ex.getMessage());
+          }
+        });
   }
 
   @Override
@@ -476,21 +516,33 @@ public class TestAttemptServiceImpl implements TestAttemptService {
     }
 
     List<Question> questionsForAttempt = questionService.getQuestionsFromSubmissions(attempt);
+
+    List<QuestionAnswerStatus> questionStatuses =
+        buildQuestionStatusList(attempt, questionsForAttempt);
+    int lastQuestionViewed = calculateLastQuestionViewed(attempt, questionsForAttempt);
+    int timeRemainingSeconds = calculateTimeRemaining(now, expirationTime, isExpired, attempt);
+    int answeredQuestions = countAnsweredQuestions(attempt);
+
+    return buildStatusResponse(
+        attempt,
+        test,
+        expirationTime,
+        isExpired,
+        questionsForAttempt,
+        questionStatuses,
+        lastQuestionViewed,
+        timeRemainingSeconds,
+        answeredQuestions);
+  }
+
+  private List<QuestionAnswerStatus> buildQuestionStatusList(
+      Attempt attempt, List<Question> questionsForAttempt) {
+
     List<QuestionAnswerStatus> questionStatuses = new ArrayList<>();
 
     for (int i = 0; i < questionsForAttempt.size(); i++) {
       Question question = questionsForAttempt.get(i);
-      boolean isAnswered = false;
-
-      if (attempt.getSubmissions() != null) {
-        isAnswered =
-            attempt.getSubmissions().stream()
-                .filter(s -> s.getQuestion().getId() == question.getId())
-                .anyMatch(
-                    s ->
-                        (s.getSelectedOptions() != null && !s.getSelectedOptions().isEmpty())
-                            || (s.getAnswerText() != null && !s.getAnswerText().isEmpty()));
-      }
+      boolean isAnswered = isQuestionAnswered(attempt, question);
 
       questionStatuses.add(
           QuestionAnswerStatus.builder()
@@ -500,45 +552,75 @@ public class TestAttemptServiceImpl implements TestAttemptService {
               .build());
     }
 
-    int lastQuestionViewed = 1;
-    if (attempt.getSubmissions() != null && !attempt.getSubmissions().isEmpty()) {
+    return questionStatuses;
+  }
 
-      Optional<Submission> lastAnsweredSubmission =
-          attempt.getSubmissions().stream()
-              .filter(
-                  s ->
-                      (s.getSelectedOptions() != null && !s.getSelectedOptions().isEmpty())
-                          || (s.getAnswerText() != null && !s.getAnswerText().isEmpty()))
-              .max(
-                  Comparator.comparing(
-                      s ->
-                          questionService.findQuestionIndex(questionsForAttempt, s.getQuestion())));
-
-      if (lastAnsweredSubmission.isPresent()) {
-        int lastIndex =
-            questionService.findQuestionIndex(
-                questionsForAttempt, lastAnsweredSubmission.get().getQuestion());
-        lastQuestionViewed = lastIndex + 1;
-      }
+  private boolean isQuestionAnswered(Attempt attempt, Question question) {
+    if (attempt.getSubmissions() == null) {
+      return false;
     }
 
-    int timeRemainingSeconds = 0;
-    if (!isExpired && attempt.getStatus() == AttemptStatus.IN_PROGRESS) {
-      timeRemainingSeconds = (int) Duration.between(now, expirationTime).getSeconds();
-      if (timeRemainingSeconds < 0) timeRemainingSeconds = 0;
+    return attempt.getSubmissions().stream()
+        .filter(s -> s.getQuestion().getId() == question.getId())
+        .anyMatch(this::hasAnswer);
+  }
+
+  private boolean hasAnswer(Submission s) {
+    return (s.getSelectedOptions() != null && !s.getSelectedOptions().isEmpty())
+        || (s.getAnswerText() != null && !s.getAnswerText().isEmpty());
+  }
+
+  private int calculateLastQuestionViewed(Attempt attempt, List<Question> questionsForAttempt) {
+    if (attempt.getSubmissions() == null || attempt.getSubmissions().isEmpty()) {
+      return 1;
     }
 
-    int answeredQuestions = 0;
-    if (attempt.getSubmissions() != null) {
-      answeredQuestions =
-          (int)
-              attempt.getSubmissions().stream()
-                  .filter(
-                      s ->
-                          (s.getSelectedOptions() != null && !s.getSelectedOptions().isEmpty())
-                              || (s.getAnswerText() != null && !s.getAnswerText().isEmpty()))
-                  .count();
+    Optional<Submission> lastAnsweredSubmission =
+        attempt.getSubmissions().stream()
+            .filter(this::hasAnswer)
+            .max(
+                Comparator.comparing(
+                    s -> questionService.findQuestionIndex(questionsForAttempt, s.getQuestion())));
+
+    if (lastAnsweredSubmission.isPresent()) {
+      int lastIndex =
+          questionService.findQuestionIndex(
+              questionsForAttempt, lastAnsweredSubmission.get().getQuestion());
+      return lastIndex + 1;
     }
+
+    return 1;
+  }
+
+  private int calculateTimeRemaining(
+      LocalDateTime now, LocalDateTime expirationTime, boolean isExpired, Attempt attempt) {
+
+    if (isExpired || attempt.getStatus() != AttemptStatus.IN_PROGRESS) {
+      return 0;
+    }
+
+    int timeRemainingSeconds = (int) Duration.between(now, expirationTime).getSeconds();
+    return Math.max(timeRemainingSeconds, 0);
+  }
+
+  private int countAnsweredQuestions(Attempt attempt) {
+    if (attempt.getSubmissions() == null) {
+      return 0;
+    }
+
+    return (int) attempt.getSubmissions().stream().filter(this::hasAnswer).count();
+  }
+
+  private AttemptStatusResponse buildStatusResponse(
+      Attempt attempt,
+      Test test,
+      LocalDateTime expirationTime,
+      boolean isExpired,
+      List<Question> questionsForAttempt,
+      List<QuestionAnswerStatus> questionStatuses,
+      int lastQuestionViewed,
+      int timeRemainingSeconds,
+      int answeredQuestions) {
 
     return AttemptStatusResponse.builder()
         .attemptId(attempt.getId())

@@ -1,5 +1,6 @@
 package com.altester.core.config;
 
+import com.altester.core.model.subject.enums.Semester;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import lombok.Getter;
@@ -26,18 +27,18 @@ public class SemesterConfig {
 
   private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-  public boolean isSemesterActive(String semester, Integer academicYear) {
+  public boolean isSemesterActive(Semester semester, Integer academicYear) {
     if (semester == null || academicYear == null) {
       return false;
     }
 
-    String currentSemester = getCurrentSemester();
+    Semester currentSemester = getCurrentSemester();
     int currentAcademicYear = getCurrentAcademicYear();
 
     return semester.equals(currentSemester) && academicYear.equals(currentAcademicYear);
   }
 
-  public String getCurrentSemester() {
+  public Semester getCurrentSemester() {
     LocalDate now = LocalDate.now();
 
     try {
@@ -48,15 +49,15 @@ public class SemesterConfig {
 
       if ((now.isEqual(summerStart) || now.isAfter(summerStart))
           && (now.isEqual(summerEnd) || now.isBefore(summerEnd))) {
-        return "SUMMER";
+        return Semester.SUMMER;
       } else if ((now.isEqual(winterStart) || now.isAfter(winterStart))
           && (now.isEqual(winterEnd) || now.isBefore(winterEnd))) {
-        return "WINTER";
+        return Semester.WINTER;
       } else {
         if (now.isBefore(summerStart)) {
-          return "SUMMER";
+          return Semester.SUMMER;
         } else {
-          return "WINTER";
+          return Semester.WINTER;
         }
       }
     } catch (Exception e) {
@@ -65,15 +66,15 @@ public class SemesterConfig {
     }
   }
 
-  private String fallbackGetCurrentSemester() {
+  private Semester fallbackGetCurrentSemester() {
     LocalDate now = LocalDate.now();
     int month = now.getMonthValue();
     int day = now.getDayOfMonth();
 
     if (month == 2 && day >= 17 || month > 2 && month <= 6 || month == 7) {
-      return "SUMMER";
+      return Semester.SUMMER;
     } else {
-      return "WINTER";
+      return Semester.WINTER;
     }
   }
 

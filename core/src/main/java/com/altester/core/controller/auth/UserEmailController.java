@@ -35,8 +35,8 @@ public class UserEmailController {
         .orElseThrow(() -> new UsernameNotFoundException(principal.getName()));
   }
 
-  private ResponseEntity<?> forwardRequest(
-      String endpoint, HttpMethod method, HttpEntity<?> requestEntity) {
+  private <T> ResponseEntity<T> forwardRequest(
+      String endpoint, HttpMethod method, HttpEntity<Object> requestEntity, Class<T> responseType) {
     try {
       HttpHeaders headers = new HttpHeaders();
       headers.set(API_KEY_HEADER, appConfig.getApiKey());
@@ -48,57 +48,62 @@ public class UserEmailController {
         requestEntity = new HttpEntity<>(headers);
       }
 
-      ResponseEntity<String> responseEntity =
+      ResponseEntity<T> responseEntity =
           restTemplate.exchange(
-              appConfig.getEmailUrl() + endpoint, method, requestEntity, String.class);
+              appConfig.getEmailUrl() + endpoint, method, requestEntity, responseType);
       return ResponseEntity.status(responseEntity.getStatusCode()).body(responseEntity.getBody());
     } catch (HttpClientErrorException | HttpServerErrorException e) {
       log.error("Request error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
-      return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
+      @SuppressWarnings("unchecked")
+      T errorBody = (T) e.getResponseBodyAsString();
+      return ResponseEntity.status(e.getStatusCode()).body(errorBody);
     } catch (RestClientResponseException e) {
       log.error(
           "RestClientResponseException: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
-      return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
+      @SuppressWarnings("unchecked")
+      T errorBody = (T) e.getResponseBodyAsString();
+      return ResponseEntity.status(e.getStatusCode()).body(errorBody);
     } catch (Exception e) {
       log.error("Unexpected error: {}", e.getMessage());
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body("Internal server error: " + e.getMessage());
+      @SuppressWarnings("unchecked")
+      T errorBody = (T) ("Internal server error: " + e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody);
     }
   }
 
   @PostMapping("/request")
-  public ResponseEntity<?> requestEmailReset(
+  public ResponseEntity<String> requestEmailReset(
       @RequestBody EmailInitDTO emailInitDTO, Principal principal) {
     String username = principal.getName();
     log.info("Forwarding email reset request for email: {}", emailInitDTO.getEmail());
 
     emailInitDTO.setUsername(username);
     HttpHeaders headers = new HttpHeaders();
-    HttpEntity<EmailInitDTO> requestEntity = new HttpEntity<>(emailInitDTO, headers);
-    return forwardRequest("/request", HttpMethod.POST, requestEntity);
+    HttpEntity<Object> requestEntity = new HttpEntity<>(emailInitDTO, headers);
+    return forwardRequest("/request", HttpMethod.POST, requestEntity, String.class);
   }
 
   @PostMapping("/resend")
-  public ResponseEntity<?> resendEmail(
+  public ResponseEntity<String> resendEmail(
       @RequestBody EmailResendDTO emailResendDTO, Principal principal) {
     String username = principal.getName();
     log.info("Forwarding email resend request for email: {}", emailResendDTO.getEmail());
 
     emailResendDTO.setUsername(username);
     HttpHeaders headers = new HttpHeaders();
-    HttpEntity<EmailResendDTO> requestEntity = new HttpEntity<>(emailResendDTO, headers);
-    return forwardRequest("/resend", HttpMethod.POST, requestEntity);
+    HttpEntity<Object> requestEntity = new HttpEntity<>(emailResendDTO, headers);
+    return forwardRequest("/resend", HttpMethod.POST, requestEntity, String.class);
   }
 
   @PostMapping("/confirm")
-  public ResponseEntity<?> confirm(
+  public ResponseEntity<String> confirm(
       @RequestBody EmailConfirmDTO emailConfirmDTO, Principal principal) {
     User user = getUserByPrincipal(principal);
     log.info("Forwarding email confirmation request for email: {}", emailConfirmDTO.getEmail());
 
     emailConfirmDTO.setUserId(user.getId());
     HttpHeaders headers = new HttpHeaders();
-    HttpEntity<EmailConfirmDTO> requestEntity = new HttpEntity<>(emailConfirmDTO, headers);
-    return forwardRequest("/confirm", HttpMethod.POST, requestEntity);
+    HttpEntity<Object> requestEntity = new HttpEntity<>(emailConfirmDTO, headers);
+    return forwardRequest("/confirm", HttpMethod.POST, requestEntity, String.class);
   }
 }

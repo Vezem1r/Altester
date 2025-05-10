@@ -9,7 +9,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import lombok.Getter;
 import lombok.Setter;
@@ -63,7 +62,7 @@ public class CacheablePage<T> implements Page<T>, Serializable {
     if (page.getPageable().getSort().isSorted()) {
       return StreamSupport.stream(page.getPageable().getSort().spliterator(), false)
           .map(order -> new SortOrder(order.getProperty(), order.getDirection().name()))
-          .collect(Collectors.toList());
+          .toList();
     }
     return Collections.emptyList();
   }

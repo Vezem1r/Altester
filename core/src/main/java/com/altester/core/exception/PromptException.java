@@ -10,7 +10,7 @@ public class PromptException extends AlTesterException {
   }
 
   public static PromptException promptNotFound(Long id) {
-    return new PromptException("Prompt not found", ErrorCode.RESOURCE_NOT_FOUND);
+    return new PromptException("Prompt not found with id:" + id, ErrorCode.RESOURCE_NOT_FOUND);
   }
 
   public static PromptException invalidPromptTemplate() {

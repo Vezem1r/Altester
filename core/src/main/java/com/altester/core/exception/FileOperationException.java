@@ -11,6 +11,10 @@ public class FileOperationException extends AlTesterException {
     this.operation = operation;
   }
 
+  public static FileOperationException directoryCreationError(String message) {
+    return new FileOperationException("createDirectory", message);
+  }
+
   public static FileOperationException imageSave(String message) {
     return new FileOperationException("save", message);
   }

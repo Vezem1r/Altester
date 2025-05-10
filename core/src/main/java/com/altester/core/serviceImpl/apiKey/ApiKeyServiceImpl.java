@@ -89,6 +89,9 @@ public class ApiKeyServiceImpl implements ApiKeyService {
       String keyPrefix = encryptionUtil.extractPrefix(request.getApiKey(), PREFIX_LENGTH);
       String keySuffix = encryptionUtil.extractSuffix(request.getApiKey(), SUFFIX_LENGTH);
 
+      boolean isGlobal = request.getIsGlobal();
+      User owner = isGlobal ? null : currentUser;
+
       ApiKey apiKey =
           ApiKey.builder()
               .name(request.getName())
@@ -98,7 +101,7 @@ public class ApiKeyServiceImpl implements ApiKeyService {
               .aiServiceName(request.getAiServiceName())
               .model(request.getModel())
               .isGlobal(request.getIsGlobal())
-              .owner(request.getIsGlobal() ? null : currentUser)
+              .owner(owner)
               .createdAt(LocalDateTime.now())
               .description(request.getDescription())
               .isActive(true)
@@ -139,8 +142,10 @@ public class ApiKeyServiceImpl implements ApiKeyService {
 
     accessValidator.validateApiKeyAccessPermission(currentUser, apiKey, "update");
 
-    if (request.getIsGlobal() != apiKey.isGlobal()
-        && !RolesEnum.ADMIN.equals(currentUser.getRole())) {
+    boolean globalChanged = request.getIsGlobal() != apiKey.isGlobal();
+    boolean isNotAdmin = !RolesEnum.ADMIN.equals(currentUser.getRole());
+
+    if (globalChanged && isNotAdmin) {
       throw AccessDeniedException.apiKeyAccess(
           "Only admins can change the global status of an API key");
     }
@@ -352,42 +357,39 @@ public class ApiKeyServiceImpl implements ApiKeyService {
     List<ApiKeyAssignmentDTO> assignments = new ArrayList<>();
 
     for (TestGroupAssignment assignment : test.getTestGroupAssignments()) {
-      if (assignment.getApiKey() == null) {
-        continue;
-      }
-
-      Group group = assignment.getGroup();
-
-      if (currentUser.getRole() == RolesEnum.TEACHER) {
-        if (group.getTeacher() == null || !group.getTeacher().getId().equals(currentUser.getId()))
-          continue;
-      }
-
       ApiKey apiKey = assignment.getApiKey();
+      Group group = assignment.getGroup();
       User teacher = group.getTeacher();
 
-      String maskedKey = apiKey.getKeyPrefix() + "*".repeat(8) + apiKey.getKeySuffix();
+      boolean shouldInclude =
+          apiKey != null
+              && (currentUser.getRole() != RolesEnum.TEACHER
+                  || (teacher != null && teacher.getId().equals(currentUser.getId())));
 
-      GroupTeacherDTO groupTeacherDTO =
-          GroupTeacherDTO.builder()
-              .groupId(group.getId())
-              .groupName(group.getName())
-              .teacherUsername(teacher != null ? teacher.getUsername() : null)
-              .build();
+      if (shouldInclude) {
+        String maskedKey = apiKey.getKeyPrefix() + "*".repeat(8) + apiKey.getKeySuffix();
 
-      ApiKeyAssignmentDTO assignmentDTO =
-          ApiKeyAssignmentDTO.builder()
-              .apiKeyId(apiKey.getId())
-              .apiKeyName(apiKey.getName())
-              .maskedKey(maskedKey)
-              .aiServiceName(apiKey.getAiServiceName())
-              .model(apiKey.getModel())
-              .promptName(assignment.getPrompt().getTitle())
-              .group(groupTeacherDTO)
-              .aiEvaluationEnabled(assignment.isAiEvaluation())
-              .build();
+        GroupTeacherDTO groupTeacherDTO =
+            GroupTeacherDTO.builder()
+                .groupId(group.getId())
+                .groupName(group.getName())
+                .teacherUsername(teacher != null ? teacher.getUsername() : null)
+                .build();
 
-      assignments.add(assignmentDTO);
+        ApiKeyAssignmentDTO assignmentDTO =
+            ApiKeyAssignmentDTO.builder()
+                .apiKeyId(apiKey.getId())
+                .apiKeyName(apiKey.getName())
+                .maskedKey(maskedKey)
+                .aiServiceName(apiKey.getAiServiceName())
+                .model(apiKey.getModel())
+                .promptName(assignment.getPrompt().getTitle())
+                .group(groupTeacherDTO)
+                .aiEvaluationEnabled(assignment.isAiEvaluation())
+                .build();
+
+        assignments.add(assignmentDTO);
+      }
     }
 
     if (assignments.isEmpty() && currentUser.getRole() == RolesEnum.TEACHER) {

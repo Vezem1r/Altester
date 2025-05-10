@@ -7,7 +7,6 @@ import com.altester.core.model.subject.Subject;
 import com.altester.core.serviceImpl.group.GroupActivityService;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -26,7 +25,7 @@ public class SubjectMapper {
         subject.getGroups().stream()
             .filter(group -> group.isActive() || groupActivityService.isGroupInFuture(group))
             .map(this::mapGroupToDto)
-            .collect(Collectors.toList());
+            .toList();
 
     return new SubjectDTO(
         subject.getId(),

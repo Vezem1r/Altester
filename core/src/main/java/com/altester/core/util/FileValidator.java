@@ -11,9 +11,9 @@ public class FileValidator {
   private static final List<String> ALLOWED_IMAGE_TYPES =
       Arrays.asList("image/jpeg", "image/png", "image/gif");
 
-  private static final long DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024;
+  private static final int DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-  public void validateImage(MultipartFile file, long maxSizeBytes) {
+  public void validateImage(MultipartFile file, int maxSizeBytes) {
     if (file == null || file.isEmpty()) {
       return;
     }

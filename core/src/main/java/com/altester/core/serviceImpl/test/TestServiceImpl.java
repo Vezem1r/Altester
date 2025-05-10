@@ -197,7 +197,7 @@ public class TestServiceImpl implements TestService {
                                   .id(group.getId())
                                   .name(group.getName())
                                   .build())
-                      .collect(Collectors.toList());
+                      .toList();
 
               dto.setAssociatedGroups(groupDTOs);
               return dto;
@@ -255,7 +255,7 @@ public class TestServiceImpl implements TestService {
                                   .id(group.getId())
                                   .name(group.getName())
                                   .build())
-                      .collect(Collectors.toList());
+                      .toList();
 
               dto.setAssociatedGroups(groupDTOs);
               return dto;
@@ -363,14 +363,12 @@ public class TestServiceImpl implements TestService {
           currentGroups.stream().map(Group::getId).collect(Collectors.toSet());
 
       List<Group> groupsToRemove =
-          currentGroups.stream()
-              .filter(group -> !newGroupIds.contains(group.getId()))
-              .collect(Collectors.toList());
+          currentGroups.stream().filter(group -> !newGroupIds.contains(group.getId())).toList();
 
       List<Group> groupsToAdd =
           newSelectedGroups.stream()
               .filter(group -> !currentGroupIds.contains(group.getId()))
-              .collect(Collectors.toList());
+              .toList();
 
       if (!groupsToRemove.isEmpty()) {
         Test finalExistingTest = existingTest;
@@ -555,7 +553,7 @@ public class TestServiceImpl implements TestService {
                                   .id(group.getId())
                                   .name(group.getName())
                                   .build())
-                      .collect(Collectors.toList());
+                      .toList();
 
               dto.setAssociatedGroups(groupDTOs);
               return dto;
@@ -627,12 +625,10 @@ public class TestServiceImpl implements TestService {
 
     boolean newState = !test.isOpen();
 
-    if (newState) {
-      if (!testRequirementsValidator.requirementsMet(test)) {
-        String errorMessage = testRequirementsValidator.getMissingRequirements(test);
-        log.warn("Cannot open test ID {}: {}", testId, errorMessage);
-        throw new StateConflictException("test", "requirements_not_met", errorMessage);
-      }
+    if (newState && !testRequirementsValidator.requirementsMet(test)) {
+      String errorMessage = testRequirementsValidator.getMissingRequirements(test);
+      log.warn("Cannot open test ID {}: {}", testId, errorMessage);
+      throw new StateConflictException("test", "requirements_not_met", errorMessage);
     }
 
     test.setOpen(newState);

@@ -5,6 +5,8 @@ import java.util.List;
 
 public class DataConstants {
 
+  private DataConstants() {}
+
   public static final List<String> SURNAMES =
       Arrays.asList(
           "Novak",

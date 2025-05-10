@@ -26,27 +26,32 @@ public class AuthController {
 
   private static final String API_KEY_HEADER = "x-api-key";
 
-  private ResponseEntity<?> forwardRequest(
-      String url, HttpMethod method, Object body, Class<?> responseType) {
+  private <T> ResponseEntity<T> forwardRequest(
+      String url, HttpMethod method, Object body, Class<T> responseType) {
     HttpHeaders headers = new HttpHeaders();
     headers.set(API_KEY_HEADER, appConfig.getApiKey());
-    HttpEntity<?> requestEntity = new HttpEntity<>(body, headers);
+    HttpEntity<Object> requestEntity = new HttpEntity<>(body, headers);
 
     try {
-      ResponseEntity<?> responseEntity =
+      ResponseEntity<T> responseEntity =
           restTemplate.exchange(url, method, requestEntity, responseType);
       return ResponseEntity.status(responseEntity.getStatusCode()).body(responseEntity.getBody());
     } catch (HttpClientErrorException | HttpServerErrorException e) {
       log.error("Request error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
-      return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
+      @SuppressWarnings("unchecked")
+      T errorBody = (T) e.getResponseBodyAsString();
+      return ResponseEntity.status(e.getStatusCode()).body(errorBody);
     } catch (RestClientResponseException e) {
       log.error(
           "RestClientResponseException: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
-      return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
+      @SuppressWarnings("unchecked")
+      T errorBody = (T) e.getResponseBodyAsString();
+      return ResponseEntity.status(e.getStatusCode()).body(errorBody);
     } catch (Exception e) {
       log.error("Unexpected error: {}", e.getMessage());
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body("Internal server error: " + e.getMessage());
+      @SuppressWarnings("unchecked")
+      T errorBody = (T) ("Internal server error: " + e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody);
     }
   }
 
@@ -71,10 +76,9 @@ public class AuthController {
   }
 
   @PostMapping("/signin")
-  public ResponseEntity<?> login(@RequestBody LoginRequestDTO loginRequest) {
+  public ResponseEntity<LoginResponseDTO> login(@RequestBody LoginRequestDTO loginRequest) {
     if (!authConfigProperties.isStandardAuthEnabled()) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN)
-          .body("Standard authentication is currently disabled");
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
     }
 
     log.info(
@@ -85,10 +89,9 @@ public class AuthController {
   }
 
   @PostMapping("/ldap/signin")
-  public ResponseEntity<?> ldapLogin(@RequestBody LdapLoginDTO ldapLogin) {
+  public ResponseEntity<LoginResponseDTO> ldapLogin(@RequestBody LdapLoginDTO ldapLogin) {
     if (!authConfigProperties.isLdapAuthEnabled()) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN)
-          .body("LDAP authentication is currently disabled");
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
     }
 
     log.info("Forwarding LDAP signin request to auth-service for user: {}", ldapLogin.getLogin());
@@ -97,7 +100,7 @@ public class AuthController {
   }
 
   @PostMapping("/signup")
-  public ResponseEntity<?> signup(@RequestBody RegisterRequestDTO registerRequest) {
+  public ResponseEntity<String> signup(@RequestBody RegisterRequestDTO registerRequest) {
     if (!authConfigProperties.isRegistrationEnabled()) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Registration is currently disabled");
     }
@@ -108,7 +111,7 @@ public class AuthController {
   }
 
   @PostMapping("/verify")
-  public ResponseEntity<?> verifyUser(@RequestBody VerifyUserDTO verifyUserDto) {
+  public ResponseEntity<String> verifyUser(@RequestBody VerifyUserDTO verifyUserDto) {
     if (!authConfigProperties.isRegistrationEnabled()) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body("Registration verification is currently disabled");
@@ -120,7 +123,7 @@ public class AuthController {
   }
 
   @PostMapping("/resend")
-  public ResponseEntity<?> resendVerificationCode(@RequestParam String email) {
+  public ResponseEntity<String> resendVerificationCode(@RequestParam String email) {
     if (!authConfigProperties.isRegistrationEnabled()) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body("Registration verification is currently disabled");

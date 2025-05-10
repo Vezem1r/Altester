@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -92,7 +91,7 @@ public class TestDTOMapper {
         test.getQuestions().stream()
             .sorted(Comparator.comparing(Question::getDifficulty).reversed())
             .map(this::convertToQuestionDTO)
-            .collect(Collectors.toList());
+            .toList();
 
     TestPreviewDTO.TestPreviewDTOBuilder builder =
         TestPreviewDTO.builder()
@@ -131,9 +130,7 @@ public class TestDTOMapper {
   public QuestionDTO convertToQuestionDTO(Question question) {
     List<OptionDTO> options =
         question.getOptions() != null
-            ? question.getOptions().stream()
-                .map(this::convertToOptionDTO)
-                .collect(Collectors.toList())
+            ? question.getOptions().stream().map(this::convertToOptionDTO).toList()
             : Collections.emptyList();
 
     return QuestionDTO.builder()
@@ -171,8 +168,6 @@ public class TestDTOMapper {
    */
   public List<Group> findGroupsByTest(Test test) {
     List<Group> allGroups = groupRepository.findAll();
-    return allGroups.stream()
-        .filter(group -> group.getTests().contains(test))
-        .collect(Collectors.toList());
+    return allGroups.stream().filter(group -> group.getTests().contains(test)).toList();
   }
 }

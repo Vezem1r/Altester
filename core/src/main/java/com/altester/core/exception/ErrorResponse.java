@@ -6,10 +6,12 @@ import java.util.HashMap;
 import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 @Getter
 @Setter
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@Slf4j
 public class ErrorResponse {
   private final String errorCode;
   private final String message;
@@ -50,7 +52,7 @@ public class ErrorResponse {
       }
       case FileOperationException fileOperationException ->
           response.addDetail("operation", fileOperationException.getOperation());
-      default -> {}
+      default -> log.warn("Unhandled exception type: {}", exception.getClass().getName());
     }
 
     return response;

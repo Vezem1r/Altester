@@ -23,8 +23,6 @@ public class JsonRedisSerializer<T> implements RedisSerializer<T> {
     mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
-    mapper.disableDefaultTyping();
     return mapper;
   }
 

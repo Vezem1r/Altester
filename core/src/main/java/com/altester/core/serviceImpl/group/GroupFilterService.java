@@ -34,7 +34,7 @@ public class GroupFilterService {
                         && group.getTeacher().getUsername().toLowerCase().contains(lowerQuery))
                     || (group.getSemester() != null
                         && group.getSemester().toString().toLowerCase().contains(lowerQuery)))
-        .collect(Collectors.toList());
+        .toList();
   }
 
   public List<Group> applyActivityFilter(List<Group> groups, String activityFilter) {
@@ -51,7 +51,7 @@ public class GroupFilterService {
                 default -> true;
               };
             })
-        .collect(Collectors.toList());
+        .toList();
   }
 
   public List<Group> applyAvailabilityAndSubjectFilter(
@@ -66,7 +66,7 @@ public class GroupFilterService {
       return groups.stream()
           .filter(group -> !groupsInSubjects.contains(group.getId()))
           .filter(group -> group.isActive() || groupActivityService.isGroupInFuture(group))
-          .collect(Collectors.toList());
+          .toList();
     } else if (subjectId != null) {
       Optional<Subject> subjectOpt = subjectRepository.findById(subjectId);
       if (subjectOpt.isPresent()) {
@@ -76,7 +76,7 @@ public class GroupFilterService {
         return groups.stream()
             .filter(group -> groupIds.contains(group.getId()))
             .filter(group -> group.isActive() || groupActivityService.isGroupInFuture(group))
-            .collect(Collectors.toList());
+            .toList();
       } else {
         log.warn("Subject with ID {} not found", subjectId);
         return new ArrayList<>();

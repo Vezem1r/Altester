@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class CacheService {
 
+  private static final String FLAG = "processingFlag:";
+
   private final CacheManager cacheManager;
   private final RedisTemplate<String, Object> redisTemplate;
 
@@ -115,7 +117,7 @@ public class CacheService {
    * @param ttlSeconds The time-to-live in seconds
    */
   public <T> void putProcessingFlag(String key, T value, long ttlSeconds) {
-    String flagKey = "processingFlag:" + key;
+    String flagKey = FLAG + key;
     redisTemplate.opsForValue().set(flagKey, value, Duration.ofSeconds(ttlSeconds));
     log.debug("Set processing flag '{}' with TTL {} seconds", key, ttlSeconds);
   }
@@ -128,9 +130,9 @@ public class CacheService {
    * @return The value or null if not found
    */
   public <T> T getProcessingFlag(String key, Class<T> type) {
-    String flagKey = "processingFlag:" + key;
+    String flagKey = FLAG + key;
     Object value = redisTemplate.opsForValue().get(flagKey);
-    if (value != null && type.isInstance(value)) {
+    if (type.isInstance(value)) {
       return type.cast(value);
     }
     return null;
@@ -142,7 +144,7 @@ public class CacheService {
    * @param key The key to remove
    */
   public void removeProcessingFlag(String key) {
-    String flagKey = "processingFlag:" + key;
+    String flagKey = FLAG + key;
     redisTemplate.delete(flagKey);
     log.debug("Removed processing flag '{}'", key);
   }

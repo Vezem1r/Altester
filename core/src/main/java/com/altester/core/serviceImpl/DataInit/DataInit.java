@@ -91,9 +91,9 @@ public class DataInit {
   }
 
   @Transactional
-  protected void createDefaultUsers() {
+  public void createDefaultUsers() {
     if (userRepository.findByUsername("STUDENT").isEmpty()) {
-      String pass = passwordEncoder.encode("1234");
+      String pass = passwordEncoder.encode(password);
       User student =
           User.builder()
               .name("Student")
@@ -111,7 +111,7 @@ public class DataInit {
     }
 
     if (userRepository.findByUsername("TEACHER").isEmpty()) {
-      String pass = passwordEncoder.encode("1234");
+      String pass = passwordEncoder.encode(password);
       User teacher =
           User.builder()
               .name("Teacher")
@@ -255,14 +255,13 @@ public class DataInit {
       return;
     }
 
-    String currentSemester = semesterConfig.getCurrentSemester();
+    Semester currentSemester = semesterConfig.getCurrentSemester();
     int currentYear = semesterConfig.getCurrentAcademicYear();
 
-    createSemesterGroups(
-        Semester.valueOf(currentSemester), currentYear, 25, true, students, teachers);
+    createSemesterGroups(currentSemester, currentYear, 25, true, students, teachers);
 
     Semester previousSemester =
-        (Semester.valueOf(currentSemester) == Semester.WINTER) ? Semester.SUMMER : Semester.WINTER;
+        ((currentSemester) == Semester.WINTER) ? Semester.SUMMER : Semester.WINTER;
     int previousYear = (previousSemester == Semester.SUMMER) ? currentYear - 1 : currentYear;
     createSemesterGroups(previousSemester, previousYear, 15, false, students, teachers);
 
@@ -273,7 +272,7 @@ public class DataInit {
     createSemesterGroups(twoSemestersAgo, twoSemestersAgoYear, 10, false, students, teachers);
 
     Semester nextSemester =
-        (Semester.valueOf(currentSemester) == Semester.WINTER) ? Semester.SUMMER : Semester.WINTER;
+        ((currentSemester) == Semester.WINTER) ? Semester.SUMMER : Semester.WINTER;
     int nextYear = (nextSemester == Semester.WINTER) ? currentYear + 1 : currentYear;
     createSemesterGroups(nextSemester, nextYear, 12, false, students, teachers);
 
@@ -526,9 +525,7 @@ public class DataInit {
     List<String> testTitles;
 
     switch (shortName) {
-      case "PF":
-      case "DSA":
-      case "OOP":
+      case "PF", "DSA", "OOP":
         testTitles = DataConstants.TEST_TITLES_PROGRAMMING;
         break;
       case "DBS":
@@ -540,12 +537,10 @@ public class DataInit {
       case "OS":
         testTitles = DataConstants.TEST_TITLES_OS;
         break;
-      case "AI":
-      case "ML":
+      case "AI", "ML":
         testTitles = DataConstants.TEST_TITLES_AI;
         break;
-      case "SE":
-      case "WD":
+      case "SE", "WD":
         testTitles = DataConstants.TEST_TITLES_SE;
         break;
       default:

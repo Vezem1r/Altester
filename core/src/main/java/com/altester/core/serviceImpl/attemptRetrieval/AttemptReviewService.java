@@ -51,7 +51,7 @@ public class AttemptReviewService {
       }
 
       List<Long> selectedOptionIds =
-          submission.getSelectedOptions().stream().map(Option::getId).collect(Collectors.toList());
+          submission.getSelectedOptions().stream().map(Option::getId).toList();
 
       questionReviews.add(
           QuestionReviewDTO.builder()

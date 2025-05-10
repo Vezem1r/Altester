@@ -7,7 +7,6 @@ import com.altester.core.model.subject.enums.AttemptStatus;
 import com.altester.core.repository.AttemptRepository;
 import com.altester.core.repository.SubjectRepository;
 import java.util.*;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -53,9 +52,7 @@ public class StudentMapper {
                       .toList();
 
               List<TestDTO> testDTOs =
-                  openTests.stream()
-                      .map(test -> mapTestToDTO(test, student))
-                      .collect(Collectors.toList());
+                  openTests.stream().map(test -> mapTestToDTO(test, student)).toList();
 
               return GroupDTO.builder()
                   .id(group.getId())
@@ -65,7 +62,7 @@ public class StudentMapper {
                   .tests(testDTOs)
                   .build();
             })
-        .collect(Collectors.toList());
+        .toList();
   }
 
   public TestDTO mapTestToDTO(Test test, User student) {
@@ -146,8 +143,7 @@ public class StudentMapper {
     List<Long> selectedOptionIds = new ArrayList<>();
 
     if (submission.getSelectedOptions() != null && !submission.getSelectedOptions().isEmpty()) {
-      selectedOptionIds =
-          submission.getSelectedOptions().stream().map(Option::getId).collect(Collectors.toList());
+      selectedOptionIds = submission.getSelectedOptions().stream().map(Option::getId).toList();
     }
 
     List<Long> finalSelectedOptionIds = selectedOptionIds;
@@ -164,7 +160,7 @@ public class StudentMapper {
                       .isCorrect(option.isCorrect())
                       .build();
                 })
-            .collect(Collectors.toList());
+            .toList();
 
     return QuestionReviewDTO.builder()
         .submissionId(submission.getId())

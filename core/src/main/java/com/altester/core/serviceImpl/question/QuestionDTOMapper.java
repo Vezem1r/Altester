@@ -6,7 +6,6 @@ import com.altester.core.model.subject.Option;
 import com.altester.core.model.subject.Question;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -36,9 +35,7 @@ public class QuestionDTOMapper {
   public QuestionDetailsDTO convertToQuestionDetailsDTO(Question question) {
     List<OptionDTO> options =
         question.getOptions() != null
-            ? question.getOptions().stream()
-                .map(this::convertToOptionDTO)
-                .collect(Collectors.toList())
+            ? question.getOptions().stream().map(this::convertToOptionDTO).toList()
             : Collections.emptyList();
 
     return QuestionDetailsDTO.builder()

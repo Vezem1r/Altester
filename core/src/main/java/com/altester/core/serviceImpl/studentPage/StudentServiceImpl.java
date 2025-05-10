@@ -14,7 +14,6 @@ import com.altester.core.service.StudentService;
 import com.altester.core.serviceImpl.CacheService;
 import java.security.Principal;
 import java.util.*;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -137,7 +136,7 @@ public class StudentServiceImpl implements StudentService {
             .filter(attempt -> attempt.getStatus() != AttemptStatus.IN_PROGRESS)
             .sorted(Comparator.comparingInt(Attempt::getAttemptNumber))
             .map(attempt -> studentMapper.mapAttemptToBasicDTO(attempt, test))
-            .collect(Collectors.toList());
+            .toList();
 
     return StudentAttemptsResponse.builder()
         .testId(test.getId())
@@ -181,7 +180,7 @@ public class StudentServiceImpl implements StudentService {
       questionReviews =
           attempt.getSubmissions().stream()
               .map(studentMapper::mapSubmissionToQuestionReviewDTO)
-              .collect(Collectors.toList());
+              .toList();
     } else {
       questionReviews =
           attempt.getSubmissions().stream()
@@ -196,7 +195,7 @@ public class StudentServiceImpl implements StudentService {
                         .maxScore(question.getScore())
                         .build();
                   })
-              .collect(Collectors.toList());
+              .toList();
     }
 
     return AttemptReviewDTO.builder()
@@ -322,7 +321,7 @@ public class StudentServiceImpl implements StudentService {
                   }
                   return p2.getSemester().compareTo(p1.getSemester());
                 })
-            .collect(Collectors.toList());
+            .toList();
 
     return AvailablePeriodsResponse.builder()
         .username(student.getUsername())

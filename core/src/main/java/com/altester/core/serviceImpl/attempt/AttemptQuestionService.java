@@ -31,7 +31,6 @@ public class AttemptQuestionService {
    * @return A randomized list of selected questions
    */
   public List<Question> getQuestionsForTest(Test test) {
-
     Map<QuestionDifficulty, List<Question>> questionsByDifficulty =
         test.getQuestions().stream().collect(Collectors.groupingBy(Question::getDifficulty));
 
@@ -45,68 +44,23 @@ public class AttemptQuestionService {
     if (hasDifficultyDistribution) {
       log.debug("Using difficulty distribution for test ID: {}", test.getId());
 
-      // Process EASY questions
-      if (test.getEasyQuestionsCount() != null && test.getEasyQuestionsCount() > 0) {
-        List<Question> easyQuestions =
-            questionsByDifficulty.getOrDefault(QuestionDifficulty.EASY, Collections.emptyList());
-        log.debug("Found {} easy questions in test", easyQuestions.size());
+      addQuestionsForDifficulty(
+          selectedQuestions,
+          questionsByDifficulty,
+          QuestionDifficulty.EASY,
+          test.getEasyQuestionsCount());
 
-        if (!easyQuestions.isEmpty()) {
-          List<Question> selectedEasyQuestions =
-              getRandomQuestions(easyQuestions, test.getEasyQuestionsCount());
-          log.debug(
-              "Selected {} easy questions out of {} available",
-              selectedEasyQuestions.size(),
-              easyQuestions.size());
-          selectedQuestions.addAll(selectedEasyQuestions);
-        } else {
-          log.warn(
-              "Test requires {} easy questions but none are available",
-              test.getEasyQuestionsCount());
-        }
-      }
+      addQuestionsForDifficulty(
+          selectedQuestions,
+          questionsByDifficulty,
+          QuestionDifficulty.MEDIUM,
+          test.getMediumQuestionsCount());
 
-      // Process MEDIUM questions
-      if (test.getMediumQuestionsCount() != null && test.getMediumQuestionsCount() > 0) {
-        List<Question> mediumQuestions =
-            questionsByDifficulty.getOrDefault(QuestionDifficulty.MEDIUM, Collections.emptyList());
-        log.debug("Found {} medium questions in test", mediumQuestions.size());
-
-        if (!mediumQuestions.isEmpty()) {
-          List<Question> selectedMediumQuestions =
-              getRandomQuestions(mediumQuestions, test.getMediumQuestionsCount());
-          log.debug(
-              "Selected {} medium questions out of {} available",
-              selectedMediumQuestions.size(),
-              mediumQuestions.size());
-          selectedQuestions.addAll(selectedMediumQuestions);
-        } else {
-          log.warn(
-              "Test requires {} medium questions but none are available",
-              test.getMediumQuestionsCount());
-        }
-      }
-
-      // Process HARD questions
-      if (test.getHardQuestionsCount() != null && test.getHardQuestionsCount() > 0) {
-        List<Question> hardQuestions =
-            questionsByDifficulty.getOrDefault(QuestionDifficulty.HARD, Collections.emptyList());
-        log.debug("Found {} hard questions in test", hardQuestions.size());
-
-        if (!hardQuestions.isEmpty()) {
-          List<Question> selectedHardQuestions =
-              getRandomQuestions(hardQuestions, test.getHardQuestionsCount());
-          log.debug(
-              "Selected {} hard questions out of {} available",
-              selectedHardQuestions.size(),
-              hardQuestions.size());
-          selectedQuestions.addAll(selectedHardQuestions);
-        } else {
-          log.warn(
-              "Test requires {} hard questions but none are available",
-              test.getHardQuestionsCount());
-        }
-      }
+      addQuestionsForDifficulty(
+          selectedQuestions,
+          questionsByDifficulty,
+          QuestionDifficulty.HARD,
+          test.getHardQuestionsCount());
     } else {
       log.debug(
           "No difficulty distribution specified for test ID: {}, using all questions",
@@ -118,6 +72,48 @@ public class AttemptQuestionService {
     log.info(
         "Total of {} questions selected for test ID: {}", selectedQuestions.size(), test.getId());
     return selectedQuestions;
+  }
+
+  /**
+   * Adds questions of a specific difficulty to the selected questions list.
+   *
+   * @param selectedQuestions The list to add selected questions to
+   * @param questionsByDifficulty Map of questions grouped by difficulty
+   * @param difficulty The difficulty level to process
+   * @param count The requested number of questions for this difficulty
+   */
+  private void addQuestionsForDifficulty(
+      List<Question> selectedQuestions,
+      Map<QuestionDifficulty, List<Question>> questionsByDifficulty,
+      QuestionDifficulty difficulty,
+      Integer count) {
+
+    if (count == null || count <= 0) {
+      return;
+    }
+
+    List<Question> questionsOfDifficulty =
+        questionsByDifficulty.getOrDefault(difficulty, Collections.emptyList());
+    log.debug(
+        "Found {} {} questions in test",
+        questionsOfDifficulty.size(),
+        difficulty.toString().toLowerCase());
+
+    if (!questionsOfDifficulty.isEmpty()) {
+      List<Question> selectedQuestionsOfDifficulty =
+          getRandomQuestions(questionsOfDifficulty, count);
+      log.debug(
+          "Selected {} {} questions out of {} available",
+          selectedQuestionsOfDifficulty.size(),
+          difficulty.toString().toLowerCase(),
+          questionsOfDifficulty.size());
+      selectedQuestions.addAll(selectedQuestionsOfDifficulty);
+    } else {
+      log.warn(
+          "Test requires {} {} questions but none are available",
+          count,
+          difficulty.toString().toLowerCase());
+    }
   }
 
   /**
@@ -194,7 +190,7 @@ public class AttemptQuestionService {
         .sorted(Comparator.comparing(Submission::getOrderIndex))
         .map(Submission::getQuestion)
         .filter(Objects::nonNull)
-        .collect(Collectors.toList());
+        .toList();
   }
 
   /** Identifies the next unanswered question in an ongoing test attempt. */

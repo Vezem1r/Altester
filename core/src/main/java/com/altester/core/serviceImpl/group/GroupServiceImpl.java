@@ -7,7 +7,6 @@ import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
-import com.altester.core.model.subject.enums.Semester;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.repository.UserRepository;
@@ -178,7 +177,7 @@ public class GroupServiceImpl implements GroupService {
     Subject subject = subjectRepository.findByGroupsContaining(group).orElse(null);
 
     if (updateGroupDTO.getSemester() == null) {
-      updateGroupDTO.setSemester(Semester.valueOf(semesterConfig.getCurrentSemester()));
+      updateGroupDTO.setSemester(semesterConfig.getCurrentSemester());
     }
 
     if (updateGroupDTO.getAcademicYear() == null) {
@@ -204,7 +203,7 @@ public class GroupServiceImpl implements GroupService {
 
     boolean isActive =
         semesterConfig.isSemesterActive(
-            updateGroupDTO.getSemester().name(), updateGroupDTO.getAcademicYear());
+            updateGroupDTO.getSemester(), updateGroupDTO.getAcademicYear());
     group.setSemester(updateGroupDTO.getSemester());
     group.setAcademicYear(updateGroupDTO.getAcademicYear());
     group.setActive(isActive);
@@ -257,7 +256,7 @@ public class GroupServiceImpl implements GroupService {
                 });
 
     if (createGroupDTO.getSemester() == null) {
-      createGroupDTO.setSemester(Semester.valueOf(semesterConfig.getCurrentSemester()));
+      createGroupDTO.setSemester(semesterConfig.getCurrentSemester());
     }
 
     if (createGroupDTO.getAcademicYear() == null) {
@@ -268,7 +267,7 @@ public class GroupServiceImpl implements GroupService {
         (createGroupDTO.getActive() != null)
             ? createGroupDTO.getActive()
             : semesterConfig.isSemesterActive(
-                createGroupDTO.getSemester().name(), createGroupDTO.getAcademicYear());
+                createGroupDTO.getSemester(), createGroupDTO.getAcademicYear());
 
     Group group =
         Group.builder()
@@ -338,7 +337,7 @@ public class GroupServiceImpl implements GroupService {
                               && teacher.getUsername().toLowerCase().contains(searchLower))
                           || (teacher.getEmail() != null
                               && teacher.getEmail().toLowerCase().contains(searchLower)))
-              .collect(Collectors.toList());
+              .toList();
 
       int start = (int) pageable.getOffset();
       int end = Math.min((start + pageable.getPageSize()), filteredTeachers.size());

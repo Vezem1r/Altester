@@ -1,9 +1,7 @@
 package com.altester.chat_service.config;
 
 import com.altester.chat_service.security.JwtWebSocketInterceptor;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -17,17 +15,11 @@ import org.springframework.web.socket.config.annotation.WebSocketTransportRegist
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
+  private final AppConfig appConfig;
   private final JwtWebSocketInterceptor jwtInterceptor;
   private static final int TIME_LIMIT = 256 * 1000;
   private static final int BUFFER_SIZE_LIMIT = 512 * 1024;
   private static final int MESSAGE_SIZE_LIMIT = 128 * 1024;
-
-  @Value("${cors.allowed.origins}")
-  private String allowedOrigins;
-
-  private List<String> getAllowedOrigins() {
-    return List.of(allowedOrigins.split(","));
-  }
 
   @Override
   public void configureMessageBroker(MessageBrokerRegistry config) {
@@ -40,7 +32,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
   public void registerStompEndpoints(StompEndpointRegistry registry) {
     registry
         .addEndpoint("/ws")
-        .setAllowedOrigins(getAllowedOrigins().toArray(new String[0]))
+        .setAllowedOrigins(appConfig.getAllowedOrigins().toArray(new String[0]))
         .withSockJS();
   }
 

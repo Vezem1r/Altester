@@ -87,7 +87,7 @@ public class TeacherPageServiceImpl implements TeacherPageService {
                   log.trace("Converting subject {} to DTO", subject.getName());
                   return teacherPageMapper.toTeacherSubjectDTO(subject, teacherGroups);
                 })
-            .collect(Collectors.toList());
+            .toList();
 
     log.info("Successfully prepared teacher page data with {} subjects", subjectDTOs.size());
     return new TeacherPageDTO(

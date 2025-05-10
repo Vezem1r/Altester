@@ -58,7 +58,7 @@ public class AttemptDataProcessor {
                           .status(attempt.getStatus().name())
                           .build())
               .sorted(Comparator.comparing(AttemptInfoDTO::getAttemptNumber))
-              .collect(Collectors.toList());
+              .toList();
 
       testAttempts.add(
           StudentTestAttemptDTO.builder()
@@ -84,7 +84,7 @@ public class AttemptDataProcessor {
                   attempt ->
                       attempt.getTest().getId() == testId
                           && group.getStudents().contains(attempt.getStudent()))
-              .collect(Collectors.toList());
+              .toList();
 
       if (StringUtils.hasText(searchQuery)) {
         String query = searchQuery.toLowerCase();
@@ -128,7 +128,7 @@ public class AttemptDataProcessor {
                                         .score(attempt.getScore())
                                         .status(attempt.getStatus().name())
                                         .build())
-                            .collect(Collectors.toList());
+                            .toList();
 
                     return StudentAttemptGroup.builder()
                         .username(student.getUsername())
@@ -138,7 +138,7 @@ public class AttemptDataProcessor {
                         .build();
                   })
               .sorted(Comparator.comparing(StudentAttemptGroup::getUsername))
-              .collect(Collectors.toList());
+              .toList();
 
       groupAttempts.add(
           TestAttemptsForGroupDTO.builder()

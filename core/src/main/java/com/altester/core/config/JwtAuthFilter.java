@@ -32,7 +32,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
   private final HandlerExceptionResolver handlerExceptionResolver;
   private final JwtService jwtService;
   private final UserDetailsService userDetailsService;
-  private final String BEARER_PREFIX = "Bearer ";
+  private static final String BEARER_PREFIX = "Bearer ";
 
   private final List<String> whitelistedPaths =
       Arrays.asList(

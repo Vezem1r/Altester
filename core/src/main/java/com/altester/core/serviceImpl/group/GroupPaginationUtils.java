@@ -8,7 +8,6 @@ import com.altester.core.util.CacheablePage;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -40,7 +39,7 @@ public class GroupPaginationUtils {
                   boolean isInFuture = groupActivityService.isGroupInFuture(group);
                   return groupMapper.toGroupsResponse(group, subjectName, isInFuture);
                 })
-            .collect(Collectors.toList());
+            .toList();
 
     return new CacheablePage<>(new PageImpl<>(responses, pageable, groups.size()));
   }

@@ -24,6 +24,8 @@ import org.springframework.web.client.RestTemplate;
 @Slf4j
 public class NotificationDispatchServiceImpl implements NotificationDispatchService {
 
+  private static final String REVIEW_ACTION_URL = "/student/attempt-review/";
+
   private final RestTemplate restTemplate;
   private final AppConfig appConfig;
 
@@ -65,7 +67,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
                     + "' has been graded. Score: "
                     + attempt.getScore())
             .type(NotificationType.TEST_GRADED.toString())
-            .actionUrl("/student/attempt-review/" + attempt.getId())
+            .actionUrl(REVIEW_ACTION_URL + attempt.getId())
             .referenceId(attempt.getId())
             .build();
 
@@ -84,7 +86,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
                     + "' has been graded by AI. Score: "
                     + attempt.getScore())
             .type(NotificationType.TEST_GRADED.toString())
-            .actionUrl("/student/attempt-review/" + attempt.getId())
+            .actionUrl(REVIEW_ACTION_URL + attempt.getId())
             .referenceId(attempt.getId())
             .build();
 
@@ -99,7 +101,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
             .title("Feedback Received")
             .message("You have received feedback for test '" + attempt.getTest().getTitle() + "'")
             .type(NotificationType.TEACHER_FEEDBACK.toString())
-            .actionUrl("/student/attempt-review/" + attempt.getId())
+            .actionUrl(REVIEW_ACTION_URL + attempt.getId())
             .referenceId(attempt.getId())
             .build();
 

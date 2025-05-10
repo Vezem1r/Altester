@@ -6,7 +6,6 @@ import com.altester.core.model.subject.Group;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -73,6 +72,6 @@ public class GroupDTOMapper {
     return students.stream()
         .map(this::toCreateGroupUserListDTO)
         .sorted(Comparator.comparing(dto -> dto.getName() + " " + dto.getSurname()))
-        .collect(Collectors.toList());
+        .toList();
   }
 }

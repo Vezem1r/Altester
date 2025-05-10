@@ -31,13 +31,13 @@ public class GroupActivityService {
     }
 
     boolean isActiveSemester =
-        semesterConfig.isSemesterActive(group.getSemester().toString(), group.getAcademicYear());
+        semesterConfig.isSemesterActive(group.getSemester(), group.getAcademicYear());
 
     if (isActiveSemester != group.isActive()) {
 
       log.info(
           "{} group {} as semester {} {} {} active",
-          isActiveSemester ? "Activating" : "Deactivating",
+          isActiveSemester ? "Active" : "Non active",
           group.getName(),
           group.getSemester(),
           group.getAcademicYear(),
@@ -56,7 +56,7 @@ public class GroupActivityService {
       return false;
     }
 
-    String currentSemester = semesterConfig.getCurrentSemester();
+    Semester currentSemester = semesterConfig.getCurrentSemester();
     int currentAcademicYear = semesterConfig.getCurrentAcademicYear();
 
     if (group.getAcademicYear() > currentAcademicYear) {
@@ -64,11 +64,11 @@ public class GroupActivityService {
     }
 
     if (group.getAcademicYear() == currentAcademicYear) {
-      if (currentSemester.equals("WINTER") && group.getSemester() == Semester.SUMMER) {
+      if (currentSemester == Semester.WINTER && group.getSemester() == Semester.SUMMER) {
         return true;
       }
 
-      if (currentSemester.equals(group.getSemester().toString())) {
+      if (currentSemester == group.getSemester()) {
         LocalDate now = LocalDate.now();
 
         if (group.getSemester() == Semester.WINTER) {

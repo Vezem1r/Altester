@@ -8,7 +8,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -28,7 +27,7 @@ public class TestAttemptDTOMapper {
                         .text(option.getText())
                         .description(option.getDescription())
                         .build())
-            .collect(Collectors.toList());
+            .toList();
 
     return QuestionDTO.builder()
         .id(question.getId())
@@ -48,9 +47,7 @@ public class TestAttemptDTOMapper {
       case MULTIPLE_CHOICE, IMAGE_WITH_MULTIPLE_CHOICE -> {
         List<Long> selectedOptionIds =
             submission.getSelectedOptions() != null
-                ? submission.getSelectedOptions().stream()
-                    .map(Option::getId)
-                    .collect(Collectors.toList())
+                ? submission.getSelectedOptions().stream().map(Option::getId).toList()
                 : new ArrayList<>();
 
         yield AnswerDTO.builder()

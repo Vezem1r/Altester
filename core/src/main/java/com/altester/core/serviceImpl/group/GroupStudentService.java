@@ -35,6 +35,11 @@ public class GroupStudentService {
   private final GroupDTOMapper groupMapper;
   private final GroupActivityService groupActivityService;
 
+  private static final String STUDENT_PREFIX = "Student ";
+  private static final String AND_YEAR = " and year ";
+  private static final String MULTIPLE_GROUPS_ERROR =
+      ". Students cannot be in multiple future groups of the same subject for the same semester and year.";
+
   public Group getGroupById(long id) {
     return groupRepository
         .findById(id)
@@ -121,7 +126,6 @@ public class GroupStudentService {
    * @return A CreateGroupUserListDTO containing student details and associated subject names
    */
   private CreateGroupUserListDTO mapStudentToDTO(User student) {
-    List<Group> activeGroups = groupRepository.findByStudentsContainingAndActiveTrue(student);
     return groupMapper.toCreateGroupUserListDTO(student);
   }
 
@@ -267,7 +271,7 @@ public class GroupStudentService {
               return fullName.contains(searchQuery.toLowerCase())
                   || username.contains(searchQuery.toLowerCase());
             })
-        .collect(Collectors.toList());
+        .toList();
   }
 
   /**
@@ -298,9 +302,6 @@ public class GroupStudentService {
     return students.stream()
         .map(
             student -> {
-              List<Group> activeGroups =
-                  groupRepository.findByStudentsContainingAndActiveTrue(student);
-
               CreateGroupUserListDTO dto = groupMapper.toCreateGroupUserListDTO(student);
 
               if (subject != null && studentsInSubjectIds.contains(student.getId())) {
@@ -349,7 +350,7 @@ public class GroupStudentService {
                     .map(Subject::getShortName)
                     .orElse("Group has no subject"))
         .distinct()
-        .collect(Collectors.toList());
+        .toList();
   }
 
   /**
@@ -411,7 +412,7 @@ public class GroupStudentService {
               student.getUsername(),
               group.getName());
           throw ValidationException.groupValidation(
-              "Student "
+              STUDENT_PREFIX
                   + student.getName()
                   + " "
                   + student.getSurname()
@@ -462,7 +463,7 @@ public class GroupStudentService {
               currentSemester,
               currentAcademicYear);
           throw ValidationException.groupValidation(
-              "Student "
+              STUDENT_PREFIX
                   + student.getName()
                   + " "
                   + student.getSurname()
@@ -470,9 +471,9 @@ public class GroupStudentService {
                   + group.getName()
                   + "' of the same subject for semester "
                   + currentSemester
-                  + " and year "
+                  + AND_YEAR
                   + currentAcademicYear
-                  + ". Students cannot be in multiple future groups of the same subject for the same semester and year.");
+                  + MULTIPLE_GROUPS_ERROR);
         }
       }
     }
@@ -530,7 +531,7 @@ public class GroupStudentService {
       String errorMessage;
       if (studentsWithIssues.size() == 1) {
         errorMessage =
-            "Student "
+            STUDENT_PREFIX
                 + firstStudent.getName()
                 + " "
                 + firstStudent.getSurname()
@@ -538,12 +539,12 @@ public class GroupStudentService {
                 + firstStudentGroup.getName()
                 + "' of the same subject for semester "
                 + semester
-                + " and year "
+                + AND_YEAR
                 + academicYear
-                + ". Students cannot be in multiple future groups of the same subject for the same semester and year.";
+                + MULTIPLE_GROUPS_ERROR;
       } else {
         errorMessage =
-            "Student "
+            STUDENT_PREFIX
                 + firstStudent.getName()
                 + " "
                 + firstStudent.getSurname()
@@ -552,9 +553,9 @@ public class GroupStudentService {
                 + " more students are already in other groups "
                 + "of the same subject for semester "
                 + semester
-                + " and year "
+                + AND_YEAR
                 + academicYear
-                + ". Students cannot be in multiple future groups of the same subject for the same semester and year.";
+                + MULTIPLE_GROUPS_ERROR;
       }
 
       log.error(

@@ -6,7 +6,6 @@ import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -17,7 +16,7 @@ public class TeacherPageMapper {
         teacherGroups.stream()
             .filter(group -> subject.getGroups().contains(group))
             .map(this::toTeacherGroupDTO)
-            .collect(Collectors.toList());
+            .toList();
 
     return new TeacherSubjectDTO(
         subject.getName(), subject.getShortName(), subject.getDescription(), groupDTOs);

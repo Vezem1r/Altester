@@ -25,10 +25,16 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-  @Value("${cors.allowed.origins}")
-  private String allowedOrigins;
+  @Value("#{'${cors.allowed.origins}'.split(',')}")
+  private List<String> allowedOrigins;
 
-  private final String[] BASE_WHITE_LIST = {"/password/**", "/auth/config", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**"};
+  @Value("${swagger.enabled:false}")
+  private boolean swaggerEnabled;
+
+  private final String[] BASE_WHITE_LIST = {
+    "/password/**", "/auth/config", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**"
+  };
+  private final String[] SWAGGER_PATHS = {"/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**"};
 
   private final AuthenticationProvider authenticationProvider;
   private final JwtAuthFilter jwtAuthFilter;
@@ -48,8 +54,6 @@ public class SecurityConfig {
                     .hasAnyRole(RolesEnum.ADMIN.name())
                     .requestMatchers("/teacher/**")
                     .hasAnyRole(RolesEnum.TEACHER.name(), RolesEnum.ADMIN.name())
-                    .requestMatchers("/internal/ai-grading/**")
-                    .permitAll()
                     .anyRequest()
                     .authenticated())
         .sessionManagement(
@@ -74,13 +78,17 @@ public class SecurityConfig {
       whitelist.add("/auth/ldap/signin");
     }
 
+    if (swaggerEnabled) {
+      whitelist.addAll(Arrays.asList(SWAGGER_PATHS));
+    }
+
     return whitelist.toArray(new String[0]);
   }
 
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
-    configuration.setAllowedOrigins(List.of(allowedOrigins.split(",")));
+    configuration.setAllowedOrigins(allowedOrigins);
     configuration.setAllowedMethods(List.of("POST", "GET", "PUT", "DELETE", "OPTIONS"));
     configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Origin", "Accept"));
     configuration.setAllowCredentials(true);

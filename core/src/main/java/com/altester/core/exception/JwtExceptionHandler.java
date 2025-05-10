@@ -18,63 +18,68 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 public class JwtExceptionHandler {
 
+  private static final String KEY_VALID = "valid";
+  private static final String KEY_ERROR_CODE = "errorCode";
+  private static final String KEY_MESSAGE = "message";
+
   @ExceptionHandler(JwtAuthenticationException.class)
-  public ResponseEntity<?> handleJwtAuthenticationException(JwtAuthenticationException ex) {
+  public ResponseEntity<Map<String, Object>> handleJwtAuthenticationException(
+      JwtAuthenticationException ex) {
     log.warn("JWT authentication error: {}", ex.getMessage());
 
     Map<String, Object> response = new HashMap<>();
-    response.put("valid", false);
-    response.put("errorCode", ex.getErrorCode());
-    response.put("message", ex.getMessage());
+    response.put(KEY_VALID, false);
+    response.put(KEY_ERROR_CODE, ex.getErrorCode());
+    response.put(KEY_MESSAGE, ex.getMessage());
 
     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
   }
 
   @ExceptionHandler(ExpiredJwtException.class)
-  public ResponseEntity<?> handleExpiredJwtException(ExpiredJwtException ex) {
+  public ResponseEntity<Map<String, Object>> handleExpiredJwtException(ExpiredJwtException ex) {
     log.warn("Token expired: {}", ex.getMessage());
 
     Map<String, Object> response = new HashMap<>();
-    response.put("valid", false);
+    response.put(KEY_VALID, false);
     response.put("expired", true);
-    response.put("errorCode", "AUTH-602");
-    response.put("message", "Authentication token has expired");
+    response.put(KEY_ERROR_CODE, "AUTH-602");
+    response.put(KEY_MESSAGE, "Authentication token has expired");
 
     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
   }
 
   @ExceptionHandler({SignatureException.class, MalformedJwtException.class})
-  public ResponseEntity<?> handleInvalidTokenException(Exception ex) {
+  public ResponseEntity<Map<String, Object>> handleInvalidTokenException(Exception ex) {
     log.warn("Invalid token signature or format: {}", ex.getMessage());
 
     Map<String, Object> response = new HashMap<>();
-    response.put("valid", false);
-    response.put("errorCode", "AUTH-601");
-    response.put("message", "Invalid authentication token");
+    response.put(KEY_VALID, false);
+    response.put(KEY_ERROR_CODE, "AUTH-601");
+    response.put(KEY_MESSAGE, "Invalid authentication token");
 
     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
   }
 
   @ExceptionHandler(JwtException.class)
-  public ResponseEntity<?> handleGeneralJwtException(JwtException ex) {
+  public ResponseEntity<Map<String, Object>> handleGeneralJwtException(JwtException ex) {
     log.warn("JWT exception: {}", ex.getMessage());
 
     Map<String, Object> response = new HashMap<>();
-    response.put("valid", false);
-    response.put("errorCode", "AUTH-603");
-    response.put("message", "Malformed authentication token");
+    response.put(KEY_VALID, false);
+    response.put(KEY_ERROR_CODE, "AUTH-603");
+    response.put(KEY_MESSAGE, "Malformed authentication token");
 
     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
   }
 
   @ExceptionHandler({AuthenticationException.class, BadCredentialsException.class})
-  public ResponseEntity<?> handleAuthenticationException(Exception ex) {
+  public ResponseEntity<Map<String, Object>> handleAuthenticationException(Exception ex) {
     log.warn("Authentication error: {}", ex.getMessage());
 
     Map<String, Object> response = new HashMap<>();
-    response.put("valid", false);
-    response.put("errorCode", "AUTH-100");
-    response.put("message", "Authentication failed");
+    response.put(KEY_VALID, false);
+    response.put(KEY_ERROR_CODE, "AUTH-100");
+    response.put(KEY_MESSAGE, "Authentication failed");
 
     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
   }
