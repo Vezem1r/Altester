@@ -31,9 +31,7 @@ public class SecurityConfig {
   @Value("${swagger.enabled:false}")
   private boolean swaggerEnabled;
 
-  private final String[] BASE_WHITE_LIST = {
-    "/password/**", "/auth/config", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**"
-  };
+  private final String[] BASE_WHITE_LIST = {"/password/**", "/auth/config"};
   private final String[] SWAGGER_PATHS = {"/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**"};
 
   private final AuthenticationProvider authenticationProvider;
