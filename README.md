@@ -34,7 +34,7 @@ Altester is a robust and scalable educational platform developed as part of a ba
 ## 📚 Documentation
 
 - [Setup and Installation Guide](#)
-- [Environment Configuration](#)
+- [Environment Configuration](https://github.com/Vezem1r/Altester/wiki/Environment-Setup)
 - [API Documentation](#)
 - [System Architecture](docs/architecture.md)
 
@@ -96,9 +96,13 @@ Altester is a robust and scalable educational platform developed as part of a ba
 ```yaml
 Spring Boot: 3.4.5
 Spring Security: Latest
-Spring LDAP: Latest
+Spring Data JPA: Latest
+Spring Data LDAP: Latest
 JWT: jjwt 0.11.5
 Templates: Thymeleaf
+Database: PostgreSQL
+SMTP: Spring Mail
+JSON: Jackson 2.15.2
 ```
 </details>
 
@@ -120,9 +124,13 @@ Templates: Thymeleaf
 **Technologies:**
 ```yaml
 Spring Boot: 3.4.5
-Real-time: WebSocket (STOMP)
-Security: JWT authentication
-Events: Real-time broadcasting
+Spring Security: Latest
+Spring Data JPA: Latest
+Real-time: WebSocket
+JWT: jjwt 0.11.5
+Database: PostgreSQL
+Cache: Redis
+Validation: Spring Validation
 ```
 </details>
 
@@ -139,8 +147,12 @@ Events: Real-time broadcasting
 **Technologies:**
 ```yaml
 Spring Boot: 3.4.5
+Spring Security: Latest
+Spring Data JPA: Latest
 Real-time: WebSocket
-Storage: Notification persistence
+JWT: jjwt 0.11.5
+Database: PostgreSQL
+Validation: Spring Validation
 ```
 </details>
 
@@ -166,9 +178,12 @@ Storage: Notification persistence
 **Technologies:**
 ```yaml
 Spring Boot: 3.4.5
-AI Framework: LangChain4j
-Integration: Multiple AI providers
-Engineering: Advanced prompt design
+Spring Data JPA: Latest
+AI Framework: LangChain4j 1.0.0-beta3
+Database: PostgreSQL
+Cache: Redis
+JSON: Jackson 2.15.2
+Validation: Spring Validation
 ```
 </details>
 
@@ -198,8 +213,14 @@ Engineering: Advanced prompt design
 **Technologies:**
 ```yaml
 Spring Boot: 3.4.5
-Caching: Redis distributed cache
-Validation: Advanced business rules
+Spring Security: Latest
+Spring Data JPA: Latest
+Real-time: WebSocket
+JWT: jjwt 0.11.5
+Database: PostgreSQL
+Cache: Redis
+JSON: Jackson
+API Documentation: SpringDoc 2.8.6
 ```
 </details>
 
@@ -338,7 +359,7 @@ Validation: Advanced business rules
 
 ## ⚙️ Environment Configuration
 
-Each service is configured via environment variables in `.env` files. See our [detailed configuration guide](docs/environment-setup.md) for all options.
+Application is configured via environment variables in `.env` file. See our [detailed configuration guide](https://github.com/Vezem1r/Altester/wiki/Environment-Setup) for all options.
 
 ```bash
 # Quick start configuration example
@@ -353,8 +374,8 @@ docker-compose up -d
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/altester.git
-cd altester
+git clone https://github.com/Vezem1r/Altester.git
+cd Altester
 
 # Configure environment
 cp .env.example .env
@@ -365,5 +386,5 @@ docker-compose build
 docker-compose up -d
 
 # Access the application
-open http://localhost:8080
+open http://localhost:5173
 ```
