@@ -50,12 +50,17 @@ Altester is a robust and scalable educational platform developed as part of a ba
 | **Spring Boot 3.4.5** | Application framework with consistent version across services |
 | **Spring Security** | Authentication and authorization framework |
 | **Spring Data JPA** | ORM for data access and persistence |
+| **Spring Data LDAP** | LDAP directory integration |
 | **PostgreSQL** | Primary relational database |
-| **JWT** | Secure token-based authentication |
+| **JWT (jjwt 0.11.5)** | Secure token-based authentication |
 | **WebSockets** | Real-time bidirectional communication |
 | **Redis** | High-performance caching layer |
-| **LangChain4j** | Advanced AI integration framework |
-| **LDAP** | Enterprise directory integration |
+| **LangChain4j 1.0.0-beta3** | Advanced AI integration framework |
+| **Thymeleaf** | Template engine for email verification |
+| **Spring Mail** | SMTP integration for notifications |
+| **Jackson 2.15.2** | JSON processing library |
+| **Spring Validation** | Request validation framework |
+| **SpringDoc 2.8.6** | API documentation generation |
 | **Docker & Compose** | Containerization and orchestration |
 
 </details>
@@ -87,19 +92,6 @@ Altester is a robust and scalable educational platform developed as part of a ba
 - OTP-based verification for all critical actions
 - JWT token generation and management
 - SMTP integration for all verification workflows
-
-**Technologies:**
-```yaml
-Spring Boot: 3.4.5
-Spring Security: Latest
-Spring Data JPA: Latest
-Spring Data LDAP: Latest
-JWT: jjwt 0.11.5
-Templates: Thymeleaf
-Database: PostgreSQL
-SMTP: Spring Mail
-JSON: Jackson 2.15.2
-```
 </details>
 
 <details open>
@@ -116,18 +108,6 @@ JSON: Jackson 2.15.2
 - User online/offline status tracking
 - Message read status indicators
 - "User is typing" live indicators
-
-**Technologies:**
-```yaml
-Spring Boot: 3.4.5
-Spring Security: Latest
-Spring Data JPA: Latest
-Real-time: WebSocket
-JWT: jjwt 0.11.5
-Database: PostgreSQL
-Cache: Redis
-Validation: Spring Validation
-```
 </details>
 
 <details open>
@@ -139,17 +119,6 @@ Validation: Spring Validation
 - User-specific alerts and messages
 - Real-time delivery via WebSockets
 - Notification history and management
-
-**Technologies:**
-```yaml
-Spring Boot: 3.4.5
-Spring Security: Latest
-Spring Data JPA: Latest
-Real-time: WebSocket
-JWT: jjwt 0.11.5
-Database: PostgreSQL
-Validation: Spring Validation
-```
 </details>
 
 <details open>
@@ -170,17 +139,6 @@ Validation: Spring Validation
   - Grades
   - Detailed feedback
   - Error explanations for students
-
-**Technologies:**
-```yaml
-Spring Boot: 3.4.5
-Spring Data JPA: Latest
-AI Framework: LangChain4j 1.0.0-beta3
-Database: PostgreSQL
-Cache: Redis
-JSON: Jackson 2.15.2
-Validation: Spring Validation
-```
 </details>
 
 <details open>
@@ -205,19 +163,6 @@ Validation: Spring Validation
   - Sending grading requests to AI service
 - Placeholder validation and injection prevention in prompts
 - Role-based API key management
-
-**Technologies:**
-```yaml
-Spring Boot: 3.4.5
-Spring Security: Latest
-Spring Data JPA: Latest
-Real-time: WebSocket
-JWT: jjwt 0.11.5
-Database: PostgreSQL
-Cache: Redis
-JSON: Jackson
-API Documentation: SpringDoc 2.8.6
-```
 </details>
 
 ## 👥 User Roles and Features
