@@ -33,10 +33,10 @@ Altester is a robust and scalable educational platform developed as part of a ba
 
 ## 📚 Documentation
 
-- [Setup and Installation Guide](#)
+- [Setup and Installation Guide](https://github.com/Vezem1r/Altester/wiki/Setup-and-Installation-Guide)
 - [Environment Configuration](https://github.com/Vezem1r/Altester/wiki/Environment-Setup)
-- [API Documentation](#)
-- [System Architecture](docs/architecture.md)
+- [API Documentation](https://github.com/Vezem1r/Altester/wiki/API-Documentation)
+- [System Architecture](https://github.com/Vezem1r/Altester/wiki/Architecture%E2%80%90Overview)
 
 ## 🛠️ Technology Stack
 
