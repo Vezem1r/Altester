@@ -73,10 +73,6 @@ Altester is a robust and scalable educational platform developed as part of a ba
 
 ## 🧩 Microservices Architecture
 
-<p align="center">
-  <img src="docs/images/architecture-diagram.png" alt="Altester Architecture" width="800"/>
-</p>
-
 <details open>
 <summary><b>1. Authorization Service</b></summary>
 <br>
