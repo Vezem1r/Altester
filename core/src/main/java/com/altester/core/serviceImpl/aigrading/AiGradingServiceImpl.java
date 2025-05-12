@@ -168,10 +168,19 @@ public class AiGradingServiceImpl implements AiGradingService {
       ResponseEntity<GradingResponse> response,
       CompletableFuture<GradingResponse> future) {
     if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+      GradingResponse body = response.getBody();
       log.info(
           "AI grading for attempt {} completed successfully with score: {}",
           attempt.getId(),
-          response.getBody().getAttemptScore());
+          body.getAttemptScore());
+      if (attempt.getSubmissions().size() != body.getResults().size()) {
+        log.error(
+            "AI wasn't able to score all submissions: {} out of {}",
+            attempt.getSubmissions().size(),
+            body.getResults().size());
+        future.complete(null);
+      }
+
       future.complete(response.getBody());
     } else {
       log.error(

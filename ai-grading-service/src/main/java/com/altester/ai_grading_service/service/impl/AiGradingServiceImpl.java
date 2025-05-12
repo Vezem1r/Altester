@@ -93,6 +93,12 @@ public class AiGradingServiceImpl implements AiGradingService {
         Submission submission = submissionsForAiGrading.get(i);
         AiProviderService.GradingResult result = gradingResults.get(i);
 
+        if (result.score() < 0) {
+          log.error(
+              "Score is negative {} for submission id {}", result.score(), submission.getId());
+          continue;
+        }
+
         submissionResults.add(
             SubmissionGradingResult.builder()
                 .submissionId(submission.getId())

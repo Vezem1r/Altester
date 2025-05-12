@@ -158,7 +158,7 @@ public abstract class AbstractAiProviderService implements AiProviderService {
     if (results.size() < submissions.size()) {
       log.warn("Batch response missing some results, filling with error responses");
       while (results.size() < submissions.size()) {
-        results.add(new GradingResult(0, "No grading response received"));
+        results.add(new GradingResult(-1, "No grading response received"));
       }
     }
 
