@@ -3,6 +3,7 @@ package com.altester.ai_grading_service.service.impl;
 import com.altester.ai_grading_service.dto.GradingRequest;
 import com.altester.ai_grading_service.dto.GradingResponse;
 import com.altester.ai_grading_service.dto.SubmissionGradingResult;
+import com.altester.ai_grading_service.exception.AiApiServiceException;
 import com.altester.ai_grading_service.exception.AiServiceException;
 import com.altester.ai_grading_service.exception.ResourceNotFoundException;
 import com.altester.ai_grading_service.model.Attempt;
@@ -28,7 +29,7 @@ public class AiGradingServiceImpl implements AiGradingService {
   private final List<AiProviderService> aiProviderServices;
 
   @Override
-  public GradingResponse gradeAttempt(GradingRequest request) {
+  public GradingResponse gradeAttempt(GradingRequest request) throws AiApiServiceException {
     log.info(
         "Processing grading request for attempt: {}, using AI service: {}, with prompt ID: {}",
         request.getAttemptId(),
@@ -93,6 +94,12 @@ public class AiGradingServiceImpl implements AiGradingService {
         Submission submission = submissionsForAiGrading.get(i);
         AiProviderService.GradingResult result = gradingResults.get(i);
 
+        if (result.score() < 0) {
+          log.error(
+              "Score is negative {} for submission id {}", result.score(), submission.getId());
+          continue;
+        }
+
         submissionResults.add(
             SubmissionGradingResult.builder()
                 .submissionId(submission.getId())
@@ -117,6 +124,8 @@ public class AiGradingServiceImpl implements AiGradingService {
           .results(submissionResults)
           .build();
 
+    } catch (AiApiServiceException e) {
+      throw e;
     } catch (Exception e) {
       log.error(
           "Error processing AI grading for attempt {}: {}",

@@ -1,5 +1,6 @@
 package com.altester.ai_grading_service.AiModels;
 
+import com.altester.ai_grading_service.AiModels.dto.ChatApiResponse;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -10,10 +11,8 @@ import java.time.Duration;
 import java.util.Map;
 import lombok.Getter;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 /** Abstract base class for all AI chat models */
@@ -60,19 +59,23 @@ public abstract class AbstractChatModel implements ChatLanguageModel {
               getApiEndpoint(), HttpMethod.POST, request, new ParameterizedTypeReference<>() {});
 
       Map<String, Object> responseBody = response.getBody();
+      HttpStatusCode statusCode = response.getStatusCode();
+
       if (responseBody != null) {
         String extractedText = extractResponseText(responseBody);
         if (extractedText != null) {
-          return ChatResponse.builder().aiMessage(AiMessage.from(extractedText)).build();
+          return ChatApiResponse.of(statusCode, AiMessage.from(extractedText));
         }
       }
-      return ChatResponse.builder()
-          .aiMessage(
-              AiMessage.from(
-                  "Error: Unexpected response format from " + getModelProvider() + " API"))
-          .build();
+
+      return ChatApiResponse.of(
+          statusCode,
+          AiMessage.from("Error: Unexpected response format from " + getModelProvider() + " API"));
+    } catch (HttpStatusCodeException e) {
+      return ChatApiResponse.of(e.getStatusCode(), AiMessage.from("Error: " + e.getMessage()));
     } catch (Exception e) {
-      return ChatResponse.builder().aiMessage(AiMessage.from("Error: " + e.getMessage())).build();
+      return ChatApiResponse.of(
+          HttpStatus.INTERNAL_SERVER_ERROR, AiMessage.from("Error: " + e.getMessage()));
     }
   }
 

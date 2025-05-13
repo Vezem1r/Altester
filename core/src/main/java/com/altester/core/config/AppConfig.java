@@ -35,7 +35,7 @@ public class AppConfig {
   @Value("${NOTIFICATION_SERVICE_URL}")
   private String notificationServiceUrl;
 
-  @Value("${AI_SERVICE_URL}")
+  @Value("${AI_GRADING_SERVICE_URL}")
   private String aiGradingServiceUrl;
 
   public String getAuthUrl() {

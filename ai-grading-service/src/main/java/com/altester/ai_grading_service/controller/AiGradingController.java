@@ -2,6 +2,7 @@ package com.altester.ai_grading_service.controller;
 
 import com.altester.ai_grading_service.dto.GradingRequest;
 import com.altester.ai_grading_service.dto.GradingResponse;
+import com.altester.ai_grading_service.exception.AiApiServiceException;
 import com.altester.ai_grading_service.service.AiGradingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,15 @@ public class AiGradingController {
     try {
       GradingResponse response = aiGradingService.gradeAttempt(request);
       return ResponseEntity.ok(response);
+    } catch (AiApiServiceException e) {
+      log.error("API error from AI: {}", e.getMessage(), e);
+      return ResponseEntity.status(e.getHttpStatus())
+          .body(
+              GradingResponse.builder()
+                  .attemptId(request.getAttemptId())
+                  .success(false)
+                  .message("Error processing grading request: " + e.getMessage())
+                  .build());
     } catch (Exception e) {
       log.error("Error processing synchronous grading request: {}", e.getMessage(), e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

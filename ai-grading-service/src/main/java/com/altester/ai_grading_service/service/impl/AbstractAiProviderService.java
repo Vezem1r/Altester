@@ -1,5 +1,6 @@
 package com.altester.ai_grading_service.service.impl;
 
+import com.altester.ai_grading_service.exception.AiApiServiceException;
 import com.altester.ai_grading_service.model.Option;
 import com.altester.ai_grading_service.model.Question;
 import com.altester.ai_grading_service.model.Submission;
@@ -19,7 +20,8 @@ public abstract class AbstractAiProviderService implements AiProviderService {
 
   @Override
   public List<GradingResult> evaluateSubmissionsBatch(
-      List<Submission> submissions, String apiKey, String model, Long promptId) {
+      List<Submission> submissions, String apiKey, String model, Long promptId)
+      throws AiApiServiceException {
     int batchSize = 5;
     List<GradingResult> allResults = new ArrayList<>();
 
@@ -51,7 +53,8 @@ public abstract class AbstractAiProviderService implements AiProviderService {
 
   @Override
   public GradingResult evaluateSubmission(
-      Submission submission, Question question, String apiKey, String model, Long promptId) {
+      Submission submission, Question question, String apiKey, String model, Long promptId)
+      throws AiApiServiceException {
     try {
       String prompt = buildPrompt(submission, question, promptId);
       log.debug("Sending prompt to {}: {}", getProviderName(), prompt);
@@ -60,15 +63,17 @@ public abstract class AbstractAiProviderService implements AiProviderService {
       log.debug("Received response from {}: {}", getProviderName(), response);
 
       return parseGradingResponse(response, question.getScore());
+    } catch (AiApiServiceException e) {
+      throw e;
     } catch (Exception e) {
       log.error("Error evaluating submission with {}: {}", getProviderName(), e.getMessage(), e);
       return new GradingResult(
-          0, "Error evaluating submission with " + getProviderName() + ": " + e.getMessage());
+          -1, "Error evaluating submission with " + getProviderName() + ": " + e.getMessage());
     }
   }
 
-  protected abstract String sendPromptToAi(
-      String prompt, String apiKey, String model, int maxScore);
+  protected abstract String sendPromptToAi(String prompt, String apiKey, String model, int maxScore)
+      throws AiApiServiceException;
 
   protected abstract String getProviderName();
 
@@ -158,7 +163,7 @@ public abstract class AbstractAiProviderService implements AiProviderService {
     if (results.size() < submissions.size()) {
       log.warn("Batch response missing some results, filling with error responses");
       while (results.size() < submissions.size()) {
-        results.add(new GradingResult(0, "No grading response received"));
+        results.add(new GradingResult(-1, "No grading response received"));
       }
     }
 

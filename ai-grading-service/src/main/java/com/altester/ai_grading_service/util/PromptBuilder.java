@@ -1,13 +1,12 @@
 package com.altester.ai_grading_service.util;
 
 import com.altester.ai_grading_service.service.PromptService;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.text.StringSubstitutor;
 import org.springframework.stereotype.Component;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @Component
 @Slf4j
@@ -39,7 +38,8 @@ public class PromptBuilder {
     valuesMap.put("MAX_SCORE", String.valueOf(maxScore));
     valuesMap.put("STUDENT_ANSWER", studentAnswer);
 
-    String correctAnswerSection = correctAnswer != null && !correctAnswer.isEmpty()
+    String correctAnswerSection =
+        correctAnswer != null && !correctAnswer.isEmpty()
             ? "Here is the correct answer to guide your evaluation:\n\n" + correctAnswer
             : "No specific correct answer is provided. Use your knowledge to evaluate the student's answer.";
 

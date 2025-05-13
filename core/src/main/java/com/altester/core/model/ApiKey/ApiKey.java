@@ -22,14 +22,14 @@ public class ApiKey {
   @Column(nullable = false)
   private String name;
 
-  @Column(nullable = false)
+  @Column(nullable = false, length = 2048)
   @JsonIgnore
   private String encryptedKey;
 
-  @Column(nullable = false)
+  @Column(nullable = false, length = 2048)
   private String keyPrefix;
 
-  @Column(nullable = false)
+  @Column(nullable = false, length = 2048)
   private String keySuffix;
 
   @Column(nullable = false)

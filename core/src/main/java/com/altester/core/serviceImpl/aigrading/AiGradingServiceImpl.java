@@ -27,6 +27,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -156,6 +158,8 @@ public class AiGradingServiceImpl implements AiGradingService {
       ResponseEntity<GradingResponse> response =
           restTemplate.postForEntity(appConfig.getGraderUrl(), entity, GradingResponse.class);
       handleGradingResponse(attempt, response, future);
+    } catch (HttpClientErrorException e) {
+      handleHttpStatusCodeError(attempt, e, future);
     } catch (RestClientException e) {
       handleRestClientError(attempt, e, future);
     } catch (Exception e) {
@@ -163,15 +167,28 @@ public class AiGradingServiceImpl implements AiGradingService {
     }
   }
 
+  private void handleHttpStatusCodeError(
+      Attempt attempt, HttpStatusCodeException e, CompletableFuture<GradingResponse> future) {
+    // TODO: Send notification to teacher
+    log.error(
+        "Http status error when sending attempt {} for AI grading: {}",
+        attempt.getId(),
+        e.getMessage(),
+        e);
+    future.completeExceptionally(e);
+  }
+
   private void handleGradingResponse(
       Attempt attempt,
       ResponseEntity<GradingResponse> response,
       CompletableFuture<GradingResponse> future) {
     if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+      GradingResponse body = response.getBody();
       log.info(
           "AI grading for attempt {} completed successfully with score: {}",
           attempt.getId(),
-          response.getBody().getAttemptScore());
+          body.getAttemptScore());
+
       future.complete(response.getBody());
     } else {
       log.error(
@@ -184,6 +201,7 @@ public class AiGradingServiceImpl implements AiGradingService {
 
   private void handleRestClientError(
       Attempt attempt, RestClientException e, CompletableFuture<GradingResponse> future) {
+    // Send notification about error to teacher if not 500
     log.error(
         "REST client error when sending attempt {} for AI grading: {}",
         attempt.getId(),

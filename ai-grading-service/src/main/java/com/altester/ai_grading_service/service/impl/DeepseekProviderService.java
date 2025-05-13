@@ -1,6 +1,7 @@
 package com.altester.ai_grading_service.service.impl;
 
 import com.altester.ai_grading_service.AiModels.DeepseekChatModel;
+import com.altester.ai_grading_service.exception.AiApiServiceException;
 import com.altester.ai_grading_service.exception.AiServiceException;
 import com.altester.ai_grading_service.util.PromptBuilder;
 import java.time.Duration;
@@ -23,7 +24,8 @@ public class DeepseekProviderService extends AbstractAiProviderService {
   }
 
   @Override
-  protected String sendPromptToAi(String prompt, String apiKey, String model, int maxScore) {
+  protected String sendPromptToAi(String prompt, String apiKey, String model, int maxScore)
+      throws AiApiServiceException {
     try {
       DeepseekChatModel chatModel =
           new DeepseekChatModel(apiKey, model, temperature, Duration.ofSeconds(timeout));
@@ -31,6 +33,9 @@ public class DeepseekProviderService extends AbstractAiProviderService {
       return chatModel.generate(prompt);
     } catch (Exception e) {
       log.error("Failed to process request with Deepseek: {}", e.getMessage(), e);
+      if (e instanceof AiApiServiceException) {
+        throw e;
+      }
       throw new AiServiceException("Failed to process request with Deepseek", e);
     }
   }
