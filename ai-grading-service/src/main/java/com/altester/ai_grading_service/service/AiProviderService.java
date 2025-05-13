@@ -1,5 +1,6 @@
 package com.altester.ai_grading_service.service;
 
+import com.altester.ai_grading_service.exception.AiApiServiceException;
 import com.altester.ai_grading_service.model.Question;
 import com.altester.ai_grading_service.model.Submission;
 import java.util.List;
@@ -15,10 +16,12 @@ public interface AiProviderService {
    * @return GradingResult containing score and feedback
    */
   GradingResult evaluateSubmission(
-      Submission submission, Question question, String apiKey, String model, Long promptId);
+      Submission submission, Question question, String apiKey, String model, Long promptId)
+      throws AiApiServiceException;
 
   List<GradingResult> evaluateSubmissionsBatch(
-      List<Submission> submissions, String apiKey, String model, Long promptId);
+      List<Submission> submissions, String apiKey, String model, Long promptId)
+      throws AiApiServiceException;
 
   /**
    * Checks if the AI provider is supported
