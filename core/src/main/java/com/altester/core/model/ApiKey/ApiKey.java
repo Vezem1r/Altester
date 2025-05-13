@@ -26,10 +26,10 @@ public class ApiKey {
   @JsonIgnore
   private String encryptedKey;
 
-  @Column(nullable = false, length = 2048)
+  @Column(nullable = false)
   private String keyPrefix;
 
-  @Column(nullable = false, length = 2048)
+  @Column(nullable = false)
   private String keySuffix;
 
   @Column(nullable = false)
