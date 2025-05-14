@@ -20,16 +20,14 @@ public class CacheService {
   private final RedisTemplate<String, Object> redisTemplate;
 
   public void clearAllCaches() {
-    cacheManager
-        .getCacheNames()
-        .forEach(
-            cacheName -> {
-              Cache cache = cacheManager.getCache(cacheName);
-              if (cache != null) {
-                cache.clear();
-              }
-            });
-    log.debug("All application caches have been cleared.");
+    clearStudentRelatedCaches();
+    clearSubjectRelatedCaches();
+    clearTeacherRelatedCaches();
+    clearAdminRelatedCaches();
+    clearAttemptRelatedCaches();
+    clearApiKeyRelatedCaches();
+    clearQuestionRelatedCaches();
+    log.info("All caches cleared.");
   }
 
   public void clearTestRelatedCaches() {

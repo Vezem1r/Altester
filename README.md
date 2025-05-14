@@ -329,3 +329,61 @@ docker-compose up -d
 # Access the application
 open http://localhost:5173
 ```
+
+## 🛠️ Next Steps
+
+<div align="center">
+  <p>These are the enhancements to further improve Altester's architecture and performance:</p>
+</div>
+
+<details open>
+<summary><b>1. API Gateway Implementation</b></summary>
+<br>
+
+**Planned Features:**
+- Centralized request routing for all microservices
+- Rate limiting to prevent abuse and ensure fair usage
+- Load balancing
+</details>
+
+<details open>
+<summary><b>2. Advanced Cache Management</b></summary>
+<br>
+
+**Improvements:**
+- Granular cache invalidation strategies
+  - Update specific cache entries instead of full purge
+
+</details>
+
+<details open>
+<summary><b>3. Future Enhancements</b></summary>
+<br>
+
+**Under Consideration:**
+- Kubernetes orchestration for better scalability
+- GraphQL API alongside REST
+- Machine learning for predictive test difficulty adjustment
+</details>
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <img width="40" height="40" src="https://img.icons8.com/color/48/api.png" alt="api"/>
+        <br><b>API Gateway</b>
+        <br><small>2025</small>
+      </td>
+      <td align="center">
+        <img width="40" height="40" src="https://img.icons8.com/?size=100&id=pHS3eRpynIRQ&format=png&color=000000" alt="cache"/>
+        <br><b>Cache Optimization</b>
+        <br><small>2025</small>
+      </td>
+      <td align="center">
+        <img width="40" height="40" src="https://img.icons8.com/color/48/rocket.png" alt="future"/>
+        <br><b>Future Features</b>
+        <br><small>Ongoing</small>
+      </td>
+    </tr>
+  </table>
+</div>

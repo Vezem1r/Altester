@@ -426,8 +426,6 @@ public class TestServiceImpl implements TestService {
         throw AccessDeniedException.testAccess();
       }
 
-      cacheService.clearAllCaches();
-
       performTestDeletion(existingTest);
     } else {
       throw AccessDeniedException.testAccess();
@@ -445,6 +443,7 @@ public class TestServiceImpl implements TestService {
     groupRepository.saveAll(testGroups);
 
     testRepository.delete(test);
+    cacheService.clearAllCaches();
     log.info("Test with ID {} has been deleted", test.getId());
   }
 
