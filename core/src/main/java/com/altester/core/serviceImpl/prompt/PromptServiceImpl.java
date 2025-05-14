@@ -7,9 +7,11 @@ import com.altester.core.dtos.ai_service.PromptRequest;
 import com.altester.core.exception.PromptException;
 import com.altester.core.exception.ResourceNotFoundException;
 import com.altester.core.model.ApiKey.Prompt;
+import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.repository.PromptRepository;
+import com.altester.core.repository.TestGroupAssignmentRepository;
 import com.altester.core.repository.UserRepository;
 import com.altester.core.service.PromptService;
 import com.altester.core.serviceImpl.CacheService;
@@ -17,6 +19,8 @@ import com.altester.core.util.CacheablePage;
 import com.altester.core.util.PromptValidator;
 import java.security.Principal;
 import java.time.LocalDateTime;
+import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -36,6 +40,7 @@ public class PromptServiceImpl implements PromptService {
   private final PromptValidator promptValidator;
   private final CacheService cacheService;
   private final AiModelConfiguration aiModelConfiguration;
+  private final TestGroupAssignmentRepository testGroupAssignmentRepository;
 
   @Override
   @Transactional
@@ -125,8 +130,14 @@ public class PromptServiceImpl implements PromptService {
       throw PromptException.unauthorizedPromptModification();
     }
 
+    Prompt defaultPrompt = promptRepository.findById(1L).orElseThrow(() -> PromptException.promptNotFound(1L));
+
+    List<TestGroupAssignment> assignments = testGroupAssignmentRepository.findByPrompt(prompt);
+    assignments.forEach(assignment -> assignment.setPrompt(defaultPrompt));
+
     promptRepository.delete(prompt);
     cacheService.clearPromptRelatedCaches();
+    cacheService.clearApiKeyRelatedCaches();
     log.info("Prompt deleted with id: {} by user: {}", id, principal.getName());
   }
 

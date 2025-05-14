@@ -153,6 +153,7 @@ public class TestServiceImpl implements TestService {
     assignmentRepository.save(assignment);
 
     cacheService.clearTestRelatedCaches();
+    cacheService.clearApiKeyRelatedCaches();
 
     log.info(
         "Ai evaluation changed for test ID {} toggled to {} by user {}",

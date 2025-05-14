@@ -1,6 +1,7 @@
 package com.altester.core.repository;
 
 import com.altester.core.model.ApiKey.ApiKey;
+import com.altester.core.model.ApiKey.Prompt;
 import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Test;
@@ -14,4 +15,5 @@ public interface TestGroupAssignmentRepository extends JpaRepository<TestGroupAs
   Optional<TestGroupAssignment> findByTestAndGroup(Test test, Group group);
 
   List<TestGroupAssignment> findByApiKey(ApiKey apiKey);
+  List<TestGroupAssignment> findByPrompt(Prompt prompt);
 }
