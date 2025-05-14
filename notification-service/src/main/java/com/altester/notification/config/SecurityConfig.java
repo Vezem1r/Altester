@@ -26,6 +26,8 @@ public class SecurityConfig {
             auth ->
                 auth.requestMatchers("/ws/**")
                     .permitAll()
+                    .requestMatchers("/actuator/**")
+                    .permitAll()
                     .requestMatchers("/internal/**")
                     .permitAll()
                     .requestMatchers("/notifications/**")

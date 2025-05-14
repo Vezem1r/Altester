@@ -39,10 +39,10 @@ public class AnthropicClaudeProviderService extends AbstractAiProviderService {
       log.error("Anthropic Claude  API error - Status: {}, Body: {}", status, errorBody);
 
       throw new AiApiServiceException(
-              String.format("Anthropic Claude  API error: %s - %s", status, parseErrorMessage(errorBody)),
-              status,
-              errorBody
-      );
+          String.format(
+              "Anthropic Claude  API error: %s - %s", status, parseErrorMessage(errorBody)),
+          status,
+          errorBody);
     } catch (AiApiServiceException e) {
       throw e;
     } catch (Exception e) {

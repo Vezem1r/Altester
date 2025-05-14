@@ -39,10 +39,9 @@ public class DeepseekProviderService extends AbstractAiProviderService {
       log.error("Deepseek  API error - Status: {}, Body: {}", status, errorBody);
 
       throw new AiApiServiceException(
-              String.format("Deepseek  API error: %s - %s", status, parseErrorMessage(errorBody)),
-              status,
-              errorBody
-      );
+          String.format("Deepseek  API error: %s - %s", status, parseErrorMessage(errorBody)),
+          status,
+          errorBody);
     } catch (AiApiServiceException e) {
       throw e;
     } catch (Exception e) {

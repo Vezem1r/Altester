@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.util.AntPathMatcher;
 
 @Getter
 @Configuration
@@ -20,12 +21,17 @@ public class AppConfig {
   private long jwtExpiration;
 
   @Bean
-  BCryptPasswordEncoder passwordEncoder() {
+  public BCryptPasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
   }
 
   @Bean
-  Random random() {
+  public Random random() {
     return new Random();
+  }
+
+  @Bean
+  public AntPathMatcher antPathMatcher() {
+    return new AntPathMatcher();
   }
 }

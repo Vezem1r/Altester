@@ -4,7 +4,6 @@ import com.altester.ai_grading_service.AiModels.OpenAiChatModel;
 import com.altester.ai_grading_service.exception.AiApiServiceException;
 import com.altester.ai_grading_service.util.PromptBuilder;
 import java.time.Duration;
-
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -40,10 +39,9 @@ public class OpenAiProviderService extends AbstractAiProviderService {
       log.error("OpenAI API error - Status: {}, Body: {}", status, errorBody);
 
       throw new AiApiServiceException(
-              String.format("OpenAI API error: %s - %s", status, parseErrorMessage(errorBody)),
-              status,
-              errorBody
-      );
+          String.format("OpenAI API error: %s - %s", status, parseErrorMessage(errorBody)),
+          status,
+          errorBody);
     } catch (AiApiServiceException e) {
       throw e;
     } catch (Exception e) {

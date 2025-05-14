@@ -19,7 +19,9 @@ public class SecurityConfig {
 
   private final ApiKeyAuthFilter apiKeyAuthFilter;
 
-  private final String[] WHITE_LIST = {"/auth/**", "/ldap/**", "/email/**", "/password/**"};
+  private final String[] WHITE_LIST = {
+    "/auth/**", "/ldap/**", "/email/**", "/password/**", "/actuator/**"
+  };
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

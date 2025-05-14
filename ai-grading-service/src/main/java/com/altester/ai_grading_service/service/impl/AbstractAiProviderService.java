@@ -6,12 +6,11 @@ import com.altester.ai_grading_service.model.Question;
 import com.altester.ai_grading_service.model.Submission;
 import com.altester.ai_grading_service.service.AiProviderService;
 import com.altester.ai_grading_service.util.PromptBuilder;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

@@ -6,10 +6,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
-import org.springframework.http.HttpStatus;
-
 import java.time.Duration;
 import java.util.List;
+import org.springframework.http.HttpStatus;
 
 public abstract class BaseModel extends AbstractChatModel {
   protected final ObjectMapper objectMapper = new ObjectMapper();
@@ -37,12 +36,10 @@ public abstract class BaseModel extends AbstractChatModel {
         return chatApiResponse.getMessage().text();
 
       throw new AiApiServiceException(
-          chatApiResponse.getMessage().text(),
-          chatApiResponse.getStatusCode()
-      );
+          chatApiResponse.getMessage().text(), chatApiResponse.getStatusCode());
     }
 
-    throw new AiApiServiceException("Error: No response generated",
-            HttpStatus.INTERNAL_SERVER_ERROR);
+    throw new AiApiServiceException(
+        "Error: No response generated", HttpStatus.INTERNAL_SERVER_ERROR);
   }
 }
