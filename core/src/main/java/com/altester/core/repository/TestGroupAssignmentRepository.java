@@ -15,5 +15,6 @@ public interface TestGroupAssignmentRepository extends JpaRepository<TestGroupAs
   Optional<TestGroupAssignment> findByTestAndGroup(Test test, Group group);
 
   List<TestGroupAssignment> findByApiKey(ApiKey apiKey);
+
   List<TestGroupAssignment> findByPrompt(Prompt prompt);
 }

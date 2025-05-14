@@ -14,7 +14,8 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(AiApiServiceException.class)
   public ResponseEntity<ErrorResponse> handleAiApiServiceException(AiApiServiceException ex) {
-    HttpStatus status = ex.getHttpStatus() != null
+    HttpStatus status =
+        ex.getHttpStatus() != null
             ? HttpStatus.valueOf(ex.getHttpStatus().value())
             : HttpStatus.BAD_REQUEST;
 
@@ -23,7 +24,8 @@ public class GlobalExceptionHandler {
       detailsMap.put("responseBody", ex.getResponseBody());
     }
 
-    ErrorResponse response = ErrorResponse.builder()
+    ErrorResponse response =
+        ErrorResponse.builder()
             .timestamp(LocalDateTime.now())
             .status(status.value())
             .error("AI API Error")

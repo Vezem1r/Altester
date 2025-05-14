@@ -2,7 +2,6 @@ package com.altester.ai_grading_service.service.impl;
 
 import com.altester.ai_grading_service.AiModels.GeminiChatModel;
 import com.altester.ai_grading_service.exception.AiApiServiceException;
-import com.altester.ai_grading_service.exception.AiServiceException;
 import com.altester.ai_grading_service.util.PromptBuilder;
 import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
@@ -40,10 +39,9 @@ public class GeminiProviderService extends AbstractAiProviderService {
       log.error("Gemini  API error - Status: {}, Body: {}", status, errorBody);
 
       throw new AiApiServiceException(
-              String.format("Gemini  API error: %s - %s", status, parseErrorMessage(errorBody)),
-              status,
-              errorBody
-      );
+          String.format("Gemini  API error: %s - %s", status, parseErrorMessage(errorBody)),
+          status,
+          errorBody);
     } catch (AiApiServiceException e) {
       throw e;
     } catch (Exception e) {

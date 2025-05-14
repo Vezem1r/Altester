@@ -20,7 +20,6 @@ import com.altester.core.util.PromptValidator;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.List;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -130,7 +129,8 @@ public class PromptServiceImpl implements PromptService {
       throw PromptException.unauthorizedPromptModification();
     }
 
-    Prompt defaultPrompt = promptRepository.findById(1L).orElseThrow(() -> PromptException.promptNotFound(1L));
+    Prompt defaultPrompt =
+        promptRepository.findById(1L).orElseThrow(() -> PromptException.promptNotFound(1L));
 
     List<TestGroupAssignment> assignments = testGroupAssignmentRepository.findByPrompt(prompt);
     assignments.forEach(assignment -> assignment.setPrompt(defaultPrompt));
