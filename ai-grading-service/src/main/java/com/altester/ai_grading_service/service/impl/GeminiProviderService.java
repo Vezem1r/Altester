@@ -7,7 +7,9 @@ import com.altester.ai_grading_service.util.PromptBuilder;
 import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 
 @Service
 @Slf4j
@@ -31,12 +33,22 @@ public class GeminiProviderService extends AbstractAiProviderService {
           new GeminiChatModel(apiKey, model, temperature, Duration.ofSeconds(timeout));
 
       return chatModel.generate(prompt);
+    } catch (HttpClientErrorException e) {
+      String errorBody = e.getResponseBodyAsString();
+      HttpStatus status = HttpStatus.valueOf(e.getStatusCode().value());
+
+      log.error("Gemini  API error - Status: {}, Body: {}", status, errorBody);
+
+      throw new AiApiServiceException(
+              String.format("Gemini  API error: %s - %s", status, parseErrorMessage(errorBody)),
+              status,
+              errorBody
+      );
+    } catch (AiApiServiceException e) {
+      throw e;
     } catch (Exception e) {
       log.error("Failed to process request with Gemini: {}", e.getMessage(), e);
-      if (e instanceof AiApiServiceException) {
-        throw e;
-      }
-      throw new AiServiceException("Failed to process request with Gemini", e);
+      throw new AiApiServiceException("Failed to process Gemini request", e);
     }
   }
 

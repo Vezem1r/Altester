@@ -12,6 +12,28 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
+  @ExceptionHandler(AiApiServiceException.class)
+  public ResponseEntity<ErrorResponse> handleAiApiServiceException(AiApiServiceException ex) {
+    HttpStatus status = ex.getHttpStatus() != null
+            ? HttpStatus.valueOf(ex.getHttpStatus().value())
+            : HttpStatus.BAD_REQUEST;
+
+    Map<String, String> detailsMap = new HashMap<>();
+    if (ex.getResponseBody() != null) {
+      detailsMap.put("responseBody", ex.getResponseBody());
+    }
+
+    ErrorResponse response = ErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(status.value())
+            .error("AI API Error")
+            .message(ex.getMessage())
+            .details(detailsMap)
+            .build();
+
+    return new ResponseEntity<>(response, status);
+  }
+
   @ExceptionHandler(ResourceNotFoundException.class)
   public ResponseEntity<ErrorResponse> handleResourceNotFoundException(
       ResourceNotFoundException ex) {

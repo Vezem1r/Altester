@@ -1,10 +1,13 @@
 package com.altester.core.service;
 
+import com.altester.core.model.ApiKey.ApiKey;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.Attempt;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Test;
+import com.altester.core.model.subject.enums.NotificationType;
 import java.util.List;
+import org.springframework.http.HttpStatus;
 
 public interface NotificationDispatchService {
 
@@ -88,4 +91,23 @@ public interface NotificationDispatchService {
    * @param questionCount Number of questions requested for re-grading
    */
   void notifyRegradeRequested(User student, User teacher, Test test, int questionCount);
+
+  /**
+   * Notifies the API key owner or system administrators about API key errors. If the API key has no
+   * owner, the notification is sent to admin users.
+   *
+   * @param apiKey The API key that experienced an error
+   * @param errorMessage The error message describing what went wrong
+   * @param status The HTTP status code associated with the error
+   * @param errorType The type of notification error
+   * @param title The title of the notification to send
+   * @param message The message body of the notification to send
+   */
+  void notifyApiKeyError(
+      ApiKey apiKey,
+      String errorMessage,
+      HttpStatus status,
+      NotificationType errorType,
+      String title,
+      String message);
 }

@@ -9,6 +9,9 @@ import com.altester.ai_grading_service.util.PromptBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -16,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public abstract class AbstractAiProviderService implements AiProviderService {
 
+  private final ObjectMapper objectMapper = new ObjectMapper();
   protected final PromptBuilder promptBuilder;
 
   @Override
@@ -239,5 +243,35 @@ public abstract class AbstractAiProviderService implements AiProviderService {
 
   private int calculateMaxScoreForBatch(List<Submission> submissions) {
     return submissions.stream().mapToInt(s -> s.getQuestion().getScore()).sum();
+  }
+
+  protected String parseErrorMessage(String errorBody) {
+    if (errorBody == null || errorBody.isEmpty()) {
+      return "No error details";
+    }
+
+    try {
+      JsonNode root = objectMapper.readTree(errorBody);
+
+      if (root.has("error")) {
+        JsonNode errorNode = root.get("error");
+        if (errorNode.has("message")) {
+          return errorNode.get("message").asText();
+        }
+      }
+
+      if (root.has("message")) {
+        return root.get("message").asText();
+      }
+
+      if (root.has("error_message")) {
+        return root.get("error_message").asText();
+      }
+
+      return errorBody;
+    } catch (Exception e) {
+      log.debug("Failed to parse error body: {}", errorBody, e);
+      return errorBody;
+    }
   }
 }

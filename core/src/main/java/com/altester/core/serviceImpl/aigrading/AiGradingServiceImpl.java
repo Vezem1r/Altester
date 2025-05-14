@@ -9,22 +9,22 @@ import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.altester.core.model.subject.Attempt;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Test;
+import com.altester.core.model.subject.enums.NotificationType;
+import com.altester.core.repository.ApiKeyRepository;
 import com.altester.core.repository.AttemptRepository;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.TestGroupAssignmentRepository;
 import com.altester.core.service.AiGradingService;
 import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.serviceImpl.CacheService;
+import com.altester.core.util.ApiErrorClassifier;
 import com.altester.core.util.ApiKeyEncryptionUtil;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -45,6 +45,8 @@ public class AiGradingServiceImpl implements AiGradingService {
   private final CacheService cacheService;
   private final NotificationDispatchService notificationDispatchService;
   private final AppConfig appConfig;
+  private final ApiKeyRepository apiKeyRepository;
+  private final ApiErrorClassifier apiErrorClassifier;
 
   @Override
   @Async
@@ -169,13 +171,47 @@ public class AiGradingServiceImpl implements AiGradingService {
 
   private void handleHttpStatusCodeError(
       Attempt attempt, HttpStatusCodeException e, CompletableFuture<GradingResponse> future) {
-    // TODO: Send notification to teacher
     log.error(
         "Http status error when sending attempt {} for AI grading: {}",
         attempt.getId(),
         e.getMessage(),
         e);
+
+    try {
+      Optional<ApiKey> apiKeyOpt = findApiKeyForEvaluation(attempt);
+      if (apiKeyOpt.isPresent()) {
+        ApiKey apiKey = apiKeyOpt.get();
+        HttpStatus status = HttpStatus.valueOf(e.getStatusCode().value());
+
+        NotificationType errorType = ApiErrorClassifier.classifyError(status, e.getMessage());
+
+        String title = apiErrorClassifier.getErrorTitle(errorType);
+        String message =
+            apiErrorClassifier.buildErrorMessage(apiKey, e.getMessage(), status, errorType);
+
+        notificationDispatchService.notifyApiKeyError(
+            apiKey, e.getMessage(), status, errorType, title, message);
+
+        if (status == HttpStatus.UNAUTHORIZED) {
+          deactivateApiKey(apiKey);
+        }
+      }
+    } catch (Exception notificationError) {
+      log.error(
+          "Failed to send notification about API key error: {}", notificationError.getMessage());
+    }
     future.completeExceptionally(e);
+  }
+
+  private void deactivateApiKey(ApiKey apiKey) {
+    try {
+      apiKey.setActive(false);
+      apiKeyRepository.save(apiKey);
+      cacheService.clearApiKeyRelatedCaches();
+      log.info("Deactivated API key {} due to 401 error", apiKey.getId());
+    } catch (Exception e) {
+      log.error("Failed to deactivate API key {}: {}", apiKey.getId(), e.getMessage());
+    }
   }
 
   private void handleGradingResponse(

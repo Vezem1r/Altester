@@ -2,20 +2,20 @@ package com.altester.core.serviceImpl.notification;
 
 import com.altester.core.config.AppConfig;
 import com.altester.core.dtos.notification_service.NotificationRequest;
+import com.altester.core.model.ApiKey.ApiKey;
 import com.altester.core.model.auth.User;
+import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Attempt;
 import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Test;
 import com.altester.core.model.subject.enums.NotificationType;
+import com.altester.core.repository.UserRepository;
 import com.altester.core.service.NotificationDispatchService;
 import java.util.Collections;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -28,6 +28,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
 
   private final RestTemplate restTemplate;
   private final AppConfig appConfig;
+  private final UserRepository userRepository;
 
   @Override
   public void notifyTestAssigned(Test test, Group group) {
@@ -219,6 +220,45 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
             .type(NotificationType.REGRADE_REQUESTED.toString())
             .actionUrl("/teacher/tests/" + test.getId() + "/attempts")
             .referenceId(test.getId())
+            .build();
+
+    sendNotification(request);
+  }
+
+  @Override
+  public void notifyApiKeyError(
+      ApiKey apiKey,
+      String errorMessage,
+      HttpStatus status,
+      NotificationType errorType,
+      String title,
+      String message) {
+    User owner = apiKey.getOwner();
+    if (owner == null) {
+      List<User> admins = userRepository.findAllByRole(RolesEnum.ADMIN);
+      if (admins.isEmpty()) {
+        log.warn(
+            "No admin users found. Cannot notify about API key error for key {}", apiKey.getId());
+        return;
+      }
+      owner = admins.getFirst();
+    }
+
+    if (owner == null || owner.getUsername() == null || owner.getUsername().isEmpty()) {
+      log.warn("Cannot send notification for API key {} - no valid owner username", apiKey.getId());
+      return;
+    }
+
+    String ownerUsername = owner.getUsername();
+
+    NotificationRequest request =
+        NotificationRequest.builder()
+            .usernames(Collections.singletonList(ownerUsername))
+            .title(title)
+            .message(message)
+            .type(errorType.toString())
+            .actionUrl("/api-keys")
+            .referenceId(apiKey.getId())
             .build();
 
     sendNotification(request);
