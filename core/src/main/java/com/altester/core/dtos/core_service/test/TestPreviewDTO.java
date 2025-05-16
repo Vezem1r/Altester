@@ -27,13 +27,21 @@ public class TestPreviewDTO {
 
   private int totalScore;
   private int totalQuestions;
+
+  // Configured amount of questions in test
   private Integer easyQuestionsCount;
   private Integer mediumQuestionsCount;
   private Integer hardQuestionsCount;
+
+  // Total amount of questions (of ech type) currently assigned to test
+  private Integer easyQuestionsSetup;
+  private Integer mediumQuestionsSetup;
+  private Integer hardQuestionsSetup;
+
+  // Configured score for each question type
   private Integer mediumScore;
   private Integer easyScore;
   private Integer hardScore;
 
   private List<GroupSummaryDTO> associatedGroups;
-  private List<QuestionDTO> questions;
 }

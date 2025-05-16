@@ -2,8 +2,10 @@ package com.altester.core.service;
 
 import com.altester.core.dtos.core_service.test.*;
 import com.altester.core.exception.*;
+import com.altester.core.model.subject.enums.QuestionDifficulty;
 import com.altester.core.util.CacheablePage;
 import java.security.Principal;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface TestService {
@@ -166,4 +168,34 @@ public interface TestService {
    * @throws AccessDeniedException if the user doesn't have permission to toggle the test
    */
   void toggleTestActivity(Long testId, Principal principal);
+
+  /**
+   * Retrieves a paginated list of questions for a specific test, with optional filtering by
+   * difficulty level. This method allows administrators and teachers to view all questions
+   * associated with a test.
+   *
+   * @param testId ID of the test to retrieve questions for
+   * @param principal The authenticated user
+   * @param pageable Pagination information
+   * @param difficulty Optional filter to show only questions of a specific difficulty level
+   * @return Paginated list of questions for the test
+   * @throws ResourceNotFoundException if the test doesn't exist
+   * @throws AccessDeniedException if the user doesn't have access to the test
+   */
+  Page<QuestionDTO> getTestQuestions(
+      Long testId, Principal principal, Pageable pageable, QuestionDifficulty difficulty);
+
+  /**
+   * Generates a randomized test preview for students with the configured number of questions at
+   * each difficulty level. The questions are randomly selected based on the test configuration and
+   * shuffled.
+   *
+   * @param testId ID of the test to generate a preview for
+   * @param principal The authenticated student
+   * @param pageable Pagination information
+   * @return Paginated list of randomly selected questions for the student's test attempt
+   * @throws ResourceNotFoundException if the test doesn't exist
+   * @throws AccessDeniedException if the user doesn't have access to the test
+   */
+  Page<QuestionDTO> getStudentTestPreview(Long testId, Principal principal, Pageable pageable);
 }

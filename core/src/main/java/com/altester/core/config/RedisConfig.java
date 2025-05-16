@@ -140,6 +140,9 @@ public class RedisConfig {
     cacheConfigurations.put(
         "question", createCacheConfiguration(new JsonRedisSerializer<>(QuestionDetailsDTO.class)));
 
+    cacheConfigurations.put(
+        "testQuestions", createCacheConfiguration(new JsonRedisSerializer<>(CacheablePage.class)));
+
     // TeacherPageService caches
     cacheConfigurations.put(
         "teacherPage", createCacheConfiguration(new JsonRedisSerializer<>(TeacherPageDTO.class)));

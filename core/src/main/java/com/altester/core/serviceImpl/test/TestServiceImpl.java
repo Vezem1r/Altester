@@ -8,8 +8,10 @@ import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
+import com.altester.core.model.subject.Question;
 import com.altester.core.model.subject.Subject;
 import com.altester.core.model.subject.Test;
+import com.altester.core.model.subject.enums.QuestionDifficulty;
 import com.altester.core.repository.*;
 import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.service.TestService;
@@ -25,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +51,7 @@ public class TestServiceImpl implements TestService {
   private final TestRequirementsValidator testRequirementsValidator;
   private final PromptRepository promptRepository;
   private final TestStatusService testStatusService;
+  private final QuestionRepository questionRepository;
 
   private User getCurrentUser(Principal principal) {
     return userRepository
@@ -349,6 +353,10 @@ public class TestServiceImpl implements TestService {
       testAccessValidator.validateTeacherEditAccess(currentUser, existingTest, teacherGroups);
     }
 
+    Integer oldEasyScore = existingTest.getEasyQuestionScore();
+    Integer oldMediumScore = existingTest.getMediumQuestionScore();
+    Integer oldHardScore = existingTest.getHardQuestionScore();
+
     existingTest = TestUpdater.of(existingTest, updateTestDTO).updateAllFields().build();
 
     if (updateTestDTO.getSubjectId() != null
@@ -388,6 +396,8 @@ public class TestServiceImpl implements TestService {
       }
     }
 
+    updateQuestionScoresIfChanged(existingTest, oldEasyScore, oldMediumScore, oldHardScore);
+
     Test updatedTest = testRepository.save(existingTest);
     testStatusService.updateTestOpenStatus(existingTest);
 
@@ -407,6 +417,26 @@ public class TestServiceImpl implements TestService {
     cacheService.clearAllCaches();
 
     return testDTOMapper.convertToTestPreviewDTO(updatedTest, currentUser);
+  }
+
+  private void updateQuestionScoresIfChanged(
+      Test test, Integer oldEasy, Integer oldMedium, Integer oldHard) {
+    Integer newEasy = test.getEasyQuestionScore();
+    Integer newMedium = test.getMediumQuestionScore();
+    Integer newHard = test.getHardQuestionScore();
+
+    for (Question q : test.getQuestions()) {
+      QuestionDifficulty difficulty = q.getDifficulty();
+
+      if (difficulty == QuestionDifficulty.EASY && !Objects.equals(oldEasy, newEasy)) {
+        q.setScore(newEasy);
+      } else if (difficulty == QuestionDifficulty.MEDIUM && !Objects.equals(oldMedium, newMedium)) {
+        q.setScore(newMedium);
+      } else if (difficulty == QuestionDifficulty.HARD && !Objects.equals(oldHard, newHard)) {
+        q.setScore(newHard);
+      }
+    }
+    questionRepository.saveAll(test.getQuestions());
   }
 
   @Override
@@ -653,5 +683,109 @@ public class TestServiceImpl implements TestService {
         testId,
         newState,
         currentUser.getUsername());
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  @Cacheable(
+      value = "testQuestions",
+      key =
+          "'testId:' + #testId + ':page:' + #pageable.pageNumber + ':size:' + #pageable.pageSize + ':difficulty:' + (#difficulty != null ? #difficulty : 'ALL')")
+  public CacheablePage<QuestionDTO> getTestQuestions(
+      Long testId, Principal principal, Pageable pageable, QuestionDifficulty difficulty) {
+    log.debug("Getting questions for test ID: {} with difficulty: {}", testId, difficulty);
+
+    User currentUser = getCurrentUser(principal);
+    Test test = getTestById(testId);
+
+    testAccessValidator.validateTestAccess(currentUser, test);
+
+    List<Question> filteredQuestions = new ArrayList<>(test.getQuestions());
+
+    if (difficulty != null) {
+      filteredQuestions =
+          filteredQuestions.stream().filter(q -> q.getDifficulty() == difficulty).toList();
+    } else {
+      filteredQuestions.sort(Comparator.comparing(Question::getDifficulty).reversed());
+    }
+
+    int start = (int) pageable.getOffset();
+    int end = Math.min((start + pageable.getPageSize()), filteredQuestions.size());
+
+    if (start > filteredQuestions.size()) {
+      return new CacheablePage<>(Page.empty());
+    }
+
+    List<Question> pagedQuestions = filteredQuestions.subList(start, end);
+    List<QuestionDTO> questionDTOS =
+        pagedQuestions.stream().map(testDTOMapper::convertToQuestionDTO).toList();
+
+    Page<QuestionDTO> result = new PageImpl<>(questionDTOS, pageable, filteredQuestions.size());
+
+    return new CacheablePage<>(result);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public CacheablePage<QuestionDTO> getStudentTestPreview(
+      Long testId, Principal principal, Pageable pageable) {
+    log.debug("Getting student test preview for test ID: {}", testId);
+
+    User currentUser = getCurrentUser(principal);
+    Test test = getTestById(testId);
+
+    testAccessValidator.validateTestAccess(currentUser, test);
+
+    Map<QuestionDifficulty, List<Question>> questionsByDifficulty =
+        test.getQuestions().stream().collect(Collectors.groupingBy(Question::getDifficulty));
+
+    List<Question> selectedQuestions = new ArrayList<>();
+
+    if (test.getEasyQuestionsCount() > 0) {
+      List<Question> easyQuestions =
+          questionsByDifficulty.getOrDefault(QuestionDifficulty.EASY, Collections.emptyList());
+      selectedQuestions.addAll(selectRandomQuestions(easyQuestions, test.getEasyQuestionsCount()));
+    }
+
+    if (test.getMediumQuestionsCount() > 0) {
+      List<Question> mediumQuestions =
+          questionsByDifficulty.getOrDefault(QuestionDifficulty.MEDIUM, Collections.emptyList());
+      selectedQuestions.addAll(
+          selectRandomQuestions(mediumQuestions, test.getMediumQuestionsCount()));
+    }
+
+    if (test.getHardQuestionsCount() > 0) {
+      List<Question> hardQuestions =
+          questionsByDifficulty.getOrDefault(QuestionDifficulty.HARD, Collections.emptyList());
+      selectedQuestions.addAll(selectRandomQuestions(hardQuestions, test.getHardQuestionsCount()));
+    }
+
+    Collections.shuffle(selectedQuestions);
+
+    List<QuestionDTO> questionDTOs =
+        selectedQuestions.stream().map(testDTOMapper::convertToQuestionDTO).toList();
+
+    int start = (int) pageable.getOffset();
+    int end = Math.min((start + pageable.getPageSize()), questionDTOs.size());
+
+    if (start > questionDTOs.size()) {
+      return new CacheablePage<>(Page.empty());
+    }
+
+    List<QuestionDTO> pagedQuestionDTOS = questionDTOs.subList(start, end);
+
+    Page<QuestionDTO> result = new PageImpl<>(pagedQuestionDTOS, pageable, questionDTOs.size());
+
+    return new CacheablePage<>(result);
+  }
+
+  private List<Question> selectRandomQuestions(List<Question> questions, int count) {
+    if (questions.size() <= count) {
+      return new ArrayList<>(questions);
+    }
+
+    List<Question> questionsCopy = new ArrayList<>(questions);
+    Collections.shuffle(questionsCopy);
+    return questionsCopy.subList(0, count);
   }
 }

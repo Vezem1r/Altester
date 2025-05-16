@@ -1,6 +1,7 @@
 package com.altester.core.controller;
 
 import com.altester.core.dtos.core_service.test.*;
+import com.altester.core.model.subject.enums.QuestionDifficulty;
 import com.altester.core.service.TestService;
 import jakarta.validation.Valid;
 import java.security.Principal;
@@ -152,5 +153,30 @@ public class TestController {
       @PathVariable Long testId, Principal principal) {
     testService.toggleTeacherEditPermission(testId, principal);
     return ResponseEntity.ok().build();
+  }
+
+  @GetMapping("/teacher/tests/{testId}/questions")
+  @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+  public ResponseEntity<Page<QuestionDTO>> getTestQuestions(
+      @PathVariable Long testId,
+      Principal principal,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size,
+      @RequestParam(required = false) QuestionDifficulty difficulty) {
+    Page<QuestionDTO> questions =
+        testService.getTestQuestions(testId, principal, PageRequest.of(page, size), difficulty);
+    return ResponseEntity.ok(questions);
+  }
+
+  @GetMapping("/teacher/tests/{testId}/student-preview")
+  @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+  public ResponseEntity<Page<QuestionDTO>> getStudentTestPreview(
+      @PathVariable Long testId,
+      Principal principal,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
+    Page<QuestionDTO> question =
+        testService.getStudentTestPreview(testId, principal, PageRequest.of(page, size));
+    return ResponseEntity.ok(question);
   }
 }

@@ -92,7 +92,7 @@ public class CacheService {
   }
 
   public void clearQuestionRelatedCaches() {
-    clearCaches("questions", "question");
+    clearCaches("questions", "testQuestions", "question");
     clearTestRelatedCaches();
     log.debug("All question-related caches have been cleared");
   }

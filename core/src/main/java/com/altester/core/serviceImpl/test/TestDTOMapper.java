@@ -8,11 +8,11 @@ import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Option;
 import com.altester.core.model.subject.Question;
 import com.altester.core.model.subject.Test;
+import com.altester.core.model.subject.enums.QuestionDifficulty;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.TestGroupAssignmentRepository;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -87,10 +87,19 @@ public class TestDTOMapper {
       }
     }
 
-    List<QuestionDTO> questions =
+    List<Question> easyQuestions =
         test.getQuestions().stream()
-            .sorted(Comparator.comparing(Question::getDifficulty).reversed())
-            .map(this::convertToQuestionDTO)
+            .filter(question -> question.getDifficulty().equals(QuestionDifficulty.EASY))
+            .toList();
+
+    List<Question> mediumQuestions =
+        test.getQuestions().stream()
+            .filter(question -> question.getDifficulty().equals(QuestionDifficulty.MEDIUM))
+            .toList();
+
+    List<Question> hardQuestions =
+        test.getQuestions().stream()
+            .filter(question -> question.getDifficulty().equals(QuestionDifficulty.HARD))
             .toList();
 
     TestPreviewDTO.TestPreviewDTOBuilder builder =
@@ -115,7 +124,9 @@ public class TestDTOMapper {
             .easyScore(test.getEasyQuestionScore())
             .mediumScore(test.getMediumQuestionScore())
             .hardScore(test.getHardQuestionScore())
-            .questions(questions);
+            .easyQuestionsSetup(easyQuestions.size())
+            .mediumQuestionsSetup(mediumQuestions.size())
+            .easyQuestionsSetup(hardQuestions.size());
 
     if (currentUser.getRole() == RolesEnum.ADMIN) {
       builder.allowTeacherEdit(test.isAllowTeacherEdit());
