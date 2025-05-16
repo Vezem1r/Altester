@@ -84,14 +84,12 @@ public class AttemptReviewService {
       User user, Attempt attempt, AttemptReviewSubmissionDTO reviewSubmission) {
     Map<Long, Submission> submissionMap =
         attempt.getSubmissions().stream()
-            .collect(
-                Collectors.toMap(
-                    submission -> submission.getQuestion().getId(), submission -> submission));
+            .collect(Collectors.toMap(Submission::getId, submission -> submission));
 
     int totalScore = 0;
 
     for (QuestionReviewSubmissionDTO questionReview : reviewSubmission.getQuestionReviews()) {
-      Submission submission = submissionMap.get(questionReview.getQuestionId());
+      Submission submission = submissionMap.get(questionReview.getSubmissionId());
 
       if (submission != null) {
         submission.setScore(questionReview.getScore());
