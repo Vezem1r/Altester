@@ -42,6 +42,12 @@ public class Test {
 
   @Column private Integer hardQuestionsCount = 0;
 
+  @Column private Integer easyQuestionScore = 5;
+
+  @Column private Integer mediumQuestionScore = 8;
+
+  @Column private Integer hardQuestionScore = 10;
+
   @Column private LocalDateTime startTime;
 
   @Column private LocalDateTime endTime;

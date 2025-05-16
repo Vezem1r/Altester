@@ -112,6 +112,9 @@ public class TestDTOMapper {
             .easyQuestionsCount(test.getEasyQuestionsCount())
             .mediumQuestionsCount(test.getMediumQuestionsCount())
             .hardQuestionsCount(test.getHardQuestionsCount())
+            .easyScore(test.getEasyQuestionScore())
+            .mediumScore(test.getMediumQuestionScore())
+            .hardScore(test.getHardQuestionScore())
             .questions(questions);
 
     if (currentUser.getRole() == RolesEnum.ADMIN) {

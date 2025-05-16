@@ -45,6 +45,11 @@ public class QuestionServiceImpl implements QuestionService {
   private final CacheService cacheService;
   private final TestRequirementsValidator testRequirementsValidator;
   private final NotificationDispatchService notificationService;
+  private final TestStatusService testStatusService;
+
+  private static final Integer DEFAULT_EASY_SCORE = 5;
+  private static final Integer DEFAULT_MEDIUM_SCORE = 8;
+  private static final Integer DEFAULT_HARD_SCORE = 10;
 
   private User getCurrentUser(Principal principal) {
     return userRepository
@@ -100,11 +105,27 @@ public class QuestionServiceImpl implements QuestionService {
       log.info("Image saved successfully: {}", imagePath);
     }
 
+    int score =
+        switch (createQuestionDTO.getDifficulty()) {
+          case EASY ->
+              test.getEasyQuestionScore() != null
+                  ? test.getEasyQuestionScore()
+                  : DEFAULT_EASY_SCORE;
+          case MEDIUM ->
+              test.getMediumQuestionScore() != null
+                  ? test.getMediumQuestionScore()
+                  : DEFAULT_MEDIUM_SCORE;
+          case HARD ->
+              test.getHardQuestionScore() != null
+                  ? test.getHardQuestionScore()
+                  : DEFAULT_HARD_SCORE;
+        };
+
     Question question =
         Question.builder()
             .questionText(createQuestionDTO.getQuestionText())
             .imagePath(imagePath)
-            .score(createQuestionDTO.getScore())
+            .score(score)
             .questionType(createQuestionDTO.getQuestionType())
             .correctAnswer(createQuestionDTO.getCorrectAnswer())
             .difficulty(createQuestionDTO.getDifficulty())
@@ -183,16 +204,30 @@ public class QuestionServiceImpl implements QuestionService {
       question.setQuestionText(updateQuestionDTO.getQuestionText());
     }
 
-    if (updateQuestionDTO.getScore() > 0) {
-      question.setScore(updateQuestionDTO.getScore());
-    }
-
     question.setImagePath(imagePath);
     question.setQuestionType(updateQuestionDTO.getQuestionType());
     question.setCorrectAnswer(updateQuestionDTO.getCorrectAnswer());
 
     if (updateQuestionDTO.getDifficulty() != null) {
       question.setDifficulty(updateQuestionDTO.getDifficulty());
+
+      int score =
+          switch (updateQuestionDTO.getDifficulty()) {
+            case EASY ->
+                test.getEasyQuestionScore() != null
+                    ? test.getEasyQuestionScore()
+                    : DEFAULT_EASY_SCORE;
+            case MEDIUM ->
+                test.getMediumQuestionScore() != null
+                    ? test.getMediumQuestionScore()
+                    : DEFAULT_MEDIUM_SCORE;
+            case HARD ->
+                test.getHardQuestionScore() != null
+                    ? test.getHardQuestionScore()
+                    : DEFAULT_HARD_SCORE;
+          };
+
+      question.setScore(score);
     }
 
     if (updateQuestionDTO.getOptions() != null) {
@@ -226,7 +261,6 @@ public class QuestionServiceImpl implements QuestionService {
   }
 
   @Override
-  @Transactional
   public void deleteQuestion(Long questionId, Principal principal) {
     log.info(
         "User {} is attempting to delete question with ID {}", principal.getName(), questionId);
@@ -248,31 +282,10 @@ public class QuestionServiceImpl implements QuestionService {
     cacheService.clearTestRelatedCaches();
 
     if (wasTestOpen) {
-      updateTestOpenStatus(test);
+      testStatusService.updateTestOpenStatus(test);
     }
 
     log.info("Question with ID {} deleted", questionId);
-  }
-
-  @Transactional
-  public void updateTestOpenStatus(Test test) {
-
-    if (!testRequirementsValidator.requirementsMet(test)) {
-      test.setOpen(false);
-      testRepository.save(test);
-
-      String message = testRequirementsValidator.getMissingRequirements(test);
-      log.info(
-          "Test with ID {} was closed because it no longer meets difficulty requirements: {}",
-          test.getId(),
-          message);
-
-      List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
-      for (Group group : testGroups) {
-        notificationService.notifyTestParametersChanged(test, group);
-      }
-    }
-    cacheService.clearTestRelatedCaches();
   }
 
   @Override

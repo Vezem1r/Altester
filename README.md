@@ -11,7 +11,7 @@
 
 ## 🔍 Overview
 
-Altester is a robust and scalable educational platform developed as part of a bachelor's thesis, built using a microservices architecture. Designed for educational institutions, it optimizes the entire test lifecycle — from creation and distribution to AI-powered evaluation.
+Altester is a robust and scalable educational platform developed as part of a bachelor's thesis, built using a microservices architecture. Designed for educational institutions, it optimizes the entire test lifecycle - from creation and distribution to AI-powered evaluation.
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/2be1f7f7-fd20-49a3-bf63-c3d7701a27b5" alt="Image" />

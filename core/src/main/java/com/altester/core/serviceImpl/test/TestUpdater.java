@@ -19,6 +19,7 @@ public class TestUpdater {
         .updateDuration()
         .updateMaxAttempts()
         .updateDifficultyCounts()
+        .updateDifficultyScores()
         .updateStartTime()
         .updateEndTime();
   }
@@ -58,6 +59,19 @@ public class TestUpdater {
     }
     if (dto.getHardQuestionsCount() != null) {
       test.setHardQuestionsCount(dto.getHardQuestionsCount());
+    }
+    return this;
+  }
+
+  public TestUpdater updateDifficultyScores() {
+    if (dto.getEasyQuestionScore() != null) {
+      test.setEasyQuestionScore(dto.getEasyQuestionScore());
+    }
+    if (dto.getMediumQuestionScore() != null) {
+      test.setMediumQuestionScore(dto.getMediumQuestionScore());
+    }
+    if (dto.getHardQuestionScore() != null) {
+      test.setHardQuestionScore(dto.getHardQuestionScore());
     }
     return this;
   }

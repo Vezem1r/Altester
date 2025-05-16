@@ -15,6 +15,7 @@ import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.service.TestService;
 import com.altester.core.serviceImpl.CacheService;
 import com.altester.core.serviceImpl.group.GroupActivityService;
+import com.altester.core.serviceImpl.question.TestStatusService;
 import com.altester.core.util.CacheablePage;
 import java.security.Principal;
 import java.time.LocalDateTime;
@@ -46,6 +47,7 @@ public class TestServiceImpl implements TestService {
   private final TestGroupAssignmentRepository assignmentRepository;
   private final TestRequirementsValidator testRequirementsValidator;
   private final PromptRepository promptRepository;
+  private final TestStatusService testStatusService;
 
   private User getCurrentUser(Principal principal) {
     return userRepository
@@ -387,6 +389,7 @@ public class TestServiceImpl implements TestService {
     }
 
     Test updatedTest = testRepository.save(existingTest);
+    testStatusService.updateTestOpenStatus(existingTest);
 
     boolean parametersChanged =
         !existingTest.getTitle().equals(updateTestDTO.getTitle())

@@ -30,6 +30,9 @@ public class TestPreviewDTO {
   private Integer easyQuestionsCount;
   private Integer mediumQuestionsCount;
   private Integer hardQuestionsCount;
+  private Integer mediumScore;
+  private Integer easyScore;
+  private Integer hardScore;
 
   private List<GroupSummaryDTO> associatedGroups;
   private List<QuestionDTO> questions;

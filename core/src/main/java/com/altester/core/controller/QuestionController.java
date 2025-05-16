@@ -81,22 +81,14 @@ public class QuestionController {
 
   @DeleteMapping("/{questionId}")
   public ResponseEntity<Void> deleteQuestion(@PathVariable Long questionId, Principal principal) {
-
-    log.info("User {} deleting question ID: {}", principal.getName(), questionId);
     questionService.deleteQuestion(questionId, principal);
-    log.info("Question ID: {} successfully deleted", questionId);
-
     return ResponseEntity.noContent().build();
   }
 
   @GetMapping("/{questionId}")
   public ResponseEntity<QuestionDetailsDTO> getQuestion(
       @PathVariable Long questionId, Principal principal) {
-
-    log.info("User {} retrieving question ID: {}", principal.getName(), questionId);
     QuestionDetailsDTO result = questionService.getQuestion(questionId, principal);
-    log.info("Question ID: {} successfully retrieved", questionId);
-
     return ResponseEntity.ok(result);
   }
 }

@@ -34,6 +34,15 @@ public class CreateTestDTO {
   @Min(value = 0, message = "Hard questions count cannot be negative")
   private Integer hardQuestionsCount;
 
+  @Min(value = 0, message = "Hard questions score cannot be negative")
+  private Integer easyQuestionScore;
+
+  @Min(value = 0, message = "Hard questions score cannot be negative")
+  private Integer mediumQuestionScore;
+
+  @Min(value = 0, message = "Hard questions score cannot be negative")
+  private Integer hardQuestionScore;
+
   private LocalDateTime startTime;
 
   private LocalDateTime endTime;

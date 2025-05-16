@@ -20,10 +20,6 @@ public class CreateQuestionDTO {
   @Size(max = 2000, message = "Question text must be less than 2000 characters")
   private String questionText;
 
-  @Min(value = 1, message = "Score must be at least 1")
-  @Max(value = 100, message = "Score cannot exceed 100")
-  private int score;
-
   @NotNull(message = "Question type is required")
   private QuestionType questionType;
 
