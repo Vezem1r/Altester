@@ -87,7 +87,9 @@ public class CacheService {
         "testAttemptsForAdmin",
         "studentAttemptsForTeacher",
         "studentAttemptsForAdmin",
-        "studentTestAttempts");
+        "studentTestAttempts",
+        "studentTestAttemptsForTeacher",
+        "studentTestAttemptsForAdmin");
     log.debug("All attempt-related caches have been cleared");
   }
 

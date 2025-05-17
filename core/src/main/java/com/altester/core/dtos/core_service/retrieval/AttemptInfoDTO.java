@@ -16,5 +16,6 @@ public class AttemptInfoDTO {
   private LocalDateTime startTime;
   private LocalDateTime endTime;
   private Integer score;
+  private Integer aiScore;
   private String status;
 }

@@ -202,13 +202,11 @@ public abstract class AbstractAiProviderService implements AiProviderService {
           if (!initialFeedback.isEmpty()) {
             feedback.append(initialFeedback);
           }
-        } else if (feedbackStarted) {
-          if (!line.isEmpty()) {
-            if (!feedback.isEmpty()) {
-              feedback.append("\n");
-            }
-            feedback.append(line);
+        } else if (feedbackStarted && !line.isEmpty()) {
+          if (!feedback.isEmpty()) {
+            feedback.append("\n");
           }
+          feedback.append(line);
         }
       }
 

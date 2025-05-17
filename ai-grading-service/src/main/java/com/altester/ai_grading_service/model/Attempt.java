@@ -28,7 +28,7 @@ public class Attempt {
 
   @Column private LocalDateTime endTime;
 
-  @Column private Integer score;
+  @Column private Integer aiScore;
 
   @Column(nullable = false)
   @Enumerated(EnumType.STRING)

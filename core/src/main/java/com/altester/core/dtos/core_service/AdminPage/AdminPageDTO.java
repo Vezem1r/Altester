@@ -15,5 +15,6 @@ public class AdminPageDTO {
   private long teachersCount;
   private long subjectsCount;
   private long testsCount;
+  private double aiAccuracy;
   private String username;
 }

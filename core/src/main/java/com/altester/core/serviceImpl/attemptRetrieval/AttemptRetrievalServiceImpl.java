@@ -3,6 +3,7 @@ package com.altester.core.serviceImpl.attemptRetrieval;
 import com.altester.core.dtos.core_service.retrieval.*;
 import com.altester.core.dtos.core_service.review.AttemptReviewSubmissionDTO;
 import com.altester.core.dtos.core_service.student.AttemptReviewDTO;
+import com.altester.core.exception.AccessDeniedException;
 import com.altester.core.exception.ResourceNotFoundException;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.*;
@@ -199,5 +200,85 @@ public class AttemptRetrievalServiceImpl implements AttemptRetrievalService {
     accessValidator.verifyAttemptAccessPermission(user, attempt);
 
     reviewService.processAttemptReviewSubmission(user, attempt, reviewSubmission);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  @Cacheable(
+      value = "studentTestAttemptsForTeacher",
+      key = "#principal.name + ':testId:' + #testId + ':username:' + #username")
+  public List<AttemptInfoDTO> getStudentTestAttemptsForTeacher(
+      Principal principal, Long testId, String username) {
+    log.info(
+        "Teacher {} requesting attempts for student {} in test {}",
+        principal.getName(),
+        username,
+        testId);
+
+    User teacher = accessValidator.getUserFromPrincipal(principal);
+    accessValidator.verifyTeacherRole(teacher);
+
+    User student =
+        userRepository
+            .findByUsername(username)
+            .orElseThrow(() -> ResourceNotFoundException.user(username));
+
+    Test test =
+        testRepository
+            .findById(testId)
+            .orElseThrow(() -> new ResourceNotFoundException("Test", testId.toString(), null));
+
+    boolean hasAccess =
+        groupRepository.findByTeacher(teacher).stream()
+            .filter(group -> group.getStudents().contains(student))
+            .anyMatch(group -> group.getTests().contains(test));
+
+    if (!hasAccess) {
+      throw AccessDeniedException.attemptAccess();
+    }
+
+    List<Attempt> attempts =
+        attemptRepository.findAll().stream()
+            .filter(
+                attempt ->
+                    attempt.getStudent().equals(student) && attempt.getTest().getId() == testId)
+            .toList();
+
+    return dataProcessor.processStudentTestAttempts(attempts);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  @Cacheable(
+      value = "studentTestAttemptsForAdmin",
+      key = "#principal.name + ':testId:' + #testId + ':username:' + #username")
+  public List<AttemptInfoDTO> getStudentTestAttemptsForAdmin(
+      Principal principal, Long testId, String username) {
+    log.info(
+        "Admin {} requesting attempts for student {} in test {}",
+        principal.getName(),
+        username,
+        testId);
+
+    User admin = accessValidator.getUserFromPrincipal(principal);
+    accessValidator.verifyAdminRole(admin);
+
+    User student =
+        userRepository
+            .findByUsername(username)
+            .orElseThrow(() -> ResourceNotFoundException.user(username));
+
+    testRepository
+        .findById(testId)
+        .orElseThrow(() -> new ResourceNotFoundException("Test", testId.toString(), null));
+
+    List<Attempt> attempts =
+        attemptRepository.findAll().stream()
+            .filter(
+                attempt ->
+                    attempt.getStudent().equals(student) && attempt.getTest().getId() == testId)
+            .toList();
+
+    return dataProcessor.processStudentTestAttempts(attempts);
   }
 }

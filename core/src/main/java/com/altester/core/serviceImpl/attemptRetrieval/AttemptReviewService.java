@@ -62,8 +62,10 @@ public class AttemptReviewService {
               .studentAnswer(submission.getAnswerText())
               .selectedOptionIds(selectedOptionIds)
               .score(submission.getScore() != null ? submission.getScore() : 0)
+              .aiScore(submission.getAiScore() != null ? submission.getAiScore() : 0)
               .maxScore(question.getScore())
               .teacherFeedback(submission.getTeacherFeedback())
+              .aiFeedback(submission.getAiFeedback())
               .build());
     }
 
@@ -72,6 +74,7 @@ public class AttemptReviewService {
         .testTitle(test.getTitle())
         .testDescription(test.getDescription())
         .score(attempt.getScore() != null ? attempt.getScore() : 0)
+        .aiScore(attempt.getAiScore() != null ? attempt.getAiScore() : 0)
         .totalScore(test.getTotalScore())
         .startTime(attempt.getStartTime())
         .endTime(attempt.getEndTime())

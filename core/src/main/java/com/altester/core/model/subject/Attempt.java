@@ -36,6 +36,8 @@ public class Attempt {
 
   @Column private Integer score;
 
+  @Column private Integer aiScore;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
   private AttemptStatus status;

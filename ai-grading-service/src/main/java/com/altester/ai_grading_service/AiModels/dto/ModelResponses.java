@@ -7,6 +7,8 @@ import lombok.Data;
 
 public class ModelResponses {
 
+  private ModelResponses() {}
+
   @Data
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static class OpenAiResponse {

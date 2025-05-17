@@ -3,5 +3,6 @@ package com.altester.core.model.subject.enums;
 public enum AttemptStatus {
   IN_PROGRESS,
   COMPLETED,
-  REVIEWED
+  REVIEWED,
+  AI_REVIEWED
 }

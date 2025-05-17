@@ -44,6 +44,24 @@ public class AttemptRetrievalController {
     return ResponseEntity.ok(attempts);
   }
 
+  @GetMapping("/teacher/test/{testId}/student/{username}")
+  @PreAuthorize("hasRole('TEACHER')")
+  public ResponseEntity<List<AttemptInfoDTO>> getStudentTestAttemptsForTeacher(
+      Principal principal, @PathVariable Long testId, @PathVariable String username) {
+    List<AttemptInfoDTO> attempts =
+        attemptRetrievalService.getStudentTestAttemptsForTeacher(principal, testId, username);
+    return ResponseEntity.ok(attempts);
+  }
+
+  @GetMapping("/admin/test/{testId}/student/{username}")
+  @PreAuthorize("hasRole('ADMIN')")
+  public ResponseEntity<List<AttemptInfoDTO>> getStudentTestAttemptsForAdmin(
+      Principal principal, @PathVariable Long testId, @PathVariable String username) {
+    List<AttemptInfoDTO> attempts =
+        attemptRetrievalService.getStudentTestAttemptsForAdmin(principal, testId, username);
+    return ResponseEntity.ok(attempts);
+  }
+
   @GetMapping("/teacher/student")
   @PreAuthorize("hasRole('TEACHER')")
   public ResponseEntity<StudentTestAttemptsResponseDTO> getStudentAttemptsForTeacher(

@@ -24,4 +24,8 @@ public class ResourceNotFoundException extends RuntimeException {
   public static ResourceNotFoundException question(Long id) {
     return new ResourceNotFoundException("Question", "id", id);
   }
+
+  public static ResourceNotFoundException prompt(Long id) {
+    return new ResourceNotFoundException("Prompt", "id", id);
+  }
 }

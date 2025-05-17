@@ -369,7 +369,8 @@ public class TestAttemptServiceImpl implements TestAttemptService {
   }
 
   private boolean isAlreadyReviewed(Attempt attempt) {
-    if (attempt.getStatus() == AttemptStatus.REVIEWED) {
+    if (attempt.getStatus() == AttemptStatus.REVIEWED
+        || attempt.getStatus() == AttemptStatus.AI_REVIEWED) {
       log.debug(
           "[COMPLETE ATTEMPT] Attempt {} is already {}, returning existing result",
           attempt.getId(),
@@ -447,8 +448,8 @@ public class TestAttemptServiceImpl implements TestAttemptService {
           attempt.getId(),
           gradingResponse.getAttemptScore());
 
-      attempt.setScore(finalTotalScore + gradingResponse.getAttemptScore());
-      attempt.setStatus(AttemptStatus.REVIEWED);
+      attempt.setAiScore(finalTotalScore + gradingResponse.getAttemptScore());
+      attempt.setStatus(AttemptStatus.AI_REVIEWED);
 
       attemptRepository.save(attempt);
       clearCashes();

@@ -28,6 +28,11 @@ public class Submission {
   @Column(length = 1024)
   private String teacherFeedback;
 
+  @Column private Integer aiScore;
+
+  @Column(length = 2048)
+  private String aiFeedback;
+
   @Column private Integer orderIndex;
 
   @ManyToOne

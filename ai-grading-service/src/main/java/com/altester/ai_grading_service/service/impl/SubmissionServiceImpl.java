@@ -40,13 +40,13 @@ public class SubmissionServiceImpl implements SubmissionService {
                 .findById(result.getSubmissionId())
                 .orElseThrow(() -> ResourceNotFoundException.submission(result.getSubmissionId()));
 
-        submission.setScore(result.getScore());
-        submission.setTeacherFeedback(result.getFeedback());
+        submission.setAiScore(result.getScore());
+        submission.setAiFeedback(result.getFeedback());
         submission.setAiGraded(true);
 
         submissionRepository.save(submission);
         savedCount++;
-        totalScore += submission.getScore();
+        totalScore += submission.getAiScore();
 
         log.info(
             "Updated submission {} with AI grading results: score={}, feedback={}",
@@ -56,8 +56,8 @@ public class SubmissionServiceImpl implements SubmissionService {
       }
     }
 
-    attempt.setScore(totalScore);
-    attempt.setStatus(AttemptStatus.REVIEWED);
+    attempt.setAiScore(totalScore);
+    attempt.setStatus(AttemptStatus.AI_REVIEWED);
     attemptRepository.save(attempt);
 
     return savedCount;

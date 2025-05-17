@@ -18,8 +18,10 @@ public class QuestionReviewDTO {
   private String studentAnswer;
   private List<Long> selectedOptionIds;
   private int score;
+  private int aiScore;
   private int maxScore;
   private String teacherFeedback;
+  private String aiFeedback;
   private boolean isAiGraded;
   private boolean isRequested;
 }

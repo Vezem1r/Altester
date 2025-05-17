@@ -1,5 +1,6 @@
 package com.altester.ai_grading_service.service.impl;
 
+import com.altester.ai_grading_service.exception.ResourceNotFoundException;
 import com.altester.ai_grading_service.model.Prompt;
 import com.altester.ai_grading_service.repository.PromptRepository;
 import com.altester.ai_grading_service.service.PromptService;
@@ -63,7 +64,7 @@ public class PromptServiceImpl implements PromptService {
       return FileCopyUtils.copyToString(reader);
     } catch (IOException e) {
       log.error("Failed to load default prompt template", e);
-      throw new RuntimeException("Could not load default prompt template", e);
+      throw ResourceNotFoundException.prompt(null);
     }
   }
 

@@ -25,4 +25,7 @@ public interface AttemptRepository extends JpaRepository<Attempt, Long> {
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("SELECT a FROM Attempt a LEFT JOIN FETCH a.submissions WHERE a.id = :id")
   Optional<Attempt> findByIdWithSubmissionsAndLock(@Param("id") Long id);
+
+  @Query("SELECT a FROM Attempt a WHERE a.score IS NOT NULL AND a.aiScore IS NOT NULL")
+  List<Attempt> findAllWithBothScores();
 }

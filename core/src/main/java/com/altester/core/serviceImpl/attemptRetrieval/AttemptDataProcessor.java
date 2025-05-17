@@ -4,7 +4,10 @@ import com.altester.core.dtos.core_service.retrieval.*;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.Attempt;
 import com.altester.core.model.subject.Group;
+import com.altester.core.model.subject.Submission;
 import com.altester.core.model.subject.Test;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -55,6 +58,7 @@ public class AttemptDataProcessor {
                           .startTime(attempt.getStartTime())
                           .endTime(attempt.getEndTime())
                           .score(attempt.getScore())
+                          .aiScore(attempt.getAiScore())
                           .status(attempt.getStatus().name())
                           .build())
               .sorted(Comparator.comparing(AttemptInfoDTO::getAttemptNumber))
@@ -114,27 +118,40 @@ public class AttemptDataProcessor {
                     User student = entry.getKey();
                     List<Attempt> studentAttempts = entry.getValue();
 
-                    studentAttempts.sort(Comparator.comparing(Attempt::getAttemptNumber));
-
-                    List<AttemptInfoDTO> attemptInfos =
+                    double avgScore =
                         studentAttempts.stream()
-                            .map(
-                                attempt ->
-                                    AttemptInfoDTO.builder()
-                                        .attemptId(attempt.getId())
-                                        .attemptNumber(attempt.getAttemptNumber())
-                                        .startTime(attempt.getStartTime())
-                                        .endTime(attempt.getEndTime())
-                                        .score(attempt.getScore())
-                                        .status(attempt.getStatus().name())
-                                        .build())
-                            .toList();
+                            .filter(a -> a.getScore() != null)
+                            .mapToInt(Attempt::getScore)
+                            .average()
+                            .orElse(0.0);
+
+                    avgScore =
+                        BigDecimal.valueOf(avgScore)
+                            .setScale(1, RoundingMode.HALF_UP)
+                            .doubleValue();
+
+                    double avgAiScore =
+                        studentAttempts.stream()
+                            .flatMap(a -> a.getSubmissions().stream())
+                            .filter(s -> s.getAiScore() != null)
+                            .mapToInt(Submission::getAiScore)
+                            .average()
+                            .orElse(0.0);
+
+                    avgAiScore =
+                        BigDecimal.valueOf(avgAiScore)
+                            .setScale(1, RoundingMode.HALF_UP)
+                            .doubleValue();
+
+                    studentAttempts.sort(Comparator.comparing(Attempt::getAttemptNumber));
 
                     return StudentAttemptGroup.builder()
                         .username(student.getUsername())
                         .firstName(student.getName())
                         .lastName(student.getSurname())
-                        .attempts(attemptInfos)
+                        .attemptCount(studentAttempts.size())
+                        .averageScore(avgScore)
+                        .averageAiScore(avgAiScore)
                         .build();
                   })
               .sorted(Comparator.comparing(StudentAttemptGroup::getUsername))
@@ -149,5 +166,23 @@ public class AttemptDataProcessor {
     }
 
     return groupAttempts;
+  }
+
+  public List<AttemptInfoDTO> processStudentTestAttempts(List<Attempt> attempts) {
+
+    return attempts.stream()
+        .map(
+            attempt ->
+                AttemptInfoDTO.builder()
+                    .attemptId(attempt.getId())
+                    .attemptNumber(attempt.getAttemptNumber())
+                    .startTime(attempt.getStartTime())
+                    .endTime(attempt.getEndTime())
+                    .score(attempt.getScore())
+                    .aiScore(attempt.getAiScore())
+                    .status(attempt.getStatus().name())
+                    .build())
+        .sorted(Comparator.comparing(AttemptInfoDTO::getAttemptNumber))
+        .toList();
   }
 }

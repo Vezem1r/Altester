@@ -21,10 +21,10 @@ public class Submission {
   @Column(name = "answer_text", length = 4096)
   private String answerText;
 
-  @Column private Integer score;
+  @Column private Integer aiScore;
 
-  @Column(length = 1024)
-  private String teacherFeedback;
+  @Column(length = 2048)
+  private String aiFeedback;
 
   @ManyToOne
   @JoinColumn(name = "attempt_id", nullable = false)

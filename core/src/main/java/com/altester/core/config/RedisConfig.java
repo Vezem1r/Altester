@@ -180,6 +180,12 @@ public class RedisConfig {
     cacheConfigurations.put(
         "studentAttemptsForAdmin",
         createCacheConfiguration(new JsonRedisSerializer<>(StudentTestAttemptsResponseDTO.class)));
+    cacheConfigurations.put(
+        "studentTestAttemptsForTeacher",
+        createCacheConfiguration(new JsonRedisSerializer<>(List.class)));
+    cacheConfigurations.put(
+        "studentTestAttemptsForAdmin",
+        createCacheConfiguration(new JsonRedisSerializer<>(List.class)));
 
     // Prompt service caches
     cacheConfigurations.put(

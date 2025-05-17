@@ -1,6 +1,5 @@
 package com.altester.core.dtos.core_service.retrieval;
 
-import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,5 +13,7 @@ public class StudentAttemptGroup {
   private String username;
   private String firstName;
   private String lastName;
-  private List<AttemptInfoDTO> attempts;
+  private Integer attemptCount;
+  private Double averageScore;
+  private Double averageAiScore;
 }

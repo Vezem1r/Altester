@@ -92,4 +92,32 @@ public interface AttemptRetrievalService {
    */
   void submitAttemptReview(
       Principal principal, Long attemptId, AttemptReviewSubmissionDTO reviewSubmission);
+
+  /**
+   * Retrieves detailed information about a student's attempts for a specific test. Accessible to
+   * teachers who teach the group the student belongs to.
+   *
+   * @param principal The authenticated teacher
+   * @param testId The ID of the test
+   * @param username The username of the student
+   * @return List of attempt information
+   * @throws ResourceNotFoundException if the test or student doesn't exist
+   * @throws AccessDeniedException if the teacher doesn't teach the student's group
+   */
+  List<AttemptInfoDTO> getStudentTestAttemptsForTeacher(
+      Principal principal, Long testId, String username);
+
+  /**
+   * Retrieves detailed information about a student's attempts for a specific test. Accessible only
+   * to administrators.
+   *
+   * @param principal The authenticated administrator
+   * @param testId The ID of the test
+   * @param username The username of the student
+   * @return List of attempt information
+   * @throws ResourceNotFoundException if the test or student doesn't exist
+   * @throws AccessDeniedException if the authenticated user is not an administrator
+   */
+  List<AttemptInfoDTO> getStudentTestAttemptsForAdmin(
+      Principal principal, Long testId, String username);
 }
