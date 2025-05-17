@@ -385,16 +385,63 @@ public class TestServiceImpl implements TestService {
 
       if (!groupsToRemove.isEmpty()) {
         Test finalExistingTest = existingTest;
-        groupsToRemove.forEach(group -> group.getTests().remove(finalExistingTest));
+
+        for (Group group : groupsToRemove) {
+          group.getTests().remove(finalExistingTest);
+
+          assignmentRepository
+              .findByTestAndGroup(finalExistingTest, group)
+              .ifPresent(
+                  assignment -> {
+                    assignmentRepository.delete(assignment);
+                    log.debug(
+                        "Removed TestGroupAssignment for test {} and group {}",
+                        finalExistingTest.getId(),
+                        group.getId());
+                  });
+        }
+
         groupRepository.saveAll(groupsToRemove);
-        log.debug("Removed test from {} groups", groupsToRemove.size());
+        log.debug("Removed test from {} groups and related assignments", groupsToRemove.size());
       }
 
       if (!groupsToAdd.isEmpty()) {
-        Test finalExistingTest1 = existingTest;
-        groupsToAdd.forEach(group -> group.getTests().add(finalExistingTest1));
+
+        for (Group group : groupsToAdd) {
+          group.getTests().add(existingTest);
+
+          if (assignmentRepository.findByTestAndGroup(existingTest, group).isEmpty()) {
+            List<ApiKey> globalKeys = apiKeyRepository.findAllIsGlobalTrue();
+            boolean hasGlobalKey = !globalKeys.isEmpty();
+
+            if (hasGlobalKey) {
+              ApiKey globalKey = globalKeys.getFirst();
+              Prompt defaultPrompt = promptRepository.findById(1L).orElse(null);
+
+              TestGroupAssignment assignment =
+                  TestGroupAssignment.builder()
+                      .test(existingTest)
+                      .group(group)
+                      .apiKey(globalKey)
+                      .prompt(defaultPrompt)
+                      .assignedAt(LocalDateTime.now())
+                      .assignedBy(currentUser)
+                      .aiEvaluation(true)
+                      .build();
+
+              assignmentRepository.save(assignment);
+
+              log.debug(
+                  "Created TestGroupAssignment for test {} and group {} with API key {}",
+                  existingTest.getId(),
+                  group.getId(),
+                  globalKey.getId());
+            }
+          }
+        }
+
         groupRepository.saveAll(groupsToAdd);
-        log.debug("Added test to {} new groups", groupsToAdd.size());
+        log.debug("Added test to {} new groups with assignments", groupsToAdd.size());
       }
     }
 

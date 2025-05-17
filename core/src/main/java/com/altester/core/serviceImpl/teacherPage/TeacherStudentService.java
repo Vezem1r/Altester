@@ -2,8 +2,10 @@ package com.altester.core.serviceImpl.teacherPage;
 
 import com.altester.core.dtos.core_service.TeacherPage.SubjectGroupDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherStudentsDTO;
+import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.Group;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,33 +25,30 @@ public class TeacherStudentService {
    * @return List of unique students with their groups
    */
   public List<TeacherStudentsDTO> getUniqueStudentsWithGroups(List<Group> activeGroups) {
-    return activeGroups.stream()
-        .flatMap(
-            group -> {
-              log.trace(
-                  "Processing students from group: {} (id: {})", group.getName(), group.getId());
-              return group.getStudents().stream()
-                  .collect(
-                      Collectors.toMap(
-                          student -> student,
-                          student -> new SubjectGroupDTO(group.getId(), group.getName()),
-                          (existing, replacement) -> existing))
-                  .keySet()
-                  .stream()
-                  .map(
-                      student -> {
-                        List<SubjectGroupDTO> subjectGroups =
-                            activeGroups.stream()
-                                .filter(g -> g.getStudents().contains(student))
-                                .map(g -> new SubjectGroupDTO(g.getId(), g.getName()))
-                                .toList();
+    Set<User> uniqueStudents =
+        activeGroups.stream()
+            .flatMap(group -> group.getStudents().stream())
+            .collect(Collectors.toSet());
 
-                        log.trace(
-                            "Student {} belongs to {} groups",
-                            student.getUsername(),
-                            subjectGroups.size());
-                        return teacherPageMapper.toTeacherStudentsDTO(student, subjectGroups);
-                      });
+    log.debug(
+        "Found {} unique students across {} active groups",
+        uniqueStudents.size(),
+        activeGroups.size());
+
+    return uniqueStudents.stream()
+        .map(
+            student -> {
+              List<SubjectGroupDTO> subjectGroups =
+                  activeGroups.stream()
+                      .filter(group -> group.getStudents().contains(student))
+                      .map(
+                          group ->
+                              new SubjectGroupDTO(group.getId(), group.getName(), group.isActive()))
+                      .toList();
+
+              log.trace(
+                  "Student {} belongs to {} groups", student.getUsername(), subjectGroups.size());
+              return teacherPageMapper.toTeacherStudentsDTO(student, subjectGroups);
             })
         .toList();
   }

@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class SubjectGroupDTO {
   private long id;
   private String name;
+  private boolean isActive;
 }
