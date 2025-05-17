@@ -1,6 +1,7 @@
 package com.altester.core.serviceImpl.teacherPage;
 
 import com.altester.core.dtos.core_service.TeacherPage.*;
+import com.altester.core.dtos.core_service.subject.GroupsResponse;
 import com.altester.core.exception.*;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.Group;
@@ -164,7 +165,7 @@ public class TeacherPageServiceImpl implements TeacherPageService {
           "#principal.name + ':page:' + #page + ':size:' + #size + ':search:' + "
               + "(#searchQuery == null ? '' : #searchQuery) + ':status:' + "
               + "(#statusFilter == null ? '' : #statusFilter)")
-  public CacheablePage<ListTeacherGroupDTO> getGroups(
+  public CacheablePage<GroupsResponse> getGroups(
       Principal principal, int page, int size, String searchQuery, String statusFilter) {
     log.info(
         "Fetching paginated groups list for teacher {} (page: {}, size: {}, search: {}, status: {})",
@@ -190,12 +191,12 @@ public class TeacherPageServiceImpl implements TeacherPageService {
     }
 
     log.debug("Converting {} filtered groups to DTOs", filteredGroups.size());
-    List<ListTeacherGroupDTO> groupDTOs = teacherGroupService.convertGroupsToDTOs(filteredGroups);
+    List<GroupsResponse> groupDTOs = teacherGroupService.convertGroupsToDTOs(filteredGroups);
 
     int start = (int) pageable.getOffset();
     int end = Math.min((start + pageable.getPageSize()), groupDTOs.size());
 
-    List<ListTeacherGroupDTO> pageContent;
+    List<GroupsResponse> pageContent;
     if (start >= groupDTOs.size()) {
       log.debug("Requested page exceeds available data size, returning empty page");
       pageContent = List.of();
@@ -209,7 +210,7 @@ public class TeacherPageServiceImpl implements TeacherPageService {
           groupDTOs.size());
     }
 
-    Page<ListTeacherGroupDTO> result = new PageImpl<>(pageContent, pageable, groupDTOs.size());
+    Page<GroupsResponse> result = new PageImpl<>(pageContent, pageable, groupDTOs.size());
     log.info(
         "Returning page {} of {} with {} groups",
         result.getNumber() + 1,

@@ -1,9 +1,9 @@
 package com.altester.core.controller.page;
 
-import com.altester.core.dtos.core_service.TeacherPage.ListTeacherGroupDTO;
 import com.altester.core.dtos.core_service.TeacherPage.MoveStudentRequest;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherPageDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherStudentsDTO;
+import com.altester.core.dtos.core_service.subject.GroupsResponse;
 import com.altester.core.service.TeacherPageService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
@@ -46,7 +46,7 @@ public class TeacherPage {
   }
 
   @GetMapping("/getGroups")
-  public ResponseEntity<Page<ListTeacherGroupDTO>> getTeacherGroups(
+  public ResponseEntity<Page<GroupsResponse>> getTeacherGroups(
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "10") int size,
       @RequestParam(required = false) String search,
@@ -59,7 +59,7 @@ public class TeacherPage {
 
     log.debug("Fetching groups: search: {}, status: {}", search, status);
 
-    Page<ListTeacherGroupDTO> groups =
+    Page<GroupsResponse> groups =
         teacherPageService.getGroups(principal, page, size, search, status);
 
     return ResponseEntity.ok(groups);

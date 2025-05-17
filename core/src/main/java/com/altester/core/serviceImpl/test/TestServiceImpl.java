@@ -131,10 +131,12 @@ public class TestServiceImpl implements TestService {
             "User {} does not have access to group {}", currentUser.getUsername(), group.getId());
         throw AccessDeniedException.groupAccess();
       }
-      if (!test.isAllowTeacherEdit()) {
-        log.warn("Test {} does not allow teacher editing", test.getId());
-        throw AccessDeniedException.testEdit();
-      }
+
+      /// UNCOMMENT if you need
+      /// if (!test.isAllowTeacherEdit()) {
+      ///  log.warn("Test {} does not allow teacher editing", test.getId());
+      ///  throw AccessDeniedException.testEdit();
+      /// }
     }
 
     TestGroupAssignment assignment =
@@ -516,7 +518,7 @@ public class TestServiceImpl implements TestService {
 
   @Override
   @Transactional(readOnly = true)
-  @Cacheable(value = "test", key = "'id:' + #testId")
+  @Cacheable(value = "test", key = "'id:' + #testId + ':user:' + #principal.name")
   public TestPreviewDTO getTestPreview(Long testId, Principal principal) {
     log.debug("Getting test preview for test ID: {}", testId);
 

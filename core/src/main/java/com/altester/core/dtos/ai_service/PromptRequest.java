@@ -1,5 +1,6 @@
 package com.altester.core.dtos.ai_service;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -23,5 +24,6 @@ public class PromptRequest {
   @Size(min = 50, max = 50000, message = "Content must be between 50 and 50000 characters")
   private String content;
 
+  @JsonProperty("isPublic")
   private boolean isPublic;
 }

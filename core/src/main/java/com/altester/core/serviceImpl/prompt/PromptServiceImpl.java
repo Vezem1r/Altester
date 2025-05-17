@@ -44,6 +44,10 @@ public class PromptServiceImpl implements PromptService {
   @Override
   @Transactional
   public PromptDetailsDTO createPrompt(PromptRequest request, Principal principal) {
+    log.info(
+        "Creating new prompt with title {} and privacy public equals {}",
+        request.getTitle(),
+        request.isPublic());
     User user =
         userRepository
             .findByUsername(principal.getName())

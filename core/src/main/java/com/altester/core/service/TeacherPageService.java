@@ -1,9 +1,9 @@
 package com.altester.core.service;
 
-import com.altester.core.dtos.core_service.TeacherPage.ListTeacherGroupDTO;
 import com.altester.core.dtos.core_service.TeacherPage.MoveStudentRequest;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherPageDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherStudentsDTO;
+import com.altester.core.dtos.core_service.subject.GroupsResponse;
 import com.altester.core.exception.*;
 import com.altester.core.util.CacheablePage;
 import java.security.Principal;
@@ -47,7 +47,7 @@ public interface TeacherPageService {
    * @return Paginated list of groups with relevant information
    * @throws ResourceNotFoundException if the teacher is not found
    */
-  CacheablePage<ListTeacherGroupDTO> getGroups(
+  CacheablePage<GroupsResponse> getGroups(
       Principal principal, int page, int size, String searchQuery, String statusFilter);
 
   /**

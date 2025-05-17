@@ -1,6 +1,6 @@
 package com.altester.core.serviceImpl.teacherPage;
 
-import com.altester.core.dtos.core_service.TeacherPage.ListTeacherGroupDTO;
+import com.altester.core.dtos.core_service.subject.GroupsResponse;
 import com.altester.core.model.subject.Group;
 import com.altester.core.repository.SubjectRepository;
 import com.altester.core.serviceImpl.group.GroupActivityService;
@@ -87,7 +87,7 @@ public class TeacherGroupService {
         .toList();
   }
 
-  public List<ListTeacherGroupDTO> convertGroupsToDTOs(List<Group> groups) {
+  public List<GroupsResponse> convertGroupsToDTOs(List<Group> groups) {
     return groups.stream()
         .map(
             group -> {
