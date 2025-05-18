@@ -57,6 +57,10 @@ public class ResourceNotFoundException extends AlTesterException {
     return new ResourceNotFoundException("Subject", id.toString(), null);
   }
 
+  public static ResourceNotFoundException subject(String message) {
+    return new ResourceNotFoundException("Subject", null, message);
+  }
+
   public static ResourceNotFoundException test(Long id) {
     return new ResourceNotFoundException("Test", id.toString(), null);
   }

@@ -9,15 +9,13 @@ import com.altester.core.exception.ResourceNotFoundException;
 import com.altester.core.exception.StateConflictException;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
-import com.altester.core.model.subject.Attempt;
 import com.altester.core.model.subject.Group;
 import com.altester.core.repository.*;
 import com.altester.core.service.AdminPageService;
 import com.altester.core.serviceImpl.CacheService;
+import com.altester.core.util.AiAccuracy;
 import com.altester.core.util.CacheablePage;
 import jakarta.persistence.criteria.Predicate;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +52,7 @@ public class AdminPageServiceImpl implements AdminPageService {
   private final UserMapper userMapper;
   private final CacheService cacheService;
   private final AttemptRepository attemptRepository;
+  private final AiAccuracy aiAccuracy;
 
   private User getUserByUsername(String username) {
     return userRepository
@@ -190,7 +189,7 @@ public class AdminPageServiceImpl implements AdminPageService {
     dto.setSubjectsCount(subjectRepository.count());
     dto.setTestsCount(testRepository.count());
     dto.setUsername(username);
-    dto.setAiAccuracy(calculateAiAccuracy());
+    dto.setAiAccuracy(aiAccuracy.calculateAiAccuracy());
     return dto;
   }
 
@@ -282,44 +281,5 @@ public class AdminPageServiceImpl implements AdminPageService {
 
     log.info("User {} (ID: {}) successfully updated", savedUser.getUsername(), savedUser.getId());
     return userMapper.convertToUsersListDTO(savedUser);
-  }
-
-  /**
-   * Calculates the AI grading accuracy percentage based on the match between teacher scores and AI
-   * scores for all attempts where both scores exist.
-   *
-   * @return The accuracy percentage rounded to 1 decimal place
-   */
-  private double calculateAiAccuracy() {
-    List<Attempt> attempts = attemptRepository.findAllWithBothScores();
-
-    if (attempts.isEmpty()) {
-      return 0.0;
-    }
-
-    int totalDiff = 0;
-    int totalMaxPossibleDiff = 0;
-
-    for (Attempt attempt : attempts) {
-      int diff = Math.abs(attempt.getScore() - attempt.getAiScore());
-      int maxPossibleDiff = attempt.getTest().getTotalScore();
-
-      if (maxPossibleDiff <= 0) {
-        continue;
-      }
-
-      totalDiff += diff;
-      totalMaxPossibleDiff += maxPossibleDiff;
-    }
-
-    if (totalMaxPossibleDiff == 0) {
-      return 0.0;
-    }
-    double accuracyPercentage = 100.0 - ((double) totalDiff / totalMaxPossibleDiff * 100.0);
-
-    BigDecimal bd = BigDecimal.valueOf(accuracyPercentage);
-    bd = bd.setScale(1, RoundingMode.HALF_UP);
-
-    return bd.doubleValue();
   }
 }

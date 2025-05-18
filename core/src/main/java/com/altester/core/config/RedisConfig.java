@@ -2,6 +2,7 @@ package com.altester.core.config;
 
 import com.altester.core.dtos.ai_service.PromptDetailsDTO;
 import com.altester.core.dtos.core_service.AdminPage.AdminPageDTO;
+import com.altester.core.dtos.core_service.TeacherPage.TeacherGroupDetailDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherPageDTO;
 import com.altester.core.dtos.core_service.apiKey.TestApiKeysDTO;
 import com.altester.core.dtos.core_service.question.QuestionDetailsDTO;
@@ -151,6 +152,9 @@ public class RedisConfig {
         createCacheConfiguration(new JsonRedisSerializer<>(CacheablePage.class)));
     cacheConfigurations.put(
         "teacherGroups", createCacheConfiguration(new JsonRedisSerializer<>(CacheablePage.class)));
+    cacheConfigurations.put(
+        "teacherGroup",
+        createCacheConfiguration(new JsonRedisSerializer<>(TeacherGroupDetailDTO.class)));
 
     // StudentService caches
     cacheConfigurations.put(

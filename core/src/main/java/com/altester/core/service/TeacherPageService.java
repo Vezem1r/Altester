@@ -1,6 +1,7 @@
 package com.altester.core.service;
 
 import com.altester.core.dtos.core_service.TeacherPage.MoveStudentRequest;
+import com.altester.core.dtos.core_service.TeacherPage.TeacherGroupDetailDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherPageDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherStudentsDTO;
 import com.altester.core.dtos.core_service.subject.GroupsResponse;
@@ -62,4 +63,6 @@ public interface TeacherPageService {
    * @throws ValidationException if the student is not in the source group
    */
   void moveStudentBetweenGroups(Principal principal, MoveStudentRequest request);
+
+  TeacherGroupDetailDTO getTeacherGroup(Principal principal, Long groupId);
 }

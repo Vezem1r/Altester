@@ -1,6 +1,7 @@
 package com.altester.core.controller.page;
 
 import com.altester.core.dtos.core_service.TeacherPage.MoveStudentRequest;
+import com.altester.core.dtos.core_service.TeacherPage.TeacherGroupDetailDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherPageDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherStudentsDTO;
 import com.altester.core.dtos.core_service.subject.GroupsResponse;
@@ -78,5 +79,15 @@ public class TeacherPage {
     teacherPageService.moveStudentBetweenGroups(principal, request);
 
     return ResponseEntity.ok("Student moved successfully");
+  }
+
+  @GetMapping("/group/{groupId}")
+  public ResponseEntity<TeacherGroupDetailDTO> getTeacherGroup(
+      @PathVariable Long groupId, Principal principal) {
+
+    log.debug("Fetching teacher's group details for group ID: {}", groupId);
+    TeacherGroupDetailDTO groupDetails = teacherPageService.getTeacherGroup(principal, groupId);
+    log.debug("Successfully fetched teacher's group details for group ID: {}", groupId);
+    return ResponseEntity.ok(groupDetails);
   }
 }

@@ -1,18 +1,13 @@
 package com.altester.core.dtos.core_service.TeacherPage;
 
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Builder
-public class TeacherGroupDTO {
-  private Long id;
-  private String groupName;
-  private int studentCount;
-  private int testCount;
-  private boolean active;
+public class TeacherOtherGroupDTO {
+  private long id;
+  private String name;
 }

@@ -16,5 +16,8 @@ public class TeacherPageDTO {
   private String surname;
   private String email;
   private boolean isRegistered;
+  private double aiAccuracy;
+  private int students;
+  private int tests;
   private List<TeacherSubjectDTO> subjects;
 }

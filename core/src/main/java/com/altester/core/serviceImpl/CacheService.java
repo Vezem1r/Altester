@@ -71,6 +71,7 @@ public class CacheService {
         "teacherStudents",
         "teacherGroups",
         "testAttemptsForTeacher",
+        "teacherGroup",
         "studentAttemptsForTeacher");
     log.debug("All teacher-related caches have been cleared");
   }

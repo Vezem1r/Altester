@@ -125,6 +125,13 @@ public class ApiKeyServiceImpl implements ApiKeyService {
         apiRepository.findById(id).orElseThrow(() -> ResourceNotFoundException.apiKey(id));
 
     accessValidator.validateApiKeyAccessPermission(currentUser, apiKey, "delete");
+
+    List<TestGroupAssignment> assignments = assignmentRepository.findByApiKey(apiKey);
+    for (TestGroupAssignment assignment : assignments) {
+      assignment.setApiKey(null);
+      assignmentRepository.save(assignment);
+    }
+
     apiRepository.deleteById(id);
     cacheService.clearApiKeyRelatedCaches();
     log.info("API key deleted successfully: {} ({})", apiKey.getName(), id);

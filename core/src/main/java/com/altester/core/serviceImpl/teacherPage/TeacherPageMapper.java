@@ -30,7 +30,11 @@ public class TeacherPageMapper {
 
   public TeacherGroupDTO toTeacherGroupDTO(Group group) {
     return new TeacherGroupDTO(
-        group.getName(), group.getStudents().size(), group.getTests().size(), group.isActive());
+        group.getId(),
+        group.getName(),
+        group.getStudents().size(),
+        group.getTests().size(),
+        group.isActive());
   }
 
   public TeacherStudentsDTO toTeacherStudentsDTO(

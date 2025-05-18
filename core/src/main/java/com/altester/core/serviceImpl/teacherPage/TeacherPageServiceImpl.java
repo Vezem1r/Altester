@@ -1,6 +1,7 @@
 package com.altester.core.serviceImpl.teacherPage;
 
 import com.altester.core.dtos.core_service.TeacherPage.*;
+import com.altester.core.dtos.core_service.subject.GroupUserList;
 import com.altester.core.dtos.core_service.subject.GroupsResponse;
 import com.altester.core.exception.*;
 import com.altester.core.model.auth.User;
@@ -8,10 +9,13 @@ import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Subject;
 import com.altester.core.repository.GroupRepository;
 import com.altester.core.repository.SubjectRepository;
+import com.altester.core.repository.TestRepository;
 import com.altester.core.repository.UserRepository;
 import com.altester.core.service.TeacherPageService;
 import com.altester.core.serviceImpl.CacheService;
 import com.altester.core.serviceImpl.group.GroupActivityService;
+import com.altester.core.serviceImpl.group.GroupDTOMapper;
+import com.altester.core.util.AiAccuracy;
 import com.altester.core.util.CacheablePage;
 import java.security.Principal;
 import java.util.List;
@@ -43,6 +47,9 @@ public class TeacherPageServiceImpl implements TeacherPageService {
   private final TeacherGroupService teacherGroupService;
   private final TeacherStudentService teacherStudentService;
   private final TeacherStudentMoveValidator moveValidator;
+  private final GroupDTOMapper groupDTOMapper;
+  private final AiAccuracy aiAccuracy;
+  private final TestRepository testRepository;
 
   private User getTeacherFromPrincipal(Principal principal) {
     String username = principal.getName();
@@ -64,6 +71,13 @@ public class TeacherPageServiceImpl implements TeacherPageService {
 
     List<Group> teacherGroups = groupRepository.findByTeacher(teacher);
 
+    int amountOfStudents = teacherStudentService.getUniqueStudentsWithGroups(teacherGroups).size();
+    int testCount =
+        groupRepository.findAllByTeacher(teacher).stream()
+            .flatMap(group -> group.getTests().stream())
+            .collect(Collectors.toSet())
+            .size();
+
     if (teacherGroups.isEmpty()) {
       log.debug("No groups found for teacher {}, returning empty page", teacher.getUsername());
       return new TeacherPageDTO(
@@ -72,6 +86,9 @@ public class TeacherPageServiceImpl implements TeacherPageService {
           teacher.getSurname(),
           teacher.getEmail(),
           teacher.isRegistered(),
+          aiAccuracy.calculateAiAccuracy(),
+          amountOfStudents,
+          testCount,
           List.of());
     }
 
@@ -97,6 +114,9 @@ public class TeacherPageServiceImpl implements TeacherPageService {
         teacher.getSurname(),
         teacher.getEmail(),
         teacher.isRegistered(),
+        aiAccuracy.calculateAiAccuracy(),
+        amountOfStudents,
+        testCount,
         subjectDTOs);
   }
 
@@ -287,8 +307,68 @@ public class TeacherPageServiceImpl implements TeacherPageService {
       throw e;
     } catch (Exception e) {
       log.error("Unexpected error occurred while moving student between groups", e);
-      throw new RuntimeException(
-          "Unexpected error occurred while moving student between groups", e);
+      throw e;
     }
+  }
+
+  @Override
+  @Cacheable(value = "teacherGroup", key = "#principal.name + ':' + #groupId")
+  public TeacherGroupDetailDTO getTeacherGroup(Principal principal, Long groupId) {
+    log.info("Fetching group details for teacher {} and group ID {}", principal.getName(), groupId);
+
+    User teacher = getTeacherFromPrincipal(principal);
+
+    Group group =
+        groupRepository
+            .findById(groupId)
+            .orElseThrow(
+                () -> {
+                  log.error("Group not found with ID: {}", groupId);
+                  return ResourceNotFoundException.group(groupId);
+                });
+
+    if (!group.getTeacher().equals(teacher)) {
+      log.error(
+          "Access denied: Teacher {} does not teach group {}",
+          teacher.getUsername(),
+          group.getName());
+      throw ValidationException.groupValidation("You do not have permission to view this group");
+    }
+
+    Subject subject =
+        subjectRepository
+            .findByGroupsContaining(group)
+            .orElseThrow(
+                () -> {
+                  log.error("Subject not found for group with ID: {}", groupId);
+                  return ResourceNotFoundException.subject("Subject not found for group");
+                });
+
+    String subjectName = subject.getShortName() + " " + subject.getName();
+
+    boolean isInFuture = groupActivityService.isGroupInFuture(group);
+
+    List<TeacherOtherGroupDTO> otherGroups =
+        subject.getGroups().stream()
+            .filter(g -> g.getTeacher().equals(teacher))
+            .filter(g -> g.getId() != group.getId())
+            .filter(Group::isActive)
+            .map(g -> new TeacherOtherGroupDTO(g.getId(), g.getName()))
+            .toList();
+
+    List<GroupUserList> studentsList =
+        group.getStudents().stream().map(groupDTOMapper::toGroupUserList).toList();
+
+    return TeacherGroupDetailDTO.builder()
+        .id(group.getId())
+        .name(group.getName())
+        .subject(subjectName)
+        .students(studentsList)
+        .semester(group.getSemester())
+        .academicYear(group.getAcademicYear())
+        .active(group.isActive())
+        .isInFuture(isInFuture)
+        .otherTeacherGroups(otherGroups)
+        .build();
   }
 }
