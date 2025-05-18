@@ -176,7 +176,8 @@ public class StudentServiceImpl implements StudentService {
 
     List<QuestionReviewDTO> questionReviews;
 
-    if (attempt.getStatus() == AttemptStatus.REVIEWED) {
+    if (attempt.getStatus() == AttemptStatus.REVIEWED
+        || attempt.getStatus() == AttemptStatus.AI_REVIEWED) {
       questionReviews =
           attempt.getSubmissions().stream()
               .map(studentMapper::mapSubmissionToQuestionReviewDTO)
@@ -192,6 +193,7 @@ public class StudentServiceImpl implements StudentService {
                         .questionText(question.getQuestionText())
                         .imagePath(question.getImagePath())
                         .score(submission.getScore() != null ? submission.getScore() : 0)
+                        .aiScore(submission.getAiScore() != null ? submission.getAiScore() : 0)
                         .maxScore(question.getScore())
                         .build();
                   })
@@ -202,7 +204,9 @@ public class StudentServiceImpl implements StudentService {
         .attemptId(attempt.getId())
         .testTitle(test.getTitle())
         .testDescription(test.getDescription())
+        .status(attempt.getStatus())
         .score(attempt.getScore() != null ? attempt.getScore() : 0)
+        .aiScore(attempt.getAiScore() != null ? attempt.getAiScore() : 0)
         .totalScore(test.getTotalScore())
         .startTime(attempt.getStartTime())
         .endTime(attempt.getEndTime())

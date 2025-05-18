@@ -170,8 +170,10 @@ public class StudentMapper {
         .studentAnswer(submission.getAnswerText())
         .selectedOptionIds(selectedOptionIds)
         .score(submission.getScore() != null ? submission.getScore() : 0)
+        .aiScore(submission.getAiScore() != null ? submission.getAiScore() : 0)
         .maxScore(question.getScore())
         .teacherFeedback(submission.getTeacherFeedback())
+        .aiFeedback(submission.getAiFeedback())
         .isAiGraded(submission.isAiGraded())
         .isRequested(submission.isRegradeRequested())
         .build();
@@ -180,13 +182,20 @@ public class StudentMapper {
   public TestAttemptDTO mapAttemptToBasicDTO(Attempt attempt, Test test) {
     int answeredQuestions = attempt.getSubmissions() != null ? attempt.getSubmissions().size() : 0;
 
+    int score;
+    if (attempt.getStatus() == AttemptStatus.AI_REVIEWED) {
+      score = attempt.getAiScore() != null ? attempt.getAiScore() : 0;
+    } else if (attempt.getStatus() == AttemptStatus.REVIEWED) {
+      score = attempt.getScore() != null ? attempt.getScore() : 0;
+    } else score = 0;
+
     return TestAttemptDTO.builder()
         .attemptId(attempt.getId())
         .attemptNumber(attempt.getAttemptNumber())
         .startTime(attempt.getStartTime())
         .endTime(attempt.getEndTime())
         .status(attempt.getStatus())
-        .score(attempt.getScore())
+        .score(score)
         .answeredQuestions(answeredQuestions)
         .totalQuestions(test.getTotalQuestions())
         .build();

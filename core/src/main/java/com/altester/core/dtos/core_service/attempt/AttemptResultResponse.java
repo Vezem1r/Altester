@@ -1,5 +1,6 @@
 package com.altester.core.dtos.core_service.attempt;
 
+import com.altester.core.model.subject.enums.AttemptStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,5 +17,5 @@ public class AttemptResultResponse {
   private int totalScore;
   private int questionsAnswered;
   private int totalQuestions;
-  private boolean completed;
+  private AttemptStatus status;
 }

@@ -139,11 +139,11 @@ public class TestAttemptDTOMapper {
     return AttemptResultResponse.builder()
         .attemptId(attempt.getId())
         .testTitle(test.getTitle())
-        .score(attempt.getScore())
+        .score(attempt.getAiScore() != null ? attempt.getAiScore() : 0)
         .totalScore(test.getTotalScore())
         .questionsAnswered(answeredQuestions)
         .totalQuestions(questionsForAttempt.size())
-        .completed(true)
+        .status(attempt.getStatus())
         .build();
   }
 }
