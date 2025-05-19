@@ -10,6 +10,7 @@ import com.altester.core.model.subject.Group;
 import com.altester.core.model.subject.Option;
 import com.altester.core.model.subject.Question;
 import com.altester.core.model.subject.Test;
+import com.altester.core.model.subject.enums.QuestionType;
 import com.altester.core.repository.*;
 import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.service.QuestionService;
@@ -134,7 +135,10 @@ public class QuestionServiceImpl implements QuestionService {
 
     Question savedQuestion = questionRepository.save(question);
 
-    if (createQuestionDTO.getOptions() != null && !createQuestionDTO.getOptions().isEmpty()) {
+    if ((createQuestionDTO.getQuestionType() == QuestionType.MULTIPLE_CHOICE
+            || createQuestionDTO.getQuestionType() == QuestionType.IMAGE_WITH_MULTIPLE_CHOICE)
+        && createQuestionDTO.getOptions() != null
+        && !createQuestionDTO.getOptions().isEmpty()) {
       createQuestionDTO
           .getOptions()
           .forEach(
@@ -230,7 +234,10 @@ public class QuestionServiceImpl implements QuestionService {
       question.setScore(score);
     }
 
-    if (updateQuestionDTO.getOptions() != null) {
+    if ((updateQuestionDTO.getQuestionType() == QuestionType.MULTIPLE_CHOICE
+            || updateQuestionDTO.getQuestionType() == QuestionType.IMAGE_WITH_MULTIPLE_CHOICE)
+        && updateQuestionDTO.getOptions() != null) {
+
       optionRepository.deleteAll(question.getOptions());
       question.getOptions().clear();
 
@@ -248,6 +255,11 @@ public class QuestionServiceImpl implements QuestionService {
                 optionRepository.save(option);
                 question.getOptions().add(option);
               });
+    } else if (updateQuestionDTO.getQuestionType() != QuestionType.MULTIPLE_CHOICE
+        && updateQuestionDTO.getQuestionType() != QuestionType.IMAGE_WITH_MULTIPLE_CHOICE
+        && !question.getOptions().isEmpty()) {
+      optionRepository.deleteAll(question.getOptions());
+      question.getOptions().clear();
     }
 
     Question updatedQuestion = questionRepository.save(question);
