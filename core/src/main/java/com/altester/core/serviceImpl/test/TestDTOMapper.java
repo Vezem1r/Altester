@@ -126,7 +126,7 @@ public class TestDTOMapper {
             .hardScore(test.getHardQuestionScore())
             .easyQuestionsSetup(easyQuestions.size())
             .mediumQuestionsSetup(mediumQuestions.size())
-            .easyQuestionsSetup(hardQuestions.size());
+            .hardQuestionsSetup(hardQuestions.size());
 
     if (currentUser.getRole() == RolesEnum.ADMIN) {
       builder.allowTeacherEdit(test.isAllowTeacherEdit());

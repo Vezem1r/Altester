@@ -18,6 +18,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public abstract class AbstractAiProviderService implements AiProviderService {
 
+  private static final String MESSAGE_KEY = "message";
+
   private final ObjectMapper objectMapper = new ObjectMapper();
   protected final PromptBuilder promptBuilder;
 
@@ -143,20 +145,22 @@ public abstract class AbstractAiProviderService implements AiProviderService {
       String section = sections[i];
       try {
         int idEndIndex = section.indexOf(" ===");
-        if (idEndIndex == -1) continue;
 
-        String submissionIdStr = section.substring(0, idEndIndex).trim();
-        long submissionId = Long.parseLong(submissionIdStr);
+        if (idEndIndex != -1) {
+          String submissionIdStr = section.substring(0, idEndIndex).trim();
+          long submissionId = Long.parseLong(submissionIdStr);
 
-        Submission matchingSubmission =
-            submissions.stream().filter(s -> s.getId() == submissionId).findFirst().orElse(null);
+          Submission matchingSubmission =
+              submissions.stream().filter(s -> s.getId() == submissionId).findFirst().orElse(null);
 
-        if (matchingSubmission == null) continue;
-
-        String submissionContent = section.substring(idEndIndex + 4);
-        GradingResult result =
-            parseGradingResponse(submissionContent, matchingSubmission.getQuestion().getScore());
-        results.add(result);
+          if (matchingSubmission != null) {
+            String submissionContent = section.substring(idEndIndex + 4);
+            GradingResult result =
+                parseGradingResponse(
+                    submissionContent, matchingSubmission.getQuestion().getScore());
+            results.add(result);
+          }
+        }
       } catch (Exception e) {
         log.error("Error parsing batch response section: {}", e.getMessage());
         results.add(new GradingResult(0, "Error parsing grading response"));
@@ -252,13 +256,13 @@ public abstract class AbstractAiProviderService implements AiProviderService {
 
       if (root.has("error")) {
         JsonNode errorNode = root.get("error");
-        if (errorNode.has("message")) {
-          return errorNode.get("message").asText();
+        if (errorNode.has(MESSAGE_KEY)) {
+          return errorNode.get(MESSAGE_KEY).asText();
         }
       }
 
-      if (root.has("message")) {
-        return root.get("message").asText();
+      if (root.has(MESSAGE_KEY)) {
+        return root.get(MESSAGE_KEY).asText();
       }
 
       if (root.has("error_message")) {
