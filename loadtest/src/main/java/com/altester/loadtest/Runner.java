@@ -1,6 +1,7 @@
 package com.altester.loadtest;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -8,6 +9,7 @@ import java.util.concurrent.CompletableFuture;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class Runner implements CommandLineRunner {
     private final ExampleAsync exampleAsync;
 
@@ -21,9 +23,9 @@ public class Runner implements CommandLineRunner {
 
         CompletableFuture.allOf(f1, f2, f3).join();
 
-        System.out.println("Elapsed time: " + (System.currentTimeMillis() - start));
-        System.out.println("--> " + f1.get());
-        System.out.println("--> " + f2.get());
-        System.out.println("--> " + f3.get());
+        log.info("Elapsed time: {}", (System.currentTimeMillis() - start));
+        log.info("--> {}", f1.get());
+        log.info("--> {}", f2.get());
+        log.info("--> {}", f3.get());
     }
 }
