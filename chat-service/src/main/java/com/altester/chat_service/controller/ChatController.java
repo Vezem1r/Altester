@@ -2,10 +2,7 @@ package com.altester.chat_service.controller;
 
 import com.altester.chat_service.dto.ChatMessageDTO;
 import com.altester.chat_service.dto.ConversationDTO;
-import com.altester.chat_service.dto.MessageRequest;
 import com.altester.chat_service.service.ChatService;
-import com.altester.chat_service.service.UserStatusService;
-import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.List;
 import java.util.Map;
@@ -22,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 public class ChatController {
 
   private final ChatService chatService;
-  private final UserStatusService userStatusService;
 
   @GetMapping("/conversations")
   public ResponseEntity<Page<ConversationDTO>> getConversations(
@@ -43,20 +39,6 @@ public class ChatController {
         chatService.getConversationMessages(principal.getName(), conversationId, page, size));
   }
 
-  @PutMapping("/conversations/{conversationId}/read")
-  public ResponseEntity<Integer> markConversationAsRead(
-      Principal principal, @PathVariable Long conversationId) {
-    int count = chatService.markMessagesAsRead(principal.getName(), conversationId);
-    return ResponseEntity.ok(count);
-  }
-
-  @PostMapping("/messages")
-  public ResponseEntity<ChatMessageDTO> sendMessage(
-      Principal principal, @Valid @RequestBody MessageRequest messageRequest) {
-    ChatMessageDTO message = chatService.sendMessage(principal.getName(), messageRequest);
-    return ResponseEntity.ok(message);
-  }
-
   @GetMapping("/messages/unread/count")
   public ResponseEntity<Map<String, Integer>> getUnreadCount(Principal principal) {
     List<ChatMessageDTO> unread = chatService.getUnreadMessages(principal.getName());
@@ -68,10 +50,5 @@ public class ChatController {
       Principal principal, @PathVariable Long conversationId) {
     Long messageId = chatService.getFirstUnreadMessageId(principal.getName(), conversationId);
     return ResponseEntity.ok(Map.of("messageId", messageId != null ? messageId : -1L));
-  }
-
-  @GetMapping("/users/online")
-  public ResponseEntity<List<String>> getOnlineUsers() {
-    return ResponseEntity.ok(List.copyOf(userStatusService.getOnlineUsers()));
   }
 }

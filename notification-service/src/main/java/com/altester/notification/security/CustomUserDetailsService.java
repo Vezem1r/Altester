@@ -16,7 +16,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
   @Override
   public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-    Set<String> allowedUsernames = Set.of("admin", "teacher", "student");
+    Set<String> allowedUsernames = Set.of("admin", "teacher", "student", "ADMIN", "TEACHER", "STUDENT");
 
     if (!allowedUsernames.contains(username)) {
       throw new UsernameNotFoundException(
