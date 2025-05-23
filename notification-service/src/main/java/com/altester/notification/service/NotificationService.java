@@ -1,8 +1,6 @@
 package com.altester.notification.service;
 
 import com.altester.notification.dto.NotificationDTO;
-import com.altester.notification.dto.NotificationRequest;
-import com.altester.notification.exception.ResourceNotFoundException;
 import java.util.List;
 import org.springframework.data.domain.Page;
 
@@ -23,31 +21,6 @@ public interface NotificationService {
    * @return The count of unread notifications
    */
   long getUnreadCount(String username);
-
-  /**
-   * Creates notifications for multiple users based on the provided request and sends them via
-   * WebSocket.
-   *
-   * @param request The notification request containing details and target usernames
-   * @return List of created notification DTOs
-   */
-  List<NotificationDTO> createNotifications(NotificationRequest request);
-
-  /**
-   * Marks a specific notification as read and updates the unread count for the user.
-   *
-   * @param notificationId The ID of the notification to mark as read
-   * @return The updated notification DTO
-   * @throws ResourceNotFoundException if the notification with the given ID does not exist
-   */
-  NotificationDTO markAsRead(Long notificationId);
-
-  /**
-   * Marks all notifications for a specific user as read and updates the unread count.
-   *
-   * @param username The username of the user whose notifications will be marked as read
-   */
-  void markAllAsRead(String username);
 
   /**
    * Searches for notifications with optional filtering by read status and search term.

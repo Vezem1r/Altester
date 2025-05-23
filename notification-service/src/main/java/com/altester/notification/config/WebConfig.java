@@ -20,7 +20,7 @@ public class WebConfig implements WebMvcConfigurer {
     registry
         .addMapping("/**")
         .allowedOrigins(appConfig.getAllowedOrigins().toArray(new String[0]))
-        .allowedMethods("GET", "POST", "PUT", "DELETE")
+        .allowedMethods("GET")
         .allowedHeaders("*")
         .allowCredentials(true)
         .maxAge(3600);
