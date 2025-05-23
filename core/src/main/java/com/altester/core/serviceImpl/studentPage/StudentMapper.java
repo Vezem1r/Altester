@@ -111,21 +111,21 @@ public class StudentMapper {
             .orElseGet(
                 () ->
                     attempts.stream()
-                        .filter(attempt -> attempt.getStatus() == AttemptStatus.AI_REVIEWED)
+                        .filter(attempt -> attempt.getStatus() == AttemptStatus.REVIEWED)
                         .max(
                             Comparator.comparingInt(
-                                attempt -> attempt.getAiScore() != null ? attempt.getAiScore() : 0))
+                                attempt -> attempt.getScore() != null ? attempt.getScore() : 0))
                         .map(Attempt::getStatus)
                         .orElseGet(
                             () ->
                                 attempts.stream()
                                     .filter(
-                                        attempt -> attempt.getStatus() == AttemptStatus.REVIEWED)
+                                        attempt -> attempt.getStatus() == AttemptStatus.AI_REVIEWED)
                                     .max(
                                         Comparator.comparingInt(
                                             attempt ->
-                                                attempt.getScore() != null
-                                                    ? attempt.getScore()
+                                                attempt.getAiScore() != null
+                                                    ? attempt.getAiScore()
                                                     : 0))
                                     .map(Attempt::getStatus)
                                     .orElseGet(
@@ -190,8 +190,8 @@ public class StudentMapper {
         .options(optionReviews)
         .studentAnswer(submission.getAnswerText())
         .selectedOptionIds(selectedOptionIds)
-        .score(submission.getScore() != null ? submission.getScore() : 0)
-        .aiScore(submission.getAiScore() != null ? submission.getAiScore() : 0)
+        .score(submission.getScore() != null ? submission.getScore() : -1)
+        .aiScore(submission.getAiScore() != null ? submission.getAiScore() : -1)
         .maxScore(question.getScore())
         .teacherFeedback(submission.getTeacherFeedback())
         .aiFeedback(submission.getAiFeedback())
