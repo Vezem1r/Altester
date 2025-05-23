@@ -2,6 +2,8 @@ package com.altester.core.repository;
 
 import com.altester.core.model.subject.Test;
 import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -71,4 +73,7 @@ public interface TestRepository extends JpaRepository<Test, Long> {
   @Query(
       "SELECT t FROM Test t LEFT JOIN FETCH t.questions WHERE t.isOpen = false AND (t.questions IS EMPTY OR SIZE(t.questions) = 0)")
   List<Test> findAllNonOpenTestsWithoutQuestions();
+
+  @Query("SELECT t FROM Test t LEFT JOIN FETCH t.questions q LEFT JOIN FETCH q.options WHERE t.id = :id")
+  Optional<Test> findByIdWithQuestionsAndOptions(@Param("id") Long id);
 }
