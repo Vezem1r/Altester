@@ -16,7 +16,6 @@ import com.altester.core.serviceImpl.group.GroupActivityService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,12 +46,6 @@ public class TestAttemptValidation {
             .anyMatch(group -> group.getTests().stream().anyMatch(t -> t.getId() == test.getId()));
 
     if (!isTestInStudentGroup) {
-      throw AccessDeniedException.testAccess();
-    }
-  }
-
-  public void validateAttemptOwnership(Attempt attempt, User student) {
-    if (!Objects.equals(attempt.getStudent().getId(), student.getId())) {
       throw AccessDeniedException.testAccess();
     }
   }
@@ -147,11 +140,5 @@ public class TestAttemptValidation {
     }
 
     return true;
-  }
-
-  public boolean isAttemptExpired(Attempt attempt) {
-    LocalDateTime expirationTime =
-        attempt.getStartTime().plusMinutes(attempt.getTest().getDuration());
-    return LocalDateTime.now().isAfter(expirationTime);
   }
 }

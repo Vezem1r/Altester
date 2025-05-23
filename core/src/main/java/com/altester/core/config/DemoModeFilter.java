@@ -17,12 +17,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class DemoModeFilter extends OncePerRequestFilter {
 
   private final List<String> allowedPostPaths =
-      Arrays.asList("/auth/signin", "/auth/validate-token");
+      Arrays.asList("/auth/signin", "/auth/validate-token", "/student/test-attempts/");
 
   @Override
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
+
     String method = request.getMethod();
     String path = request.getServletPath();
 

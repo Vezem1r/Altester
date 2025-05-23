@@ -12,7 +12,6 @@ import com.altester.core.model.subject.Test;
 import com.altester.core.repository.*;
 import com.altester.core.service.ApiKeyService;
 import com.altester.core.serviceImpl.CacheService;
-import com.altester.core.util.ApiKeyEncryptionUtil;
 import com.altester.core.util.CacheablePage;
 import java.security.Principal;
 import java.util.ArrayList;
@@ -34,7 +33,6 @@ public class ApiKeyServiceImpl implements ApiKeyService {
 
   private final ApiKeyRepository apiRepository;
   private final UserRepository userRepository;
-  private final ApiKeyEncryptionUtil encryptionUtil;
   private final CacheService cacheService;
   private final TestRepository testRepository;
   private final GroupRepository groupRepository;
