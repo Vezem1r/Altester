@@ -13,7 +13,7 @@ public interface TestAttemptService {
    *
    * @param principal The authenticated student
    * @param request Object containing the test ID to attempt
-   * @return Information about the first question or the question where the student left off
+   * @return Information about the first question or the question of where the student left off
    * @throws ResourceNotFoundException if the test or student doesn't exist
    * @throws AccessDeniedException if the student doesn't have access to the test
    * @throws StateConflictException if an existing attempt has expired

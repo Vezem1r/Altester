@@ -85,7 +85,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
                 "Your attempt for test '"
                     + attempt.getTest().getTitle()
                     + "' has been graded by AI. Score: "
-                    + attempt.getScore())
+                    + attempt.getAiScore())
             .type(NotificationType.TEST_GRADED.toString())
             .actionUrl(REVIEW_ACTION_URL + attempt.getId())
             .referenceId(attempt.getId())

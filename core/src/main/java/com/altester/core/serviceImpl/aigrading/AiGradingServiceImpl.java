@@ -192,9 +192,9 @@ public class AiGradingServiceImpl implements AiGradingService {
         notificationDispatchService.notifyApiKeyError(
             apiKey, e.getMessage(), status, errorType, title, message);
 
-        if (status == HttpStatus.UNAUTHORIZED) {
-          deactivateApiKey(apiKey);
-        }
+        // You can make key deactivation depending on status, for example UNAUTHORIZED = DEACTIVATE,
+        // but
+        deactivateApiKey(apiKey);
       }
     } catch (Exception notificationError) {
       log.error(

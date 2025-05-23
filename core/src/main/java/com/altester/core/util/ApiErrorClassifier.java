@@ -113,10 +113,9 @@ public class ApiErrorClassifier {
           String.format(
               "Invalid request format when using API key '%s' (%s). "
                   + ACTION
-                  + "This might be a bug in our system. Error: %s",
+                  + "Please check your API key or else it might be a bug in our system.",
               keyName,
-              serviceName,
-              errorMessage);
+              serviceName);
       case API_KEY_SERVER_ERROR ->
           String.format(
               "%s is experiencing server issues. API key '%s' couldn't be used. "
@@ -134,10 +133,9 @@ public class ApiErrorClassifier {
               serviceName);
       default ->
           String.format(
-              "Error using API key '%s' for %s: %s (Status: %s)" + ACTION,
+              "Error using API key '%s' for %s (Status: %s)" + ACTION,
               keyName,
               serviceName,
-              errorMessage,
               status);
     };
   }

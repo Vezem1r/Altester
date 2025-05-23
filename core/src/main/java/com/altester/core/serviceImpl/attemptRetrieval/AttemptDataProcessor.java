@@ -120,8 +120,18 @@ public class AttemptDataProcessor {
 
                     double avgScore =
                         studentAttempts.stream()
-                            .filter(a -> a.getScore() != null)
-                            .mapToInt(Attempt::getScore)
+                            .filter(
+                                attempt ->
+                                    attempt.getSubmissions().stream()
+                                        .map(Submission::getScore)
+                                        .anyMatch(Objects::nonNull))
+                            .mapToInt(
+                                attempt ->
+                                    attempt.getSubmissions().stream()
+                                        .map(Submission::getScore)
+                                        .filter(Objects::nonNull)
+                                        .mapToInt(Integer::intValue)
+                                        .sum())
                             .average()
                             .orElse(0.0);
 
@@ -132,9 +142,18 @@ public class AttemptDataProcessor {
 
                     double avgAiScore =
                         studentAttempts.stream()
-                            .flatMap(a -> a.getSubmissions().stream())
-                            .filter(s -> s.getAiScore() != null)
-                            .mapToInt(Submission::getAiScore)
+                            .filter(
+                                attempt ->
+                                    attempt.getSubmissions().stream()
+                                        .map(Submission::getAiScore)
+                                        .anyMatch(Objects::nonNull))
+                            .mapToInt(
+                                attempt ->
+                                    attempt.getSubmissions().stream()
+                                        .map(Submission::getAiScore)
+                                        .filter(Objects::nonNull)
+                                        .mapToInt(Integer::intValue)
+                                        .sum())
                             .average()
                             .orElse(0.0);
 

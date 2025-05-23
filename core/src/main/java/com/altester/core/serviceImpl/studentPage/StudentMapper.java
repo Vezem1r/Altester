@@ -74,7 +74,8 @@ public class StudentMapper {
                 .filter(
                     attempt ->
                         attempt.getStatus() == AttemptStatus.COMPLETED
-                            || attempt.getStatus() == AttemptStatus.REVIEWED)
+                            || attempt.getStatus() == AttemptStatus.REVIEWED
+                            || attempt.getStatus() == AttemptStatus.AI_REVIEWED)
                 .count();
 
     boolean hasActiveAttempt =
@@ -93,7 +94,14 @@ public class StudentMapper {
             .map(Attempt::getScore)
             .filter(Objects::nonNull)
             .max(Integer::compareTo)
-            .orElse(null);
+            .orElseGet(
+                () ->
+                    attempts.stream()
+                        .filter(attempt -> attempt.getStatus() == AttemptStatus.AI_REVIEWED)
+                        .map(Attempt::getAiScore)
+                        .filter(Objects::nonNull)
+                        .max(Integer::compareTo)
+                        .orElse(null));
 
     AttemptStatus status =
         attempts.stream()
@@ -103,19 +111,32 @@ public class StudentMapper {
             .orElseGet(
                 () ->
                     attempts.stream()
-                        .filter(attempt -> attempt.getStatus() == AttemptStatus.REVIEWED)
+                        .filter(attempt -> attempt.getStatus() == AttemptStatus.AI_REVIEWED)
                         .max(
                             Comparator.comparingInt(
-                                attempt -> attempt.getScore() != null ? attempt.getScore() : 0))
+                                attempt -> attempt.getAiScore() != null ? attempt.getAiScore() : 0))
                         .map(Attempt::getStatus)
                         .orElseGet(
                             () ->
                                 attempts.stream()
-                                    .map(Attempt::getStatus)
                                     .filter(
-                                        attemptStatus -> attemptStatus == AttemptStatus.COMPLETED)
-                                    .findFirst()
-                                    .orElse(null)));
+                                        attempt -> attempt.getStatus() == AttemptStatus.REVIEWED)
+                                    .max(
+                                        Comparator.comparingInt(
+                                            attempt ->
+                                                attempt.getScore() != null
+                                                    ? attempt.getScore()
+                                                    : 0))
+                                    .map(Attempt::getStatus)
+                                    .orElseGet(
+                                        () ->
+                                            attempts.stream()
+                                                .map(Attempt::getStatus)
+                                                .filter(
+                                                    attemptStatus ->
+                                                        attemptStatus == AttemptStatus.COMPLETED)
+                                                .findFirst()
+                                                .orElse(null))));
 
     int easyCount = (test.getEasyQuestionsCount() != null) ? test.getEasyQuestionsCount() : 0;
     int mediumCount = (test.getMediumQuestionsCount() != null) ? test.getMediumQuestionsCount() : 0;
