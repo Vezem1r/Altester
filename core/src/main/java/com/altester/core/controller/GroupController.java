@@ -3,11 +3,9 @@ package com.altester.core.controller;
 import com.altester.core.dtos.core_service.subject.*;
 import com.altester.core.service.GroupService;
 import com.altester.core.util.CacheablePage;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -20,31 +18,6 @@ import org.springframework.web.bind.annotation.*;
 public class GroupController {
 
   private final GroupService groupService;
-
-  @PostMapping("/create")
-  public ResponseEntity<Long> createGroup(@Valid @RequestBody CreateGroupDTO createGroupDTO) {
-    log.debug("Creating new group: {}", createGroupDTO.getGroupName());
-    Long groupId = groupService.createGroup(createGroupDTO);
-    log.info("Group created successfully with ID: {}", groupId);
-    return ResponseEntity.status(HttpStatus.CREATED).body(groupId);
-  }
-
-  @PutMapping("/update/{groupId}")
-  public ResponseEntity<String> updateGroup(
-      @PathVariable Long groupId, @Valid @RequestBody UpdateGroupDTO updateGroupDTO) {
-    log.debug("Updating group with ID {}: {}", groupId, updateGroupDTO.getGroupName());
-    groupService.updateGroup(groupId, updateGroupDTO);
-    log.info("Group with ID {} updated successfully", groupId);
-    return ResponseEntity.ok("Group updated successfully");
-  }
-
-  @DeleteMapping("/delete/{groupId}")
-  public ResponseEntity<String> deleteGroup(@PathVariable Long groupId) {
-    log.debug("Deleting group with ID: {}", groupId);
-    groupService.deleteGroup(groupId);
-    log.info("Group with ID {} deleted successfully", groupId);
-    return ResponseEntity.ok("Group deleted successfully");
-  }
 
   @GetMapping("/{groupId}")
   public ResponseEntity<GroupDTO> getGroup(@PathVariable Long groupId) {

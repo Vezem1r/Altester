@@ -3,7 +3,6 @@ package com.altester.core.controller;
 import com.altester.core.dtos.core_service.test.*;
 import com.altester.core.model.subject.enums.QuestionDifficulty;
 import com.altester.core.service.TestService;
-import jakarta.validation.Valid;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,31 +48,6 @@ public class TestController {
         testService.getTeacherTests(
             PageRequest.of(page, size), principal, searchQuery, isActive, allowTeacherEdit);
     return ResponseEntity.ok(tests);
-  }
-
-  @PostMapping("/teacher/tests")
-  @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
-  public ResponseEntity<TestPreviewDTO> createTest(
-      @Valid @RequestBody CreateTestDTO createTestDTO, Principal principal) {
-    TestPreviewDTO createdTest = testService.createTest(createTestDTO, principal);
-    return ResponseEntity.ok(createdTest);
-  }
-
-  @PutMapping("/teacher/tests/{testId}")
-  @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
-  public ResponseEntity<TestPreviewDTO> updateTest(
-      @PathVariable Long testId,
-      @Valid @RequestBody CreateTestDTO updateTestDTO,
-      Principal principal) {
-    TestPreviewDTO updatedTest = testService.updateTest(updateTestDTO, testId, principal);
-    return ResponseEntity.ok(updatedTest);
-  }
-
-  @DeleteMapping("/teacher/tests/{testId}")
-  @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
-  public ResponseEntity<Void> deleteTest(@PathVariable Long testId, Principal principal) {
-    testService.deleteTest(testId, principal);
-    return ResponseEntity.ok().build();
   }
 
   @GetMapping("/teacher/tests/{testId}/summary")
@@ -130,29 +104,6 @@ public class TestController {
         testService.getTestsByGroup(
             groupId, principal, searchQuery, isActive, PageRequest.of(page, size));
     return ResponseEntity.ok(tests);
-  }
-
-  @PutMapping("/teacher/tests/{testId}/activity")
-  @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
-  public ResponseEntity<Void> toggleTestActivity(@PathVariable Long testId, Principal principal) {
-    testService.toggleTestActivity(testId, principal);
-    return ResponseEntity.ok().build();
-  }
-
-  @PutMapping("/tests/evaluation")
-  @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
-  public ResponseEntity<Void> toggleTestEvaluation(
-      @RequestParam Long testId, @RequestParam Long groupId, Principal principal) {
-    testService.toggleAiEvaluation(testId, groupId, principal);
-    return ResponseEntity.ok().build();
-  }
-
-  @PutMapping("/admin/tests/{testId}/teacher-edit")
-  @PreAuthorize("hasRole('ADMIN')")
-  public ResponseEntity<Void> toggleTeacherEditPermission(
-      @PathVariable Long testId, Principal principal) {
-    testService.toggleTeacherEditPermission(testId, principal);
-    return ResponseEntity.ok().build();
   }
 
   @GetMapping("/teacher/tests/{testId}/questions")

@@ -11,29 +11,6 @@ import org.springframework.data.domain.Pageable;
 public interface TestService {
 
   /**
-   * Toggles whether teachers can edit a specific test. Only administrators can perform this action.
-   *
-   * @param testId ID of the test to modify permissions for
-   * @param principal The authenticated administrator
-   * @throws ResourceNotFoundException if the test doesn't exist
-   * @throws AccessDeniedException if the user is not an administrator
-   */
-  void toggleTeacherEditPermission(Long testId, Principal principal);
-
-  /**
-   * Toggles AI evaluation for a specific test and group combination. Requires an API key to be
-   * already assigned to the test-group pair.
-   *
-   * @param testId ID of the test to toggle AI evaluation for
-   * @param groupId ID of the group for which to toggle AI evaluation
-   * @param principal The authenticated user (admin or teacher)
-   * @throws ResourceNotFoundException if the test, group, or assignment doesn't exist
-   * @throws AccessDeniedException if the user doesn't have permission to modify the test or group
-   * @throws StateConflictException if there's no API key assigned to the test-group combination
-   */
-  void toggleAiEvaluation(Long testId, Long groupId, Principal principal);
-
-  /**
    * Retrieves a paginated and searchable list of all tests for administrators, with optional
    * filtering by active status.
    *
@@ -66,43 +43,6 @@ public interface TestService {
       String searchQuery,
       Boolean isActive,
       Boolean allowTeacherEdit);
-
-  /**
-   * Creates a new test with the provided details and associates it with the selected groups.
-   * Administrators can create tests for any group, while teachers can only create tests for their
-   * assigned groups. Automatically assigns a global API key if available.
-   *
-   * @param createTestDTO DTO containing test details and group associations
-   * @param principal The authenticated user (admin or teacher)
-   * @return Preview of the created test
-   * @throws ResourceNotFoundException if groups don't exist
-   * @throws AccessDeniedException if the teacher doesn't have access to selected groups
-   */
-  TestPreviewDTO createTest(CreateTestDTO createTestDTO, Principal principal);
-
-  /**
-   * Updates an existing test with the provided details. Administrators can update any test, while
-   * teachers can only update tests they are associated with and that allow teacher editing.
-   *
-   * @param updateTestDTO DTO containing updated test details
-   * @param testId ID of the test to update
-   * @param principal The authenticated user (admin or teacher)
-   * @return Preview of the updated test
-   * @throws ResourceNotFoundException if the test doesn't exist
-   * @throws AccessDeniedException if the user doesn't have permission to edit the test
-   */
-  TestPreviewDTO updateTest(CreateTestDTO updateTestDTO, Long testId, Principal principal);
-
-  /**
-   * Deletes a test and removes all its associations with groups. Administrators can delete any
-   * test, while teachers can only delete tests they created (not admin-created tests).
-   *
-   * @param testId ID of the test to delete
-   * @param principal The authenticated user (admin or teacher)
-   * @throws ResourceNotFoundException if the test doesn't exist
-   * @throws AccessDeniedException if the user doesn't have permission to delete the test
-   */
-  void deleteTest(Long testId, Principal principal);
 
   /**
    * Retrieves summary information for a specific test.
@@ -156,18 +96,6 @@ public interface TestService {
    */
   CacheablePage<TestSummaryDTO> getTestsByGroup(
       Long groupId, Principal principal, String searchQuery, Boolean isActive, Pageable pageable);
-
-  /**
-   * Toggles the activity state of a test (open/closed). Administrators can toggle any test, while
-   * teachers can only toggle tests they are permitted to edit. When a test is opened, notifications
-   * are sent to all students in associated groups.
-   *
-   * @param testId ID of the test to toggle
-   * @param principal The authenticated user (admin or teacher)
-   * @throws ResourceNotFoundException if the test doesn't exist
-   * @throws AccessDeniedException if the user doesn't have permission to toggle the test
-   */
-  void toggleTestActivity(Long testId, Principal principal);
 
   /**
    * Retrieves a paginated list of questions for a specific test, with optional filtering by

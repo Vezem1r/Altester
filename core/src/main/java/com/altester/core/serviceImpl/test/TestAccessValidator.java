@@ -93,55 +93,6 @@ public class TestAccessValidator {
   }
 
   /**
-   * Checks if a teacher can edit a specific test based on permission rules: - Teachers can edit
-   * tests they created for their groups - Teachers can only edit admin-created tests if
-   * allowTeacherEdit flag is true - Teachers must be associated with at least one group assigned to
-   * the test
-   *
-   * @param teacher The teacher user requesting edit access
-   * @param test The test to be edited
-   * @param teacherGroups Optional list of groups the teacher is associated with (will be loaded if
-   *     null)
-   * @throws AccessDeniedException if the teacher cannot edit the test
-   */
-  public void validateTeacherEditAccess(User teacher, Test test, List<Group> teacherGroups) {
-    log.debug(
-        "Validating teacher edit access for user: {}, test ID: {}",
-        teacher.getUsername(),
-        test.getId());
-
-    if (teacher.getRole() != RolesEnum.TEACHER) {
-      log.warn(
-          "Non-teacher user {} attempted to use teacher edit validation", teacher.getUsername());
-      throw AccessDeniedException.roleConflict();
-    }
-
-    if (teacherGroups == null) {
-      teacherGroups = groupRepository.findByTeacher(teacher);
-    }
-
-    List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
-
-    boolean isTeacherAssociated = hasGroupIntersection(teacherGroups, testGroups);
-
-    if (!isTeacherAssociated) {
-      log.warn(
-          "Edit access denied: Teacher {} is not associated with test ID: {}",
-          teacher.getUsername(),
-          test.getId());
-      throw AccessDeniedException.testEdit();
-    }
-
-    if (test.isCreatedByAdmin() && !test.isAllowTeacherEdit()) {
-      log.warn(
-          "Edit access denied: Teacher {} attempted to edit admin test ID: {} with teacher edit not allowed",
-          teacher.getUsername(),
-          test.getId());
-      throw AccessDeniedException.testEdit();
-    }
-  }
-
-  /**
    * Verifies if a teacher has any association with a test through their assigned groups
    *
    * @param teacher The teacher user to check

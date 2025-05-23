@@ -16,7 +16,5 @@ public interface PromptRepository extends JpaRepository<Prompt, Long> {
   @Query("SELECT p FROM Prompt p WHERE p.isPublic = true")
   Page<Prompt> findAllIsPublicTrue(Pageable pageable);
 
-  long countByAuthor(User author);
-
   Optional<Prompt> findByTitle(String title);
 }

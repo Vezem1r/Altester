@@ -13,7 +13,6 @@ import com.altester.core.dtos.core_service.subject.GroupStudentsResponseDTO;
 import com.altester.core.dtos.core_service.test.TestPreviewDTO;
 import com.altester.core.dtos.core_service.test.TestSummaryDTO;
 import com.altester.core.util.CacheablePage;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -217,7 +216,6 @@ public class RedisConfig {
 
   private RedisCacheConfiguration createCacheConfiguration(JsonRedisSerializer<?> serializer) {
     return RedisCacheConfiguration.defaultCacheConfig()
-        .entryTtl(Duration.ofSeconds(redisTTL))
         .serializeKeysWith(
             RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
         .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer))

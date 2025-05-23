@@ -1,7 +1,6 @@
 package com.altester.core.serviceImpl.attemptRetrieval;
 
 import com.altester.core.dtos.core_service.retrieval.*;
-import com.altester.core.dtos.core_service.review.AttemptReviewSubmissionDTO;
 import com.altester.core.dtos.core_service.student.AttemptReviewDTO;
 import com.altester.core.exception.AccessDeniedException;
 import com.altester.core.exception.ResourceNotFoundException;
@@ -182,24 +181,6 @@ public class AttemptRetrievalServiceImpl implements AttemptRetrievalService {
     accessValidator.verifyAttemptAccessPermission(user, attempt);
 
     return reviewService.createAttemptReviewDTO(attempt);
-  }
-
-  @Override
-  @Transactional
-  public void submitAttemptReview(
-      Principal principal, Long attemptId, AttemptReviewSubmissionDTO reviewSubmission) {
-    log.info("{} submitting review for attempt {}", principal.getName(), attemptId);
-
-    User user = accessValidator.getUserFromPrincipal(principal);
-    Attempt attempt =
-        attemptRepository
-            .findById(attemptId)
-            .orElseThrow(
-                () -> new ResourceNotFoundException("Attempt", attemptId.toString(), null));
-
-    accessValidator.verifyAttemptAccessPermission(user, attempt);
-
-    reviewService.processAttemptReviewSubmission(user, attempt, reviewSubmission);
   }
 
   @Override

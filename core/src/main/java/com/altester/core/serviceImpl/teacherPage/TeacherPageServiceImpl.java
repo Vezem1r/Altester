@@ -30,7 +30,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 @Service
@@ -46,7 +45,6 @@ public class TeacherPageServiceImpl implements TeacherPageService {
   private final TeacherPageMapper teacherPageMapper;
   private final TeacherGroupService teacherGroupService;
   private final TeacherStudentService teacherStudentService;
-  private final TeacherStudentMoveValidator moveValidator;
   private final GroupDTOMapper groupDTOMapper;
   private final AiAccuracy aiAccuracy;
   private final TestRepository testRepository;
@@ -238,77 +236,6 @@ public class TeacherPageServiceImpl implements TeacherPageService {
         result.getNumberOfElements());
 
     return new CacheablePage<>(result);
-  }
-
-  @Override
-  @Transactional
-  public void moveStudentBetweenGroups(Principal principal, MoveStudentRequest request) {
-    log.info(
-        "Processing request to move student {} from group {} to group {}",
-        request.getStudentUsername(),
-        request.getFromGroupId(),
-        request.getToGroupId());
-
-    User teacher = getTeacherFromPrincipal(principal);
-
-    try {
-      Group fromGroup =
-          groupRepository
-              .findById(request.getFromGroupId())
-              .orElseThrow(
-                  () -> {
-                    log.error("Source group not found with ID: {}", request.getFromGroupId());
-                    return ResourceNotFoundException.group(request.getFromGroupId());
-                  });
-
-      Group toGroup =
-          groupRepository
-              .findById(request.getToGroupId())
-              .orElseThrow(
-                  () -> {
-                    log.error("Target group not found with ID: {}", request.getToGroupId());
-                    return ResourceNotFoundException.group(request.getToGroupId());
-                  });
-
-      moveValidator.validateGroupsForMove(teacher, fromGroup, toGroup);
-
-      Subject subject = moveValidator.validateSubjectsMatch(fromGroup, toGroup);
-
-      User student =
-          userRepository
-              .findByUsername(request.getStudentUsername())
-              .orElseThrow(
-                  () -> {
-                    log.error("Student not found with username: {}", request.getStudentUsername());
-                    return ResourceNotFoundException.user(
-                        request.getStudentUsername(), "Student not found");
-                  });
-
-      moveValidator.validateStudentForMove(
-          student, fromGroup, subject, request.getFromGroupId(), teacher);
-
-      fromGroup.getStudents().remove(student);
-      toGroup.getStudents().add(student);
-
-      groupRepository.save(fromGroup);
-      groupRepository.save(toGroup);
-
-      cacheService.clearTeacherRelatedCaches();
-      cacheService.clearStudentRelatedCaches();
-
-      log.info(
-          "Successfully moved student {} from group {} to group {}",
-          student.getUsername(),
-          fromGroup.getName(),
-          toGroup.getName());
-
-    } catch (AlTesterException e) {
-      log.error("Failed to move student: {} - {}", e.getClass().getSimpleName(), e.getMessage());
-      throw e;
-    } catch (Exception e) {
-      log.error("Unexpected error occurred while moving student between groups", e);
-      throw e;
-    }
   }
 
   @Override

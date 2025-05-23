@@ -2,9 +2,6 @@ package com.altester.core.serviceImpl.test;
 
 import com.altester.core.dtos.core_service.test.*;
 import com.altester.core.exception.*;
-import com.altester.core.model.ApiKey.ApiKey;
-import com.altester.core.model.ApiKey.Prompt;
-import com.altester.core.model.ApiKey.TestGroupAssignment;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
 import com.altester.core.model.subject.Group;
@@ -17,10 +14,8 @@ import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.service.TestService;
 import com.altester.core.serviceImpl.CacheService;
 import com.altester.core.serviceImpl.group.GroupActivityService;
-import com.altester.core.serviceImpl.question.TestStatusService;
 import com.altester.core.util.CacheablePage;
 import java.security.Principal;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -45,12 +40,9 @@ public class TestServiceImpl implements TestService {
   private final GroupActivityService groupActivityService;
   private final NotificationDispatchService notificationService;
   private final CacheService cacheService;
-  private final TestGroupSelectionService groupSelection;
   private final ApiKeyRepository apiKeyRepository;
   private final TestGroupAssignmentRepository assignmentRepository;
-  private final TestRequirementsValidator testRequirementsValidator;
   private final PromptRepository promptRepository;
-  private final TestStatusService testStatusService;
   private final QuestionRepository questionRepository;
 
   private User getCurrentUser(Principal principal) {
@@ -71,103 +63,6 @@ public class TestServiceImpl implements TestService {
               log.error("Test with ID {} not found", testId);
               return ResourceNotFoundException.test(testId);
             });
-  }
-
-  private Group getGroupById(Long groupId) {
-    return groupRepository
-        .findById(groupId)
-        .orElseThrow(
-            () -> {
-              log.error("Group with ID {} not found", groupId);
-              return ResourceNotFoundException.group(
-                  "To perform this action you need to specify a group id");
-            });
-  }
-
-  @Override
-  @Transactional
-  public void toggleTeacherEditPermission(Long testId, Principal principal) {
-    log.debug(
-        "User {} is attempting to toggle teacher edit permission for test with ID {}",
-        principal.getName(),
-        testId);
-
-    User currentUser = getCurrentUser(principal);
-
-    if (currentUser.getRole() != RolesEnum.ADMIN) {
-      log.warn("User {} is not an admin, access denied", currentUser.getUsername());
-      throw AccessDeniedException.notAdmin();
-    }
-
-    Test test = getTestById(testId);
-    boolean newState = !test.isAllowTeacherEdit();
-    test.setAllowTeacherEdit(newState);
-    testRepository.save(test);
-
-    cacheService.clearTestRelatedCaches();
-
-    log.info(
-        "Teacher edit permission for test ID {} toggled to {} by admin {}",
-        testId,
-        newState,
-        currentUser.getUsername());
-  }
-
-  @Override
-  @Transactional
-  public void toggleAiEvaluation(Long testId, Long groupId, Principal principal) {
-    log.debug(
-        "User {} is attempting to toggle AI evaluation for test with ID {}",
-        principal.getName(),
-        testId);
-
-    User currentUser = getCurrentUser(principal);
-    Test test = getTestById(testId);
-    Group group = getGroupById(groupId);
-
-    if (currentUser.getRole() == RolesEnum.TEACHER) {
-      if (group.getTeacher() == null || !group.getTeacher().getId().equals(currentUser.getId())) {
-        log.warn(
-            "User {} does not have access to group {}", currentUser.getUsername(), group.getId());
-        throw AccessDeniedException.groupAccess();
-      }
-
-      /// UNCOMMENT if you need
-      /// if (!test.isAllowTeacherEdit()) {
-      ///  log.warn("Test {} does not allow teacher editing", test.getId());
-      ///  throw AccessDeniedException.testEdit();
-      /// }
-    }
-
-    TestGroupAssignment assignment =
-        assignmentRepository
-            .findByTestAndGroup(test, group)
-            .orElseThrow(
-                () ->
-                    new ResourceNotFoundException(
-                        "assignment", "test and group", test.getId() + " and " + group.getId()));
-
-    if (assignment.getApiKey() == null) {
-      log.warn(
-          "Cannot enable AI evaluation for test {} and group {} without an assigned API key",
-          test.getId(),
-          group.getId());
-      throw new StateConflictException(
-          "assignment", "no_api_key", "Cannot enable AI evaluation without an assigned API key");
-    }
-
-    boolean newState = !assignment.isAiEvaluation();
-    assignment.setAiEvaluation(newState);
-    assignmentRepository.save(assignment);
-
-    cacheService.clearTestRelatedCaches();
-    cacheService.clearApiKeyRelatedCaches();
-
-    log.info(
-        "Ai evaluation changed for test ID {} toggled to {} by user {}",
-        testId,
-        newState,
-        currentUser.getUsername());
   }
 
   @Override
@@ -270,264 +165,6 @@ public class TestServiceImpl implements TestService {
               return dto;
             });
     return new CacheablePage<>(resultPage);
-  }
-
-  @Override
-  @Transactional
-  public TestPreviewDTO createTest(CreateTestDTO createTestDTO, Principal principal) {
-    log.info("Creating new test with title: {}", createTestDTO.getTitle());
-
-    User currentUser = getCurrentUser(principal);
-
-    Test test = new Test();
-    test.setTitle(createTestDTO.getTitle());
-    test.setDescription(createTestDTO.getDescription());
-    test.setDuration(createTestDTO.getDuration());
-    test.setOpen(false);
-    test.setMaxAttempts(createTestDTO.getMaxAttempts());
-
-    test.setEasyQuestionsCount(
-        createTestDTO.getEasyQuestionsCount() != null ? createTestDTO.getEasyQuestionsCount() : 0);
-    test.setMediumQuestionsCount(
-        createTestDTO.getMediumQuestionsCount() != null
-            ? createTestDTO.getMediumQuestionsCount()
-            : 0);
-    test.setHardQuestionsCount(
-        createTestDTO.getHardQuestionsCount() != null ? createTestDTO.getHardQuestionsCount() : 0);
-
-    test.setStartTime(createTestDTO.getStartTime());
-    test.setEndTime(createTestDTO.getEndTime());
-    test.setCreatedByAdmin(currentUser.getRole() == RolesEnum.ADMIN);
-    test.setAllowTeacherEdit(currentUser.getRole() == RolesEnum.TEACHER);
-
-    List<Group> selectedGroups = groupSelection.findValidGroupsForTest(currentUser, createTestDTO);
-
-    Test savedTest = testRepository.save(test);
-
-    selectedGroups.forEach(group -> group.getTests().add(savedTest));
-    groupRepository.saveAll(selectedGroups);
-
-    List<ApiKey> globalKeys = apiKeyRepository.findAllIsGlobalTrue();
-    boolean hasGlobalKey = !globalKeys.isEmpty();
-
-    if (hasGlobalKey && !selectedGroups.isEmpty()) {
-      ApiKey globalKey = globalKeys.getFirst();
-
-      Prompt defaultPrompt = promptRepository.findById(1L).orElse(null);
-
-      for (Group group : selectedGroups) {
-        TestGroupAssignment assignment =
-            TestGroupAssignment.builder()
-                .test(savedTest)
-                .group(group)
-                .apiKey(globalKey)
-                .prompt(defaultPrompt)
-                .assignedAt(LocalDateTime.now())
-                .assignedBy(group.getTeacher())
-                .aiEvaluation(true)
-                .build();
-
-        log.debug(
-            "Automatically assigning global API key {} and default prompt to test {} for group {}",
-            globalKey.getId(),
-            savedTest.getId(),
-            group.getId());
-
-        assignmentRepository.save(assignment);
-      }
-    }
-
-    cacheService.clearAllCaches();
-
-    return testDTOMapper.convertToTestPreviewDTO(savedTest, currentUser);
-  }
-
-  @Override
-  @Transactional
-  public TestPreviewDTO updateTest(CreateTestDTO updateTestDTO, Long testId, Principal principal) {
-    log.info("Updating test with ID: {}", testId);
-
-    User currentUser = getCurrentUser(principal);
-    Test existingTest = getTestById(testId);
-
-    if (currentUser.getRole() == RolesEnum.TEACHER) {
-      List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
-      testAccessValidator.validateTeacherEditAccess(currentUser, existingTest, teacherGroups);
-    }
-
-    Integer oldEasyScore = existingTest.getEasyQuestionScore();
-    Integer oldMediumScore = existingTest.getMediumQuestionScore();
-    Integer oldHardScore = existingTest.getHardQuestionScore();
-
-    existingTest = TestUpdater.of(existingTest, updateTestDTO).updateAllFields().build();
-
-    if (updateTestDTO.getSubjectId() != null
-        || (updateTestDTO.getGroupIds() != null && !updateTestDTO.getGroupIds().isEmpty())) {
-
-      List<Group> newSelectedGroups =
-          groupSelection.findValidGroupsForTest(currentUser, updateTestDTO);
-
-      List<Group> currentGroups = testDTOMapper.findGroupsByTest(existingTest);
-
-      Set<Long> newGroupIds =
-          newSelectedGroups.stream().map(Group::getId).collect(Collectors.toSet());
-
-      Set<Long> currentGroupIds =
-          currentGroups.stream().map(Group::getId).collect(Collectors.toSet());
-
-      List<Group> groupsToRemove =
-          currentGroups.stream().filter(group -> !newGroupIds.contains(group.getId())).toList();
-
-      List<Group> groupsToAdd =
-          newSelectedGroups.stream()
-              .filter(group -> !currentGroupIds.contains(group.getId()))
-              .toList();
-
-      if (!groupsToRemove.isEmpty()) {
-        Test finalExistingTest = existingTest;
-
-        for (Group group : groupsToRemove) {
-          group.getTests().remove(finalExistingTest);
-
-          assignmentRepository
-              .findByTestAndGroup(finalExistingTest, group)
-              .ifPresent(
-                  assignment -> {
-                    assignmentRepository.delete(assignment);
-                    log.debug(
-                        "Removed TestGroupAssignment for test {} and group {}",
-                        finalExistingTest.getId(),
-                        group.getId());
-                  });
-        }
-
-        groupRepository.saveAll(groupsToRemove);
-        log.debug("Removed test from {} groups and related assignments", groupsToRemove.size());
-      }
-
-      if (!groupsToAdd.isEmpty()) {
-
-        for (Group group : groupsToAdd) {
-          group.getTests().add(existingTest);
-
-          if (assignmentRepository.findByTestAndGroup(existingTest, group).isEmpty()) {
-            List<ApiKey> globalKeys = apiKeyRepository.findAllIsGlobalTrue();
-            boolean hasGlobalKey = !globalKeys.isEmpty();
-
-            if (hasGlobalKey) {
-              ApiKey globalKey = globalKeys.getFirst();
-              Prompt defaultPrompt = promptRepository.findById(1L).orElse(null);
-
-              TestGroupAssignment assignment =
-                  TestGroupAssignment.builder()
-                      .test(existingTest)
-                      .group(group)
-                      .apiKey(globalKey)
-                      .prompt(defaultPrompt)
-                      .assignedAt(LocalDateTime.now())
-                      .assignedBy(currentUser)
-                      .aiEvaluation(true)
-                      .build();
-
-              assignmentRepository.save(assignment);
-
-              log.debug(
-                  "Created TestGroupAssignment for test {} and group {} with API key {}",
-                  existingTest.getId(),
-                  group.getId(),
-                  globalKey.getId());
-            }
-          }
-        }
-
-        groupRepository.saveAll(groupsToAdd);
-        log.debug("Added test to {} new groups with assignments", groupsToAdd.size());
-      }
-    }
-
-    updateQuestionScoresIfChanged(existingTest, oldEasyScore, oldMediumScore, oldHardScore);
-
-    Test updatedTest = testRepository.save(existingTest);
-    testStatusService.updateTestOpenStatus(existingTest);
-
-    boolean parametersChanged =
-        !existingTest.getTitle().equals(updateTestDTO.getTitle())
-            || existingTest.getDuration() != updateTestDTO.getDuration()
-            || !Objects.equals(existingTest.getStartTime(), updateTestDTO.getStartTime())
-            || !Objects.equals(existingTest.getEndTime(), updateTestDTO.getEndTime());
-
-    if (parametersChanged) {
-      List<Group> affectedGroups = testDTOMapper.findGroupsByTest(existingTest);
-      for (Group group : affectedGroups) {
-        notificationService.notifyTestParametersChanged(existingTest, group);
-      }
-    }
-
-    cacheService.clearAllCaches();
-
-    return testDTOMapper.convertToTestPreviewDTO(updatedTest, currentUser);
-  }
-
-  private void updateQuestionScoresIfChanged(
-      Test test, Integer oldEasy, Integer oldMedium, Integer oldHard) {
-    Integer newEasy = test.getEasyQuestionScore();
-    Integer newMedium = test.getMediumQuestionScore();
-    Integer newHard = test.getHardQuestionScore();
-
-    for (Question q : test.getQuestions()) {
-      QuestionDifficulty difficulty = q.getDifficulty();
-
-      if (difficulty == QuestionDifficulty.EASY && !Objects.equals(oldEasy, newEasy)) {
-        q.setScore(newEasy);
-      } else if (difficulty == QuestionDifficulty.MEDIUM && !Objects.equals(oldMedium, newMedium)) {
-        q.setScore(newMedium);
-      } else if (difficulty == QuestionDifficulty.HARD && !Objects.equals(oldHard, newHard)) {
-        q.setScore(newHard);
-      }
-    }
-    questionRepository.saveAll(test.getQuestions());
-  }
-
-  @Override
-  @Transactional
-  public void deleteTest(Long testId, Principal principal) {
-    log.info("Deleting test with ID: {}", testId);
-
-    User currentUser = getCurrentUser(principal);
-    Test existingTest = getTestById(testId);
-
-    if (currentUser.getRole() == RolesEnum.ADMIN) {
-      performTestDeletion(existingTest);
-    } else if (currentUser.getRole() == RolesEnum.TEACHER) {
-      List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
-
-      if (existingTest.isCreatedByAdmin()) {
-        throw AccessDeniedException.testEdit();
-      }
-
-      if (!testAccessValidator.hasTestGroupAssociation(currentUser, existingTest, teacherGroups)) {
-        throw AccessDeniedException.testAccess();
-      }
-
-      performTestDeletion(existingTest);
-    } else {
-      throw AccessDeniedException.testAccess();
-    }
-  }
-
-  /**
-   * Performs the actual test deletion including removing all associations with groups.
-   *
-   * @param test The test entity to delete
-   */
-  private void performTestDeletion(Test test) {
-    List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
-    testGroups.forEach(group -> group.getTests().remove(test));
-    groupRepository.saveAll(testGroups);
-
-    testRepository.delete(test);
-    cacheService.clearAllCaches();
-    log.info("Test with ID {} has been deleted", test.getId());
   }
 
   @Override
@@ -685,53 +322,6 @@ public class TestServiceImpl implements TestService {
               return dto;
             });
     return new CacheablePage<>(resultPage);
-  }
-
-  @Override
-  @Transactional
-  public void toggleTestActivity(Long testId, Principal principal) {
-    log.info(
-        "User {} is attempting to toggle activity for test with ID {}",
-        principal.getName(),
-        testId);
-
-    User currentUser = getCurrentUser(principal);
-    Test test = getTestById(testId);
-
-    if (currentUser.getRole() != RolesEnum.ADMIN) {
-      log.info("User {} is not an admin, checking permissions...", currentUser.getUsername());
-
-      List<Group> teacherGroups = groupRepository.findByTeacher(currentUser);
-      testAccessValidator.validateTeacherEditAccess(currentUser, test, teacherGroups);
-    }
-
-    boolean newState = !test.isOpen();
-
-    if (newState && !testRequirementsValidator.requirementsMet(test)) {
-      String errorMessage = testRequirementsValidator.getMissingRequirements(test);
-      log.warn("Cannot open test ID {}: {}", testId, errorMessage);
-      throw new StateConflictException("test", "requirements_not_met", errorMessage);
-    }
-
-    test.setOpen(newState);
-    testRepository.save(test);
-
-    cacheService.clearTestRelatedCaches();
-    cacheService.clearStudentRelatedCaches();
-    cacheService.clearTeacherRelatedCaches();
-
-    if (Boolean.TRUE.equals(newState)) {
-      List<Group> testGroups = testDTOMapper.findGroupsByTest(test);
-      for (Group group : testGroups) {
-        notificationService.notifyTestAssigned(test, group);
-      }
-    }
-
-    log.info(
-        "Test ID {} activity toggled to {} by user {}",
-        testId,
-        newState,
-        currentUser.getUsername());
   }
 
   @Override

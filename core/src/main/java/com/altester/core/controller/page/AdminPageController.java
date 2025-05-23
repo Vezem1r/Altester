@@ -1,11 +1,9 @@
 package com.altester.core.controller.page;
 
 import com.altester.core.dtos.core_service.AdminPage.AdminPageDTO;
-import com.altester.core.dtos.core_service.AdminPage.UpdateUser;
 import com.altester.core.dtos.core_service.AdminPage.UsersListDTO;
 import com.altester.core.service.AdminPageService;
 import com.altester.core.util.CacheablePage;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
@@ -23,31 +21,6 @@ import org.springframework.web.bind.annotation.*;
 public class AdminPageController {
 
   private final AdminPageService adminPageService;
-
-  @PutMapping("/updateUser")
-  public ResponseEntity<String> updateUser(
-      @Valid @RequestBody UpdateUser updateUser, @RequestParam String username) {
-    log.debug("Updating user with username: {} and new data: {}", username, updateUser);
-    UsersListDTO updatedUser = adminPageService.updateUser(updateUser, username);
-    log.info("User with username {} successfully updated to {}", username, updatedUser);
-    return ResponseEntity.ok("User updated successfully");
-  }
-
-  @PutMapping("/promoteTeacher")
-  public ResponseEntity<String> promoteTeacher(@RequestParam String username) {
-    log.debug("Promoting user {} to TEACHER role", username);
-    adminPageService.promoteToTeacher(username);
-    log.info("User {} successfully promoted to TEACHER role", username);
-    return ResponseEntity.ok("User successfully promoted to TEACHER");
-  }
-
-  @PutMapping("/promoteStudent")
-  public ResponseEntity<String> promoteStudent(@RequestParam String username) {
-    log.debug("Demoting user {} to STUDENT role", username);
-    adminPageService.demoteToStudent(username);
-    log.info("User {} successfully demoted to STUDENT role", username);
-    return ResponseEntity.ok("User successfully promoted to STUDENT");
-  }
 
   @GetMapping()
   public ResponseEntity<AdminPageDTO> getAdminPage(Principal principal) {
