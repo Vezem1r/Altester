@@ -2,15 +2,12 @@ package com.altester.core.controller;
 
 import com.altester.core.dtos.ai_service.PromptDTO;
 import com.altester.core.dtos.ai_service.PromptDetailsDTO;
-import com.altester.core.dtos.ai_service.PromptRequest;
 import com.altester.core.service.PromptService;
 import com.altester.core.util.CacheablePage;
-import jakarta.validation.Valid;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -24,26 +21,6 @@ import org.springframework.web.bind.annotation.*;
 public class PromptController {
 
   private final PromptService promptService;
-
-  @PostMapping
-  public ResponseEntity<PromptDetailsDTO> createPrompt(
-      @Valid @RequestBody PromptRequest request, Principal principal) {
-    PromptDetailsDTO prompt = promptService.createPrompt(request, principal);
-    return ResponseEntity.status(HttpStatus.CREATED).body(prompt);
-  }
-
-  @PutMapping("/{id}")
-  public ResponseEntity<PromptDetailsDTO> updatePrompt(
-      @PathVariable Long id, @Valid @RequestBody PromptRequest request, Principal principal) {
-    PromptDetailsDTO prompt = promptService.updatePrompt(id, request, principal);
-    return ResponseEntity.ok(prompt);
-  }
-
-  @DeleteMapping("/{id}")
-  public ResponseEntity<Void> deletePrompt(@PathVariable Long id, Principal principal) {
-    promptService.deletePrompt(id, principal);
-    return ResponseEntity.noContent().build();
-  }
 
   @GetMapping("/{id}")
   public ResponseEntity<PromptDetailsDTO> getPromptDetails(

@@ -1,12 +1,10 @@
 package com.altester.core.controller.page;
 
-import com.altester.core.dtos.core_service.TeacherPage.MoveStudentRequest;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherGroupDetailDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherPageDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherStudentsDTO;
 import com.altester.core.dtos.core_service.subject.GroupsResponse;
 import com.altester.core.service.TeacherPageService;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
@@ -64,21 +62,6 @@ public class TeacherPage {
         teacherPageService.getGroups(principal, page, size, search, status);
 
     return ResponseEntity.ok(groups);
-  }
-
-  @PostMapping("/moveStudent")
-  public ResponseEntity<String> moveStudentToAnotherGroup(
-      @Valid @RequestBody MoveStudentRequest request, Principal principal) {
-
-    log.debug(
-        "Moving student {} from group {} to group {}",
-        request.getStudentUsername(),
-        request.getFromGroupId(),
-        request.getToGroupId());
-
-    teacherPageService.moveStudentBetweenGroups(principal, request);
-
-    return ResponseEntity.ok("Student moved successfully");
   }
 
   @GetMapping("/group/{groupId}")

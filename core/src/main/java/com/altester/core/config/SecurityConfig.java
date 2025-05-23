@@ -1,7 +1,6 @@
 package com.altester.core.config;
 
 import com.altester.core.model.auth.enums.RolesEnum;
-import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,25 +27,24 @@ public class SecurityConfig {
   @Value("#{'${cors.allowed.origins}'.split(',')}")
   private List<String> allowedOrigins;
 
-  @Value("${swagger.enabled:false}")
-  private boolean swaggerEnabled;
+  private final boolean swaggerEnabled = false;
 
-  private final String[] BASE_WHITE_LIST = {"/password/**", "/auth/config", "/actuator/**"};
-  private final String[] SWAGGER_PATHS = {"/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**"};
+  private final String[] DEMO_WHITE_LIST = {
+    "/auth/signin", "/auth/validate-token", "/actuator/**",
+  };
 
   private final AuthenticationProvider authenticationProvider;
   private final JwtAuthFilter jwtAuthFilter;
   private final AuthConfigProperties authConfigProperties;
+  private final DemoModeFilter demoModeFilter;
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    String[] whiteList = getWhiteListBasedOnAuthMode();
-
     http.csrf(AbstractHttpConfigurer::disable)
         .authorizeHttpRequests(
             authorize ->
                 authorize
-                    .requestMatchers(whiteList)
+                    .requestMatchers(DEMO_WHITE_LIST)
                     .permitAll()
                     .requestMatchers("/admin/**")
                     .hasAnyRole(RolesEnum.ADMIN.name())
@@ -57,37 +55,17 @@ public class SecurityConfig {
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authenticationProvider(authenticationProvider)
+        .addFilterBefore(demoModeFilter, UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
         .cors(cors -> cors.configurationSource(corsConfigurationSource()));
     return http.build();
-  }
-
-  private String[] getWhiteListBasedOnAuthMode() {
-    List<String> whitelist = new java.util.ArrayList<>(Arrays.asList(BASE_WHITE_LIST));
-
-    if (authConfigProperties.isStandardAuthEnabled()) {
-      whitelist.add("/auth/signin");
-      whitelist.add("/auth/signup");
-      whitelist.add("/auth/verify");
-      whitelist.add("/auth/resend");
-    }
-
-    if (authConfigProperties.isLdapAuthEnabled()) {
-      whitelist.add("/auth/ldap/signin");
-    }
-
-    if (swaggerEnabled) {
-      whitelist.addAll(Arrays.asList(SWAGGER_PATHS));
-    }
-
-    return whitelist.toArray(new String[0]);
   }
 
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
     configuration.setAllowedOrigins(allowedOrigins);
-    configuration.setAllowedMethods(List.of("POST", "GET", "PUT", "DELETE", "OPTIONS"));
+    configuration.setAllowedMethods(List.of("POST", "GET"));
     configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Origin", "Accept"));
     configuration.setAllowCredentials(true);
     configuration.addExposedHeader("*");

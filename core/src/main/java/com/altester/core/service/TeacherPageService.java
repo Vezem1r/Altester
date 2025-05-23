@@ -1,6 +1,5 @@
 package com.altester.core.service;
 
-import com.altester.core.dtos.core_service.TeacherPage.MoveStudentRequest;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherGroupDetailDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherPageDTO;
 import com.altester.core.dtos.core_service.TeacherPage.TeacherStudentsDTO;
@@ -50,19 +49,6 @@ public interface TeacherPageService {
    */
   CacheablePage<GroupsResponse> getGroups(
       Principal principal, int page, int size, String searchQuery, String statusFilter);
-
-  /**
-   * Moves a student from one group to another within the same subject. Both groups must be taught
-   * by the same teacher and belong to the same subject.
-   *
-   * @param principal The authenticated teacher
-   * @param request Object containing student username, source group ID and target group ID
-   * @throws ResourceNotFoundException if the student, source group, or target group is not found
-   * @throws AccessDeniedException if the teacher doesn't have permission to modify either group
-   * @throws StateConflictException if the groups don't belong to the same subject
-   * @throws ValidationException if the student is not in the source group
-   */
-  void moveStudentBetweenGroups(Principal principal, MoveStudentRequest request);
 
   TeacherGroupDetailDTO getTeacherGroup(Principal principal, Long groupId);
 }

@@ -1,25 +1,17 @@
 package com.altester.core.serviceImpl.attemptRetrieval;
 
-import com.altester.core.dtos.core_service.review.AttemptReviewSubmissionDTO;
-import com.altester.core.dtos.core_service.review.QuestionReviewSubmissionDTO;
 import com.altester.core.dtos.core_service.student.AttemptReviewDTO;
 import com.altester.core.dtos.core_service.student.OptionReviewDTO;
 import com.altester.core.dtos.core_service.student.QuestionReviewDTO;
-import com.altester.core.model.auth.User;
 import com.altester.core.model.subject.*;
-import com.altester.core.model.subject.enums.AttemptStatus;
 import com.altester.core.repository.AttemptRepository;
 import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.serviceImpl.CacheService;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -80,45 +72,5 @@ public class AttemptReviewService {
         .endTime(attempt.getEndTime())
         .questions(questionReviews)
         .build();
-  }
-
-  @Transactional
-  public void processAttemptReviewSubmission(
-      User user, Attempt attempt, AttemptReviewSubmissionDTO reviewSubmission) {
-    Map<Long, Submission> submissionMap =
-        attempt.getSubmissions().stream()
-            .collect(Collectors.toMap(Submission::getId, submission -> submission));
-
-    int totalScore = 0;
-
-    for (QuestionReviewSubmissionDTO questionReview : reviewSubmission.getQuestionReviews()) {
-      Submission submission = submissionMap.get(questionReview.getSubmissionId());
-
-      if (submission != null) {
-        submission.setScore(questionReview.getScore());
-        submission.setTeacherFeedback(questionReview.getTeacherFeedback());
-
-        totalScore += questionReview.getScore() != null ? questionReview.getScore() : 0;
-      }
-    }
-
-    attempt.setScore(totalScore);
-    attempt.setStatus(AttemptStatus.REVIEWED);
-    attemptRepository.save(attempt);
-
-    cacheService.clearAttemptRelatedCaches();
-    cacheService.clearTeacherRelatedCaches();
-    cacheService.clearStudentRelatedCaches();
-    cacheService.clearAdminRelatedCaches();
-
-    notificationService.notifyTestGraded(attempt);
-
-    boolean hasFeedback =
-        reviewSubmission.getQuestionReviews().stream()
-            .anyMatch(qr -> StringUtils.hasText(qr.getTeacherFeedback()));
-
-    if (hasFeedback) {
-      notificationService.notifyTeacherFeedback(attempt);
-    }
   }
 }

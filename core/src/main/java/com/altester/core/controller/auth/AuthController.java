@@ -2,6 +2,7 @@ package com.altester.core.controller.auth;
 
 import com.altester.core.config.AppConfig;
 import com.altester.core.config.AuthConfigProperties;
+import com.altester.core.config.DemoConfig;
 import com.altester.core.dtos.auth_service.auth.*;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +24,7 @@ public class AuthController {
   private final RestTemplate restTemplate;
   private final AuthConfigProperties authConfigProperties;
   private final AppConfig appConfig;
+  private final DemoConfig demoConfig;
 
   private static final String API_KEY_HEADER = "x-api-key";
 
@@ -76,61 +78,30 @@ public class AuthController {
   }
 
   @PostMapping("/signin")
-  public ResponseEntity<LoginResponseDTO> login(@RequestBody LoginRequestDTO loginRequest) {
-    if (!authConfigProperties.isStandardAuthEnabled()) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+  public ResponseEntity<?> login(@RequestBody LoginRequestDTO loginRequest) {
+    if (!isDemoUserAllowed(loginRequest.getUsernameOrEmail())) {
+      log.warn(
+          "DEMO MODE: Login attempt with non-demo user: {}", loginRequest.getUsernameOrEmail());
+
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("error", "DEMO MODE: Access denied");
+      errorResponse.put(
+          "message",
+          "Only demo users are allowed: " + String.join(", ", demoConfig.getAllowedUsers()));
+      errorResponse.put("demoMode", true);
+      errorResponse.put("allowedUsers", demoConfig.getAllowedUsers());
+
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
     }
 
-    log.info(
-        "Forwarding signin request to auth-service for user: {}",
-        loginRequest.getUsernameOrEmail());
+    log.info("DEMO MODE: Signin request for demo user: {}", loginRequest.getUsernameOrEmail());
+
     return forwardRequest(
         appConfig.getAuthUrl() + "/signin", HttpMethod.POST, loginRequest, LoginResponseDTO.class);
   }
 
-  @PostMapping("/ldap/signin")
-  public ResponseEntity<LoginResponseDTO> ldapLogin(@RequestBody LdapLoginDTO ldapLogin) {
-    if (!authConfigProperties.isLdapAuthEnabled()) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
-    }
-
-    log.info("Forwarding LDAP signin request to auth-service for user: {}", ldapLogin.getLogin());
-    return forwardRequest(
-        appConfig.getLdapUrl() + "/login", HttpMethod.POST, ldapLogin, LoginResponseDTO.class);
-  }
-
-  @PostMapping("/signup")
-  public ResponseEntity<String> signup(@RequestBody RegisterRequestDTO registerRequest) {
-    if (!authConfigProperties.isRegistrationEnabled()) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Registration is currently disabled");
-    }
-
-    log.info("Forwarding signup request to auth-service for email: {}", registerRequest.getEmail());
-    return forwardRequest(
-        appConfig.getAuthUrl() + "/signup", HttpMethod.POST, registerRequest, String.class);
-  }
-
-  @PostMapping("/verify")
-  public ResponseEntity<String> verifyUser(@RequestBody VerifyUserDTO verifyUserDto) {
-    if (!authConfigProperties.isRegistrationEnabled()) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN)
-          .body("Registration verification is currently disabled");
-    }
-
-    log.info("Forwarding verification request for user: {}", verifyUserDto.getEmail());
-    return forwardRequest(
-        appConfig.getAuthUrl() + "/verify", HttpMethod.POST, verifyUserDto, String.class);
-  }
-
-  @PostMapping("/resend")
-  public ResponseEntity<String> resendVerificationCode(@RequestParam String email) {
-    if (!authConfigProperties.isRegistrationEnabled()) {
-      return ResponseEntity.status(HttpStatus.FORBIDDEN)
-          .body("Registration verification is currently disabled");
-    }
-
-    log.info("Forwarding request to resend verification code for email: {}", email);
-    return forwardRequest(
-        appConfig.getAuthUrl() + "/resend?email=" + email, HttpMethod.POST, null, String.class);
+  private boolean isDemoUserAllowed(String usernameOrEmail) {
+    return demoConfig.getAllowedUsers().stream()
+        .anyMatch(allowedUser -> allowedUser.equalsIgnoreCase(usernameOrEmail));
   }
 }

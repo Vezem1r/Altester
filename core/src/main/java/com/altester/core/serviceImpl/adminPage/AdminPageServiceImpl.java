@@ -1,15 +1,9 @@
 package com.altester.core.serviceImpl.adminPage;
 
 import com.altester.core.dtos.core_service.AdminPage.AdminPageDTO;
-import com.altester.core.dtos.core_service.AdminPage.UpdateUser;
 import com.altester.core.dtos.core_service.AdminPage.UsersListDTO;
-import com.altester.core.exception.AccessDeniedException;
-import com.altester.core.exception.ResourceAlreadyExistsException;
-import com.altester.core.exception.ResourceNotFoundException;
-import com.altester.core.exception.StateConflictException;
 import com.altester.core.model.auth.User;
 import com.altester.core.model.auth.enums.RolesEnum;
-import com.altester.core.model.subject.Group;
 import com.altester.core.repository.*;
 import com.altester.core.service.AdminPageService;
 import com.altester.core.serviceImpl.CacheService;
@@ -18,7 +12,6 @@ import com.altester.core.util.CacheablePage;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -27,7 +20,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 @Slf4j
@@ -53,16 +45,6 @@ public class AdminPageServiceImpl implements AdminPageService {
   private final CacheService cacheService;
   private final AttemptRepository attemptRepository;
   private final AiAccuracy aiAccuracy;
-
-  private User getUserByUsername(String username) {
-    return userRepository
-        .findByUsername(username)
-        .orElseThrow(
-            () -> {
-              log.error("Username {} not found", username);
-              return ResourceNotFoundException.user(username);
-            });
-  }
 
   @Override
   @Cacheable(
@@ -180,7 +162,6 @@ public class AdminPageServiceImpl implements AdminPageService {
   @Cacheable(value = "adminStats", key = "#username")
   public AdminPageDTO getPage(String username) {
     log.debug("Fetching admin page data for user: {}", username);
-    getUserByUsername(username);
 
     AdminPageDTO dto = new AdminPageDTO();
     dto.setStudentsCount(userRepository.countByRole(RolesEnum.STUDENT));
@@ -191,95 +172,5 @@ public class AdminPageServiceImpl implements AdminPageService {
     dto.setUsername(username);
     dto.setAiAccuracy(aiAccuracy.calculateAiAccuracy());
     return dto;
-  }
-
-  @Override
-  @Transactional
-  public void demoteToStudent(String username) {
-    User user = getUserByUsername(username);
-
-    if (user.getRole() == RolesEnum.STUDENT) {
-      log.warn("User {} is already a student", user.getUsername());
-      throw StateConflictException.roleConflict("User is already a student");
-    }
-
-    List<Group> teacherGroups = groupRepository.findAllByTeacher(user);
-
-    if (!teacherGroups.isEmpty()) {
-      teacherGroups.forEach(group -> group.setTeacher(null));
-      groupRepository.saveAll(teacherGroups);
-      log.info("Removed user {} from {} teacher roles", username, teacherGroups.size());
-    }
-
-    user.setRole(RolesEnum.STUDENT);
-    userRepository.save(user);
-
-    cacheService.clearAdminRelatedCaches();
-    cacheService.clearStudentRelatedCaches();
-    cacheService.clearTeacherRelatedCaches();
-
-    log.info("User {} (ID: {}) successfully promoted to STUDENT", user.getUsername(), user.getId());
-  }
-
-  @Override
-  @Transactional
-  public void promoteToTeacher(String username) {
-    User user = getUserByUsername(username);
-
-    if (user.getRole() == RolesEnum.TEACHER) {
-      log.warn("User {} is already a teacher", user.getUsername());
-      throw StateConflictException.roleConflict("User is already a teacher");
-    }
-
-    List<Group> studentGroups = groupRepository.findAllByStudentsContaining(user);
-
-    if (!studentGroups.isEmpty()) {
-      studentGroups.forEach(group -> group.getStudents().remove(user));
-      groupRepository.saveAll(studentGroups);
-      log.info("Removed user {} from {} student groups", username, studentGroups.size());
-    }
-
-    user.setRole(RolesEnum.TEACHER);
-    userRepository.save(user);
-
-    cacheService.clearAdminRelatedCaches();
-    cacheService.clearTeacherRelatedCaches();
-    cacheService.clearStudentRelatedCaches();
-
-    log.info("User {} (ID: {}) successfully promoted to TEACHER", user.getUsername(), user.getId());
-  }
-
-  @Override
-  @Transactional
-  public UsersListDTO updateUser(UpdateUser updateUser, String username) {
-
-    User user = getUserByUsername(username);
-
-    if (!user.isRegistered()) {
-      log.warn("User {} was created via LDAP and cannot be updated", user.getUsername());
-      throw AccessDeniedException.ldapUserModification();
-    }
-
-    if (!user.getUsername().equals(updateUser.getUsername())) {
-      Optional<User> optionalUser = userRepository.findByUsername(updateUser.getUsername());
-      if (optionalUser.isPresent()) {
-        log.error("User with username {} already exists", updateUser.getUsername());
-        throw ResourceAlreadyExistsException.user(updateUser.getUsername());
-      }
-    }
-
-    user.setName(updateUser.getName());
-    user.setSurname(updateUser.getLastname());
-    user.setEmail(updateUser.getEmail());
-    user.setUsername(updateUser.getUsername());
-
-    User savedUser = userRepository.save(user);
-
-    cacheService.clearAdminRelatedCaches();
-    cacheService.clearStudentRelatedCaches();
-    cacheService.clearTeacherRelatedCaches();
-
-    log.info("User {} (ID: {}) successfully updated", savedUser.getUsername(), savedUser.getId());
-    return userMapper.convertToUsersListDTO(savedUser);
   }
 }

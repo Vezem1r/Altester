@@ -71,17 +71,4 @@ public interface StudentService {
    * @throws StateConflictException if the attempt is still in progress
    */
   AttemptReviewDTO getAttemptReview(Principal principal, Long attemptId);
-
-  /**
-   * Requests re-grading for AI-graded submissions by a student. All submissions must belong to the
-   * same attempt owned by the student. Only AI-graded submissions that haven't already been marked
-   * for re-grading can be requested.
-   *
-   * @param principal The authenticated student
-   * @param regradeRequest The DTO containing submission IDs to request re-grading for
-   * @throws ResourceNotFoundException if the student or any submission is not found
-   * @throws AccessDeniedException if the student doesn't own the submissions
-   * @throws StateConflictException if submissions are not valid for re-grading
-   */
-  void requestRegrade(Principal principal, RegradeRequestDTO regradeRequest);
 }

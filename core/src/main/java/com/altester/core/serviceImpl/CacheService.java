@@ -105,11 +105,6 @@ public class CacheService {
     log.debug("All API key-related caches have been cleared");
   }
 
-  public void clearPromptRelatedCaches() {
-    clearCaches("prompts", "myPrompts", "publicPrompts", "promptDetails");
-    log.debug("All prompt-related caches have been cleared");
-  }
-
   /**
    * Store a processing flag with a specified TTL
    *

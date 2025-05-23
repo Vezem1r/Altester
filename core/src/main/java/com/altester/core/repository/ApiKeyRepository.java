@@ -15,8 +15,5 @@ public interface ApiKeyRepository extends JpaRepository<ApiKey, Long> {
   @Query("SELECT k FROM ApiKey k WHERE k.isGlobal = true OR k.owner = :user")
   List<ApiKey> findAllGlobalOrOwnedBy(@Param("user") User user);
 
-  @Query("SELECT a FROM ApiKey a WHERE a.isGlobal = true")
-  List<ApiKey> findAllIsGlobalTrue();
-
   Optional<ApiKey> findByName(String name);
 }

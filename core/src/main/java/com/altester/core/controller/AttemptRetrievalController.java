@@ -1,7 +1,6 @@
 package com.altester.core.controller;
 
 import com.altester.core.dtos.core_service.retrieval.*;
-import com.altester.core.dtos.core_service.review.AttemptReviewSubmissionDTO;
 import com.altester.core.dtos.core_service.student.AttemptReviewDTO;
 import com.altester.core.service.AttemptRetrievalService;
 import java.security.Principal;
@@ -90,15 +89,5 @@ public class AttemptRetrievalController {
       Principal principal, @PathVariable Long attemptId) {
     AttemptReviewDTO review = attemptRetrievalService.getAttemptReview(principal, attemptId);
     return ResponseEntity.ok(review);
-  }
-
-  @PostMapping("/review/{attemptId}")
-  @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
-  public ResponseEntity<Void> submitAttemptReview(
-      Principal principal,
-      @PathVariable Long attemptId,
-      @RequestBody AttemptReviewSubmissionDTO reviewSubmission) {
-    attemptRetrievalService.submitAttemptReview(principal, attemptId, reviewSubmission);
-    return ResponseEntity.ok().build();
   }
 }

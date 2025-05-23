@@ -20,6 +20,7 @@ import org.springframework.web.client.RestTemplate;
 public class AppConfig {
 
   private final UserRepository userRepository;
+  private final DemoConfig demoConfig;
 
   @Value("${AUTH_SERVICE_URL}")
   private String authServiceUrl;
@@ -65,21 +66,37 @@ public class AppConfig {
   @Bean
   UserDetailsService userDetailsService() {
     return usernameOrEmail -> {
+      if (!isDemoUserAllowed(usernameOrEmail)) {
+        String allowedUsersStr = String.join(", ", demoConfig.getAllowedUsers());
+        throw new UsernameNotFoundException(
+            "DEMO MODE: User '"
+                + usernameOrEmail
+                + "' is not allowed. "
+                + "Available demo users: "
+                + allowedUsersStr);
+      }
+
       if (usernameOrEmail.contains("@")) {
         return userRepository
             .findByEmail(usernameOrEmail)
             .orElseThrow(
                 () ->
-                    new UsernameNotFoundException("User not found with email: " + usernameOrEmail));
+                    new UsernameNotFoundException(
+                        "Demo user not found with email: " + usernameOrEmail));
       } else {
         return userRepository
             .findByUsername(usernameOrEmail)
             .orElseThrow(
                 () ->
                     new UsernameNotFoundException(
-                        "User not found with username: " + usernameOrEmail));
+                        "Demo user not found with username: " + usernameOrEmail));
       }
     };
+  }
+
+  private boolean isDemoUserAllowed(String usernameOrEmail) {
+    return demoConfig.getAllowedUsers().stream()
+        .anyMatch(allowedUser -> allowedUser.equalsIgnoreCase(usernameOrEmail));
   }
 
   @Bean

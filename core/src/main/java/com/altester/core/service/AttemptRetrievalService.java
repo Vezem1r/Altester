@@ -1,7 +1,6 @@
 package com.altester.core.service;
 
 import com.altester.core.dtos.core_service.retrieval.*;
-import com.altester.core.dtos.core_service.review.AttemptReviewSubmissionDTO;
 import com.altester.core.dtos.core_service.student.AttemptReviewDTO;
 import com.altester.core.exception.*;
 import java.security.Principal;
@@ -78,20 +77,6 @@ public interface AttemptRetrievalService {
    *     attempt
    */
   AttemptReviewDTO getAttemptReview(Principal principal, Long attemptId);
-
-  /**
-   * Submits a review for a specific test attempt. Accessible to teachers who teach the group the
-   * student belongs to, and administrators.
-   *
-   * @param principal The authenticated user (teacher or administrator)
-   * @param attemptId The ID of the attempt to review
-   * @param reviewSubmission DTO containing the review data (grades, comments, etc.)
-   * @throws ResourceNotFoundException if the attempt doesn't exist
-   * @throws AccessDeniedException if the authenticated user doesn't have permission to access this
-   *     attempt
-   */
-  void submitAttemptReview(
-      Principal principal, Long attemptId, AttemptReviewSubmissionDTO reviewSubmission);
 
   /**
    * Retrieves detailed information about a student's attempts for a specific test. Accessible to

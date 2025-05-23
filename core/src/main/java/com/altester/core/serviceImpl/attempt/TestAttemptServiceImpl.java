@@ -10,7 +10,6 @@ import com.altester.core.model.subject.*;
 import com.altester.core.model.subject.enums.AttemptStatus;
 import com.altester.core.model.subject.enums.QuestionType;
 import com.altester.core.repository.*;
-import com.altester.core.service.AiGradingService;
 import com.altester.core.service.NotificationDispatchService;
 import com.altester.core.service.TestAttemptService;
 import com.altester.core.serviceImpl.CacheService;
@@ -39,7 +38,6 @@ public class TestAttemptServiceImpl implements TestAttemptService {
   private final AttemptRepository attemptRepository;
   private final QuestionRepository questionRepository;
   private final CacheService cacheService;
-  private final AiGradingService aiGradingService;
   private final NotificationDispatchService notificationDispatchService;
 
   private final TestAttemptDTOMapper dtoMapper;

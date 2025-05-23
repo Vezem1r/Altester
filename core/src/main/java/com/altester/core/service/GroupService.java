@@ -7,17 +7,6 @@ import com.altester.core.util.CacheablePage;
 public interface GroupService {
 
   /**
-   * Deletes a group if it is active and can be modified. Groups from past semesters (inactive)
-   * cannot be deleted.
-   *
-   * @param id ID of the group to delete
-   * @throws ResourceNotFoundException if the group doesn't exist
-   * @throws StateConflictException if the group is from a past semester and cannot be modified
-   * @throws ValidationException if there's an error during deletion
-   */
-  void deleteGroup(long id);
-
-  /**
    * Retrieves detailed information about a specific group, including subject association.
    *
    * @param id ID of the group to retrieve
@@ -42,27 +31,6 @@ public interface GroupService {
       String activityFilter,
       Boolean available,
       Long subjectId);
-
-  /**
-   * Updates an existing group with new information if allowed by activity rules
-   *
-   * @param id ID of the group to update
-   * @param updateGroupDTO DTO containing updated group information
-   * @throws StateConflictException if group cannot be modified due to activity constraints
-   * @throws ValidationException if update fails validation
-   * @throws ResourceAlreadyExistsException if new group name is already taken
-   */
-  void updateGroup(Long id, UpdateGroupDTO updateGroupDTO);
-
-  /**
-   * Creates a new group with provided information and returns the generated ID
-   *
-   * @param createGroupDTO DTO containing new group information
-   * @return ID of the newly created group
-   * @throws ResourceAlreadyExistsException if group name already exists
-   * @throws StateConflictException if teacher role validation fails
-   */
-  Long createGroup(CreateGroupDTO createGroupDTO);
 
   /**
    * Retrieves a paginated and searchable list of all students in the system. Used for group

@@ -34,15 +34,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
   private final UserDetailsService userDetailsService;
   private static final String BEARER_PREFIX = "Bearer ";
 
-  private final List<String> whitelistedPaths =
-      Arrays.asList(
-          "/auth/signin",
-          "/auth/signup",
-          "/auth/verify",
-          "/auth/resend",
-          "/auth/ldap/signin",
-          "/auth/config",
-          "/password/");
+  private final List<String> whitelistedPaths = Arrays.asList("/auth/signin", "/auth/config");
 
   @Override
   protected void doFilterInternal(
