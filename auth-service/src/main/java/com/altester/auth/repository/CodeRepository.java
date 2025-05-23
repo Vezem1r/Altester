@@ -13,10 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 public interface CodeRepository extends JpaRepository<Codes, Long> {
 
-  Optional<Codes> findByUserAndCodeType(User user, CodeType codeType);
-
-  List<Codes> findAllByUser(User user);
-
   @Modifying
   @Transactional
   @Query("DELETE FROM Codes c WHERE c.expiration < :now")
