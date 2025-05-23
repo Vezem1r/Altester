@@ -37,32 +37,4 @@ public class WebSocketUtils {
     response.put("unreadCount", count);
     return response;
   }
-
-  /**
-   * Creates a response for a new notification
-   *
-   * @param type The notification message type (should be NEW_NOTIFICATION)
-   * @param notification The new notification
-   * @return A map containing the new notification response
-   */
-  public static Map<String, Object> createNewNotificationResponse(
-      NotificationMessageType type, NotificationDTO notification) {
-    Map<String, Object> response = createResponse(type);
-    response.put("notification", notification);
-    return response;
-  }
-
-  /**
-   * Creates a response for an unread count update
-   *
-   * @param type The notification message type (should be UNREAD_COUNT)
-   * @param count The updated unread count
-   * @return A map containing the unread count response
-   */
-  public static Map<String, Object> createUnreadCountResponse(
-      NotificationMessageType type, long count) {
-    Map<String, Object> response = createResponse(type);
-    response.put("unreadCount", count);
-    return response;
-  }
 }

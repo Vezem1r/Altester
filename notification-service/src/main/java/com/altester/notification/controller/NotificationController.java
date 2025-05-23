@@ -28,15 +28,4 @@ public class NotificationController {
 
     return ResponseEntity.ok(notifications);
   }
-
-  @PutMapping("/{notificationId}/read")
-  public ResponseEntity<NotificationDTO> markAsRead(@PathVariable Long notificationId) {
-    return ResponseEntity.ok(notificationService.markAsRead(notificationId));
-  }
-
-  @PutMapping("/read-all")
-  public ResponseEntity<Void> markAllAsRead(Principal principal) {
-    notificationService.markAllAsRead(principal.getName());
-    return ResponseEntity.ok().build();
-  }
 }
