@@ -3,6 +3,7 @@ package com.altester.core.config;
 import com.altester.core.serviceImpl.DataInit.DataInit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
 
@@ -13,38 +14,64 @@ public class DataInitializer implements CommandLineRunner {
 
   private final DataInit dataInit;
 
+  @Value("${data.init.enabled:false}")
+  private boolean dataInitEnabled;
+
+  @Value("${data.init.check.existing:true}")
+  private boolean checkExisting;
+
   @Override
   public void run(String... args) {
+    if (!dataInitEnabled) {
+      log.info("Data initialization is disabled. Set data.init.enabled=true to enable.");
+      return;
+    }
+
     log.info("Starting data initialization process...");
 
-    // Create default admin, student, and teacher users
-    dataInit.createDefaultUsers();
+    try {
+      // Check if data already exists
+      if (checkExisting && dataInit.isDataAlreadyInitialized()) {
+        log.info("Data already initialized. Skipping data initialization.");
+        return;
+      }
 
-    // Creating Students and Teachers
-    dataInit.createStudents(200);
-    dataInit.createTeachers(45);
+      // Phase 1: Create default admin (always if not exists)
+      dataInit.createDefaultAdmin();
 
-    // Creating Subjects
-    dataInit.createSubject(30);
+      // Phase 2: Create base users (student and teacher)
+      dataInit.createBaseUsers();
 
-    // Create groups with various configurations:
-    // - Multiple groups per subject in current semester/year
-    // - Past semester groups
-    // - Future semester groups
-    // - Each with assigned tests, questions, and options
-    // This also handles:
-    // - Assigning base teacher to 4 current, 2 past, 2 future groups
-    // - Adding base student to 5-6 different groups
-    // - Creating tests with different difficulty questions
-    // - Creating attempts and submissions for students
-    dataInit.createStudentGroups();
+      // Phase 3: Create bulk users
+      dataInit.createStudents(200);
+      dataInit.createTeachers(50);
 
-    // Creates default prompt for fallback
-    dataInit.createDefaultPrompt();
+      // Phase 4: Create IT subjects
+      dataInit.createITSubjects();
 
-    // Additional prompts are created automatically as part of createStudentGroups
-    dataInit.createAdditionalPrompts();
+      // Phase 5: Create groups for subjects
+      dataInit.createGroupsForAllSubjects();
 
-    log.info("Data initialization completed successfully");
+      // Phase 6: Create special groups for base teacher
+      dataInit.createSpecialGroupsForBaseTeacher();
+
+      // Phase 7: Create prompts
+      dataInit.createPrompts();
+
+      // Phase 8: Create API keys
+      dataInit.createApiKeys();
+
+      // Phase 9: Create tests for all groups
+      dataInit.createTestsForAllGroups();
+
+      // Phase 10: Create attempts and submissions
+      dataInit.createAttemptsAndSubmissions();
+
+      log.info("Data initialization completed successfully");
+
+    } catch (Exception e) {
+      log.error("Error during data initialization: {}", e.getMessage(), e);
+      throw new RuntimeException("Failed to initialize data", e);
+    }
   }
 }

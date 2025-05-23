@@ -192,8 +192,7 @@ public class AiGradingServiceImpl implements AiGradingService {
         notificationDispatchService.notifyApiKeyError(
             apiKey, e.getMessage(), status, errorType, title, message);
 
-        // You can make key deactivation depending on status, for example UNAUTHORIZED = DEACTIVATE,
-        // but
+        // You can make key deactivation depending on status, for example UNAUTHORIZED = DEACTIVATE
         deactivateApiKey(apiKey);
       }
     } catch (Exception notificationError) {
@@ -237,7 +236,6 @@ public class AiGradingServiceImpl implements AiGradingService {
 
   private void handleRestClientError(
       Attempt attempt, RestClientException e, CompletableFuture<GradingResponse> future) {
-    // Send notification about error to teacher if not 500
     log.error(
         "REST client error when sending attempt {} for AI grading: {}",
         attempt.getId(),

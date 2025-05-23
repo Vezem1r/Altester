@@ -1,7 +1,6 @@
 package com.altester.core.serviceImpl.DataInit;
 
 import com.altester.core.config.SemesterConfig;
-import com.altester.core.exception.ResourceNotFoundException;
 import com.altester.core.model.ApiKey.ApiKey;
 import com.altester.core.model.ApiKey.Prompt;
 import com.altester.core.model.ApiKey.TestGroupAssignment;
@@ -14,13 +13,12 @@ import com.altester.core.repository.*;
 import com.altester.core.serviceImpl.group.GroupActivityService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -32,12 +30,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @RequiredArgsConstructor
 public class DataInit {
-
-  private static final String ADMIN_USERNAME = "ADMIN";
-  private static final String STUDENT_USERNAME = "STUDENT";
-  private static final String TEACHER_USERNAME = "TEACHER";
-  private static final String SURNAME_SUPER = "Super";
-  private static final String GROUP_ACTIVE = "active";
 
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
@@ -74,19 +66,25 @@ public class DataInit {
   private User baseStudent;
   private User baseTeacher;
 
-  @Transactional
-  public void createDefaultUsers() {
-    log.info("Creating default admin, student, and teacher users");
+  public boolean isDataAlreadyInitialized() {
+    long userCount = userRepository.count();
+    long subjectCount = subjectRepository.count();
+    long groupCount = groupRepository.count();
+    return userCount > 10 && subjectCount > 5 && groupCount > 10;
+  }
 
-    // Create admin
-    if (userRepository.findByUsername(ADMIN_USERNAME).isEmpty()) {
+  @Transactional
+  public void createDefaultAdmin() {
+    log.info("Phase 1: Creating default admin user");
+
+    if (userRepository.findByUsername(DataConstants.ADMIN_USERNAME).isEmpty()) {
       String encodedAdminPassword = passwordEncoder.encode(adminPassword);
       baseAdmin =
           User.builder()
               .name("Admin")
-              .surname(SURNAME_SUPER)
+              .surname(DataConstants.SURNAME_SUPER)
               .email("admin@vsb.cz")
-              .username(ADMIN_USERNAME)
+              .username(DataConstants.ADMIN_USERNAME)
               .created(LocalDateTime.now())
               .lastLogin(LocalDateTime.now())
               .password(encodedAdminPassword)
@@ -97,19 +95,23 @@ public class DataInit {
       baseAdmin = userRepository.save(baseAdmin);
       log.info("Created admin user: {}", baseAdmin.getUsername());
     } else {
-      baseAdmin = userRepository.findByUsername(ADMIN_USERNAME).get();
+      baseAdmin = userRepository.findByUsername(DataConstants.ADMIN_USERNAME).get();
       log.info("Admin user already exists: {}", baseAdmin.getUsername());
     }
+  }
 
-    // Create base student
-    if (userRepository.findByUsername(STUDENT_USERNAME).isEmpty()) {
+  @Transactional
+  public void createBaseUsers() {
+    log.info("Phase 2: Creating base student and teacher users");
+
+    if (userRepository.findByUsername(DataConstants.STUDENT_USERNAME).isEmpty()) {
       String encodedStudentPassword = passwordEncoder.encode(testStudentPassword);
       baseStudent =
           User.builder()
               .name("Student")
-              .surname(SURNAME_SUPER)
+              .surname(DataConstants.SURNAME_SUPER)
               .email("student@vsb.cz")
-              .username(STUDENT_USERNAME)
+              .username(DataConstants.STUDENT_USERNAME)
               .created(LocalDateTime.now())
               .lastLogin(LocalDateTime.now())
               .password(encodedStudentPassword)
@@ -120,19 +122,18 @@ public class DataInit {
       baseStudent = userRepository.save(baseStudent);
       log.info("Created base student user: {}", baseStudent.getUsername());
     } else {
-      baseStudent = userRepository.findByUsername(STUDENT_USERNAME).get();
+      baseStudent = userRepository.findByUsername(DataConstants.STUDENT_USERNAME).get();
       log.info("Base student already exists: {}", baseStudent.getUsername());
     }
 
-    // Create base teacher
-    if (userRepository.findByUsername(TEACHER_USERNAME).isEmpty()) {
+    if (userRepository.findByUsername(DataConstants.TEACHER_USERNAME).isEmpty()) {
       String encodedTeacherPassword = passwordEncoder.encode(testTeacherPassword);
       baseTeacher =
           User.builder()
               .name("Teacher")
-              .surname(SURNAME_SUPER)
+              .surname(DataConstants.SURNAME_SUPER)
               .email("teacher@vsb.cz")
-              .username(TEACHER_USERNAME)
+              .username(DataConstants.TEACHER_USERNAME)
               .created(LocalDateTime.now())
               .lastLogin(LocalDateTime.now())
               .password(encodedTeacherPassword)
@@ -143,40 +144,36 @@ public class DataInit {
       baseTeacher = userRepository.save(baseTeacher);
       log.info("Created base teacher user: {}", baseTeacher.getUsername());
     } else {
-      baseTeacher = userRepository.findByUsername(TEACHER_USERNAME).get();
+      baseTeacher = userRepository.findByUsername(DataConstants.TEACHER_USERNAME).get();
       log.info("Base teacher already exists: {}", baseTeacher.getUsername());
     }
   }
 
-  // Create students for testing
   @Transactional
   public void createStudents(int amount) {
-    if (amount > DataConstants.SURNAMES.size()) {
-      amount = DataConstants.SURNAMES.size();
-    }
+    log.info("Phase 3: Creating {} students", amount);
 
-    log.info("Creating {} students", amount);
-
-    Pageable pageable = PageRequest.of(0, 100);
+    Pageable pageable = PageRequest.of(0, 300);
     var studentPage = userRepository.findByRole(RolesEnum.STUDENT, pageable);
     int currentCount = (int) studentPage.getTotalElements();
 
-    int remainingToCreate = Math.max(0, amount - currentCount + 2);
+    int existingBulkStudents = Math.max(0, currentCount - 1);
+    int remainingToCreate = Math.max(0, amount - existingBulkStudents);
 
     if (remainingToCreate == 0) {
-      log.info("Number of students already exists ({}), skipping student creation", currentCount);
+      log.info("Already have {} bulk students, skipping student creation", existingBulkStudents);
       return;
     }
 
     log.info("Creating {} additional students", remainingToCreate);
 
-    for (int i = 0; i < remainingToCreate; i++) {
+    for (int i = 0; i < remainingToCreate && i < DataConstants.SURNAMES.size(); i++) {
       String firstname = DataConstants.FIRSTNAMES.get(i % DataConstants.FIRSTNAMES.size());
-      String lastname = DataConstants.SURNAMES.get(i % DataConstants.SURNAMES.size());
+      String lastname = DataConstants.SURNAMES.get(i);
       String email = firstname.toLowerCase() + "." + lastname.toLowerCase() + ".st@vsb.cz";
 
       if (userRepository.findByEmail(email).isPresent()) {
-        log.info("Skipping existing student with email: {}", email);
+        log.debug("Skipping existing student with email: {}", email);
         continue;
       }
 
@@ -198,40 +195,35 @@ public class DataInit {
               .build();
 
       userRepository.save(user);
-      log.info("Created student: {} {}", firstname, lastname);
+      log.debug("Created student: {} {}", firstname, lastname);
     }
   }
 
   @Transactional
   public void createTeachers(int amount) {
-    if (amount > 45) {
-      amount = 45;
-    }
-
-    log.info("Creating {} teachers", amount);
+    log.info("Phase 3: Creating {} teachers", amount);
 
     Pageable pageable = PageRequest.of(0, 100);
     var teacherPage = userRepository.findByRole(RolesEnum.TEACHER, pageable);
     int currentCount = (int) teacherPage.getTotalElements();
 
-    int remainingToCreate = Math.max(0, amount - currentCount + 1);
+    int existingBulkTeachers = Math.max(0, currentCount - 1);
+    int remainingToCreate = Math.max(0, amount - existingBulkTeachers);
 
     if (remainingToCreate == 0) {
-      log.info(
-          "Adequate number of teachers already exists ({}), skipping teacher creation",
-          currentCount);
+      log.info("Already have {} bulk teachers, skipping teacher creation", existingBulkTeachers);
       return;
     }
 
     log.info("Creating {} additional teachers", remainingToCreate);
 
-    for (int i = 0; i < remainingToCreate; i++) {
+    for (int i = 0; i < remainingToCreate && i < DataConstants.SURNAMES.size(); i++) {
       String firstname = DataConstants.FIRSTNAMES.get((i + 30) % DataConstants.FIRSTNAMES.size());
       String lastname = DataConstants.SURNAMES.get((i + 30) % DataConstants.SURNAMES.size());
       String email = firstname.toLowerCase() + "." + lastname.toLowerCase() + "@vsb.cz";
 
       if (userRepository.findByEmail(email).isPresent()) {
-        log.info("Skipping existing teacher with email: {}", email);
+        log.debug("Skipping existing teacher with email: {}", email);
         continue;
       }
 
@@ -253,1702 +245,660 @@ public class DataInit {
               .build();
 
       userRepository.save(user);
-      log.info("Created teacher: {} {}", firstname, lastname);
+      log.debug("Created teacher: {} {}", firstname, lastname);
     }
-  }
-
-  public String generateUsername(String surname) {
-    String prefix = surname.substring(0, Math.min(3, surname.length())).toUpperCase();
-
-    String username;
-    boolean isUnique;
-
-    do {
-      int randomNumber = 100 + random.nextInt(900);
-      username = String.format("%sR%03d", prefix, randomNumber);
-      isUnique = userRepository.findByUsername(username).isEmpty();
-    } while (!isUnique);
-
-    return username;
   }
 
   @Transactional
-  public void createSubject(int amount) {
-    if (amount > DataConstants.SUBJECTS.size()) {
-      amount = DataConstants.SUBJECTS.size();
-    }
+  public void createITSubjects() {
+    log.info("Phase 4: Creating IT subjects");
 
-    log.info("Creating {} subjects", amount);
-
-    for (int i = 0; i < amount; i++) {
-      String subjectName = DataConstants.SUBJECTS.get(i);
-      String shortName = DataConstants.SHORT_NAMES.get(i);
-      String description =
-          "This course covers "
-              + subjectName
-              + " concepts and practical applications. Students will learn fundamental principles "
-              + "and develop skills through hands-on exercises and projects.";
+    for (Map<String, String> subjectData : DataConstants.IT_SUBJECTS) {
+      String shortName = subjectData.get(DataConstants.KEY_SHORT_NAME);
 
       if (subjectRepository.findByShortName(shortName).isPresent()) {
-        log.info("Skipping existing subject: {}", shortName);
+        log.debug("Subject {} already exists, skipping", shortName);
         continue;
       }
 
       Subject subject =
           Subject.builder()
-              .name(subjectName)
+              .name(subjectData.get(DataConstants.KEY_NAME))
               .shortName(shortName)
-              .description(description)
+              .description(subjectData.get(DataConstants.KEY_DESCRIPTION))
               .modified(LocalDateTime.now())
               .groups(new HashSet<>())
               .build();
 
       subjectRepository.save(subject);
-      log.info("Created subject: {} {}", subjectName, shortName);
+      log.info("Created subject: {} ({})", subject.getName(), subject.getShortName());
     }
   }
 
   @Transactional
-  public void createStudentGroups() {
-    Pageable pageable = PageRequest.of(0, 500);
-    var studentPage = userRepository.findByRole(RolesEnum.STUDENT, pageable);
-    var teacherPage = userRepository.findByRole(RolesEnum.TEACHER, pageable);
+  public void createGroupsForAllSubjects() {
+    log.info("Phase 5: Creating groups for all subjects");
 
-    List<User> students = new ArrayList<>(studentPage.getContent());
-    List<User> teachers = new ArrayList<>(teacherPage.getContent());
+    List<Subject> subjects = subjectRepository.findAll();
+    List<User> teachers = userRepository.findAllByRole(RolesEnum.TEACHER);
+    List<User> students = userRepository.findAllByRole(RolesEnum.STUDENT);
 
-    // Get all subjects
-    List<Subject> allSubjects = subjectRepository.findAll();
-    List<Subject> subjects = new ArrayList<>(allSubjects);
-
-    if (students.isEmpty()) {
-      log.warn("No students available to create groups.");
-      return;
-    }
-
-    if (teachers.isEmpty()) {
-      log.warn("No teachers available to create groups.");
-      return;
-    }
-
-    if (subjects.isEmpty()) {
-      log.warn("No subjects available to create groups.");
+    if (teachers.isEmpty() || students.isEmpty()) {
+      log.error("No teachers or students available to create groups");
       return;
     }
 
     Semester currentSemester = semesterConfig.getCurrentSemester();
     int currentYear = semesterConfig.getCurrentAcademicYear();
 
-    log.info("Creating groups for current semester {} and year {}", currentSemester, currentYear);
+    for (Subject subject : subjects) {
+      for (int i = 0; i < 2; i++) {
+        String groupName =
+            generateGroupName(subject.getShortName(), currentSemester, currentYear, i);
 
-    if (baseStudent != null && !students.contains(baseStudent)) {
-      students.add(baseStudent);
-    }
+        if (groupRepository.findByName(groupName).isPresent()) {
+          log.debug("Group {} already exists, skipping", groupName);
+          continue;
+        }
 
-    if (baseTeacher != null && !teachers.contains(baseTeacher)) {
-      teachers.add(baseTeacher);
-    }
+        User teacher = teachers.get(random.nextInt(teachers.size()));
+        while (teacher.equals(baseTeacher) && teachers.size() > 1) {
+          teacher = teachers.get(random.nextInt(teachers.size()));
+        }
 
-    // Track groups per subject to limit to 6 per subject in subsequent initializations
-    Map<Long, Integer> subjectGroupCount = new HashMap<>();
+        Group group = createGroup(groupName, subject, teacher, currentSemester, currentYear, true);
 
-    // Track base teacher's groups
-    List<Group> baseTeacherGroups = new ArrayList<>();
+        addStudentsToGroup(
+            group, students, subject, currentSemester, currentYear, 15 + random.nextInt(11));
 
-    // Track which groups the base student is in
-    List<Group> baseStudentGroups = new ArrayList<>();
-
-    // Track student assignment to prevent duplicates in same subject/semester/year
-    Map<String, Set<Long>> studentAssignments =
-        new HashMap<>(); // Key: "studentId-subjectId-semester-year"
-
-    // Process subjects in chunks to avoid memory issues
-    int chunkSize = 5;
-    for (int i = 0; i < subjects.size(); i += chunkSize) {
-      int end = Math.min(i + chunkSize, subjects.size());
-      List<Subject> subjectChunk = subjects.subList(i, end);
-
-      // Create current semester groups (13 per subject)
-      for (Subject subject : subjectChunk) {
-        int maxGroupsForThisSubject =
-            Math.min(13, 6 - subjectGroupCount.getOrDefault(subject.getId(), 0));
-        createGroupsForSemester(
-            subject,
-            currentSemester,
-            currentYear,
-            maxGroupsForThisSubject,
-            students,
-            teachers,
-            baseTeacherGroups,
-            baseStudentGroups,
-            studentAssignments,
-            true);
-
-        subjectGroupCount.put(
-            subject.getId(),
-            subjectGroupCount.getOrDefault(subject.getId(), 0) + maxGroupsForThisSubject);
+        log.info("Created group {} for subject {}", groupName, subject.getShortName());
       }
     }
+  }
 
-    // Create previous semester groups (1 per subject)
+  @Transactional
+  public void createSpecialGroupsForBaseTeacher() {
+    log.info("Phase 6: Creating special groups for base teacher");
+
+    List<Subject> subjects = subjectRepository.findAll();
+    if (subjects.size() < 2) {
+      log.error("Not enough subjects to create special groups");
+      return;
+    }
+
+    Subject subject1 = subjects.get(0);
+    Subject subject2 = subjects.get(1);
+
+    Semester currentSemester = semesterConfig.getCurrentSemester();
+    int currentYear = semesterConfig.getCurrentAcademicYear();
+    Semester nextSemester =
+        (currentSemester == Semester.WINTER) ? Semester.SUMMER : Semester.WINTER;
+    int nextYear = (nextSemester == Semester.WINTER) ? currentYear + 1 : currentYear;
     Semester prevSemester =
         (currentSemester == Semester.WINTER) ? Semester.SUMMER : Semester.WINTER;
     int prevYear = (prevSemester == Semester.SUMMER) ? currentYear - 1 : currentYear;
 
-    for (int i = 0; i < subjects.size(); i += chunkSize) {
-      int end = Math.min(i + chunkSize, subjects.size());
-      List<Subject> subjectChunk = subjects.subList(i, end);
+    List<User> students = userRepository.findAllByRole(RolesEnum.STUDENT);
 
-      for (Subject subject : subjectChunk) {
-        if (subjectGroupCount.getOrDefault(subject.getId(), 0) < 6) {
-          createGroupsForSemester(
-              subject,
-              prevSemester,
-              prevYear,
-              1,
-              students,
-              teachers,
-              baseTeacherGroups,
-              baseStudentGroups,
-              studentAssignments,
-              false);
+    createTeacherGroup(subject1, baseTeacher, students, currentSemester, currentYear, 0, true);
+    createTeacherGroup(subject1, baseTeacher, students, prevSemester, prevYear, 1, false);
+    createTeacherGroup(subject1, baseTeacher, students, nextSemester, nextYear, 2, false);
+    createTeacherGroup(subject1, baseTeacher, students, nextSemester, nextYear, 3, false);
 
-          subjectGroupCount.put(
-              subject.getId(), subjectGroupCount.getOrDefault(subject.getId(), 0) + 1);
-        }
-      }
-    }
-
-    // Create current semester but previous year groups (1 per subject)
-    int prevYearSameS = currentYear - 1;
-
-    for (int i = 0; i < subjects.size(); i += chunkSize) {
-      int end = Math.min(i + chunkSize, subjects.size());
-      List<Subject> subjectChunk = subjects.subList(i, end);
-
-      for (Subject subject : subjectChunk) {
-        if (subjectGroupCount.getOrDefault(subject.getId(), 0) < 6) {
-          createGroupsForSemester(
-              subject,
-              currentSemester,
-              prevYearSameS,
-              1,
-              students,
-              teachers,
-              baseTeacherGroups,
-              baseStudentGroups,
-              studentAssignments,
-              false);
-
-          subjectGroupCount.put(
-              subject.getId(), subjectGroupCount.getOrDefault(subject.getId(), 0) + 1);
-        }
-      }
-    }
-
-    // Create next semester groups (1 per subject)
-    Semester nextSemester =
-        (currentSemester == Semester.WINTER) ? Semester.SUMMER : Semester.WINTER;
-    int nextYear = (nextSemester == Semester.WINTER) ? currentYear + 1 : currentYear;
-
-    for (int i = 0; i < subjects.size(); i += chunkSize) {
-      int end = Math.min(i + chunkSize, subjects.size());
-      List<Subject> subjectChunk = subjects.subList(i, end);
-
-      for (Subject subject : subjectChunk) {
-        if (subjectGroupCount.getOrDefault(subject.getId(), 0) < 6) {
-          createGroupsForSemester(
-              subject,
-              nextSemester,
-              nextYear,
-              1,
-              students,
-              teachers,
-              baseTeacherGroups,
-              baseStudentGroups,
-              studentAssignments,
-              false);
-
-          subjectGroupCount.put(
-              subject.getId(), subjectGroupCount.getOrDefault(subject.getId(), 0) + 1);
-        }
-      }
-    }
-
-    // Ensure base teacher has appropriate number of groups
-    ensureBaseTeacherGroups(baseTeacherGroups, currentSemester, currentYear, subjects);
-
-    // Ensure base student is in 5-6 different groups
-    ensureBaseStudentGroups(
-        baseStudentGroups,
-        students,
-        teachers,
-        subjects,
-        currentSemester,
-        currentYear,
-        studentAssignments);
-
-    log.info("Group creation complete. Created groups for {} subjects", subjects.size());
-    log.info("Base teacher assigned to {} groups", baseTeacherGroups.size());
-    log.info("Base student assigned to {} groups", baseStudentGroups.size());
+    createTeacherGroup(subject2, baseTeacher, students, currentSemester, currentYear, 0, true);
+    createTeacherGroup(subject2, baseTeacher, students, prevSemester, prevYear, 1, false);
+    createTeacherGroup(subject2, baseTeacher, students, nextSemester, nextYear, 2, false);
+    createTeacherGroup(subject2, baseTeacher, students, nextSemester, nextYear, 3, false);
   }
 
   @Transactional(propagation = Propagation.REQUIRED)
-  public void createGroupsForSemester(
+  public void createTeacherGroup(
       Subject subject,
-      Semester semester,
-      int academicYear,
-      int groupCount,
+      User teacher,
       List<User> students,
-      List<User> teachers,
-      List<Group> baseTeacherGroups,
-      List<Group> baseStudentGroups,
-      Map<String, Set<Long>> studentAssignments,
-      boolean prioritizeBaseUsers) {
+      Semester semester,
+      int year,
+      int index,
+      boolean isActive) {
+    String groupName = "T-" + generateGroupName(subject.getShortName(), semester, year, index);
+
+    if (groupRepository.findByName(groupName).isPresent()) {
+      log.debug("Teacher group {} already exists, skipping", groupName);
+      return;
+    }
+
+    Group group = createGroup(groupName, subject, teacher, semester, year, isActive);
+
+    Set<User> groupStudents = new HashSet<>();
+    groupStudents.add(baseStudent);
+
+    int studentCount = 15 + random.nextInt(6);
+    for (int i = 0; i < studentCount && i < students.size(); i++) {
+      User student = students.get(random.nextInt(students.size()));
+      if (!student.equals(baseStudent)) {
+        groupStudents.add(student);
+      }
+    }
+
+    group.setStudents(groupStudents);
+    groupRepository.save(group);
 
     log.info(
-        "Creating {} groups for subject {} in semester {} year {}",
-        groupCount,
+        "Created special teacher group {} for subject {} ({}/{}) - {}",
+        groupName,
         subject.getShortName(),
         semester,
-        academicYear);
+        year,
+        isActive ? DataConstants.GROUP_ACTIVE : "inactive");
+  }
 
-    for (int i = 0; i < groupCount; i++) {
-      String groupName = generateGroupName(i, semester, academicYear, i, subject.getShortName());
+  @Transactional
+  public void createPrompts() {
+    log.info("Phase 7: Creating prompts");
 
-      if (groupRepository.findByName(groupName).isPresent()) {
-        log.info("Skipping existing group: {}", groupName);
+    for (int i = 0; i < 3; i++) {
+      String title = "Admin Global Prompt " + (i + 1);
+      if (promptRepository.findByTitle(title).isPresent()) {
+        log.debug("Prompt {} already exists, skipping", title);
         continue;
       }
 
-      User teacher;
-      boolean isBaseTeacherGroup = false;
-
-      if (prioritizeBaseUsers && baseTeacher != null && i == 0 && baseTeacherGroups.size() < 4) {
-        teacher = baseTeacher;
-        isBaseTeacherGroup = true;
-      } else if (!prioritizeBaseUsers
-          && baseTeacher != null
-          && baseTeacherGroups.size() < 8
-          && random.nextDouble() < 0.3) {
-        teacher = baseTeacher;
-        isBaseTeacherGroup = true;
-      } else {
-        teacher = teachers.get(random.nextInt(teachers.size()));
-      }
-
-      // Determine if group is active based on semester and year
-      boolean groupIsActive =
-          !groupActivityService.isGroupInFuture(
-              Group.builder().semester(semester).academicYear(academicYear).build());
-
-      // Create and save the group
-      Group group =
-          Group.builder()
-              .name(groupName)
-              .teacher(teacher)
-              .students(new HashSet<>()) // Empty students initially
-              .semester(semester)
-              .academicYear(academicYear)
-              .active(groupIsActive)
-              .tests(new HashSet<>()) // Empty tests initially
+      Prompt prompt =
+          Prompt.builder()
+              .title(title)
+              .description("Global grading prompt created by admin for all teachers to use")
+              .prompt(DataConstants.PROMPT_TEMPLATES.get(i % DataConstants.PROMPT_TEMPLATES.size()))
+              .author(baseAdmin)
+              .isPublic(true)
+              .created(LocalDateTime.now())
               .build();
 
-      Group savedGroup = groupRepository.save(group);
-      log.info(
-          "Created group: {} for {}/{} - teacher: {} - {}",
-          groupName,
-          semester,
-          academicYear,
-          teacher.getUsername(),
-          groupIsActive ? GROUP_ACTIVE : "inactive");
+      promptRepository.save(prompt);
+      log.info("Created global prompt: {}", title);
+    }
 
-      // Add students to group
-      int studentCount = 10 + random.nextInt(11); // 10-20 students
-      populateGroupWithStudents(
-          savedGroup,
-          subject,
-          semester,
-          academicYear,
-          students,
-          studentCount,
-          studentAssignments,
-          baseStudentGroups);
-
-      if (isBaseTeacherGroup) {
-        baseTeacherGroups.add(savedGroup);
+    for (int i = 0; i < 3; i++) {
+      String title = "Teacher Prompt " + (i + 1);
+      if (promptRepository.findByTitle(title).isPresent()) {
+        log.debug("Prompt {} already exists, skipping", title);
+        continue;
       }
 
-      entityManager.flush();
-      entityManager.clear();
+      Prompt prompt =
+          Prompt.builder()
+              .title(title)
+              .description("Custom grading prompt created by base teacher")
+              .prompt(
+                  DataConstants.PROMPT_TEMPLATES.get(
+                      (i + 3) % DataConstants.PROMPT_TEMPLATES.size()))
+              .author(baseTeacher)
+              .isPublic(i == 0)
+              .created(LocalDateTime.now())
+              .build();
 
-      // Re-fetch the group from database
-      Group managedGroup = groupRepository.findById(savedGroup.getId()).orElse(savedGroup);
-
-      // Associate the group with its subject
-      Subject managedSubject = subjectRepository.findById(subject.getId()).orElse(subject);
-
-      Set<Group> subjectGroups = new HashSet<>();
-      if (managedSubject.getGroups() != null) {
-        subjectGroups.addAll(managedSubject.getGroups());
-      }
-      subjectGroups.add(managedGroup);
-      managedSubject.setGroups(subjectGroups);
-
-      subjectRepository.save(managedSubject);
-
-      createTestsForGroup(managedGroup, managedSubject);
+      promptRepository.save(prompt);
+      log.info("Created teacher prompt: {} (public: {})", title, i == 0);
     }
   }
 
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void populateGroupWithStudents(
-      Group group,
-      Subject subject,
-      Semester semester,
-      int academicYear,
-      List<User> students,
-      int targetStudentCount,
-      Map<String, Set<Long>> studentAssignments,
-      List<Group> baseStudentGroups) {
+  @Transactional
+  public void createApiKeys() {
+    log.info("Phase 8: Creating API keys");
 
-    Set<User> groupStudents = new HashSet<>();
-    boolean includeBaseStudent =
-        baseStudent != null
-            && (baseStudentGroups.size() < 5
-                || (baseStudentGroups.size() < 6 && random.nextDouble() < 0.7));
+    createApiKey("Admin Global API Key 1", AiServiceName.OPENAI, "gpt-4", baseAdmin, true);
+    createApiKey(
+        "Admin Global API Key 2",
+        AiServiceName.ANTHROPIC_CLAUDE,
+        "claude-3-opus-20240229",
+        baseAdmin,
+        true);
 
-    if (includeBaseStudent) {
-      String key =
-          baseStudent.getId() + "-" + subject.getId() + "-" + semester + "-" + academicYear;
-
-      if (!studentAssignments.containsKey(key)
-          || !studentAssignments.get(key).contains(subject.getId())) {
-        groupStudents.add(baseStudent);
-
-        studentAssignments.computeIfAbsent(key, k -> new HashSet<>()).add(subject.getId());
-
-        baseStudentGroups.add(group);
-      }
-    }
-
-    int attempts = 0;
-    int maxAttempts = students.size() * 2;
-
-    while (groupStudents.size() < targetStudentCount && attempts < maxAttempts) {
-      User candidate = students.get(random.nextInt(students.size()));
-      String key = candidate.getId() + "-" + subject.getId() + "-" + semester + "-" + academicYear;
-
-      // Check if student is already in a group for this subject/semester/year
-      if (!studentAssignments.containsKey(key)
-          || !studentAssignments.get(key).contains(subject.getId())) {
-        groupStudents.add(candidate);
-
-        // Track assignment
-        studentAssignments.computeIfAbsent(key, k -> new HashSet<>()).add(subject.getId());
-      }
-
-      attempts++;
-    }
-
-    Group managedGroup = groupRepository.findById(group.getId()).orElse(group);
-    managedGroup.setStudents(groupStudents);
-    groupRepository.save(managedGroup);
-
-    log.info("Added {} students to group {}", groupStudents.size(), group.getName());
+    createApiKey("Teacher API Key 1", AiServiceName.OPENAI, "gpt-3.5-turbo", baseTeacher, false);
+    createApiKey("Teacher API Key 2", AiServiceName.GEMINI, "gemini-pro", baseTeacher, false);
+    createApiKey(
+        "Teacher API Key 3",
+        AiServiceName.ANTHROPIC_CLAUDE,
+        "claude-3-sonnet-20240229",
+        baseTeacher,
+        false);
   }
 
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void ensureBaseTeacherGroups(
-      List<Group> baseTeacherGroups,
-      Semester currentSemester,
-      int currentYear,
-      List<Subject> subjects) {
-
-    if (baseTeacher == null) {
-      log.warn("Base teacher not found, skipping ensuring base teacher groups");
+  private void createApiKey(
+      String name, AiServiceName service, String model, User owner, boolean isGlobal) {
+    if (apiKeyRepository.findByName(name).isPresent()) {
+      log.debug("API key {} already exists, skipping", name);
       return;
     }
 
-    int currentGroups = 0;
-    int pastGroups = 0;
-    int futureGroups = 0;
+    String keyPrefix = generateRandomString(10);
+    String keySuffix = generateRandomString(10);
 
-    for (Group group : baseTeacherGroups) {
-      if (group.getSemester() == currentSemester && group.getAcademicYear() == currentYear) {
-        currentGroups++;
-      } else if (groupActivityService.isGroupInFuture(group)) {
-        futureGroups++;
-      } else {
-        pastGroups++;
-      }
-    }
+    ApiKey apiKey =
+        ApiKey.builder()
+            .name(name)
+            .encryptedKey(passwordEncoder.encode(keyPrefix + "..." + keySuffix))
+            .keyPrefix(keyPrefix)
+            .keySuffix(keySuffix)
+            .aiServiceName(service)
+            .model(model)
+            .isGlobal(isGlobal)
+            .owner(owner)
+            .createdAt(LocalDateTime.now())
+            .description("API key for " + service)
+            .isActive(true)
+            .build();
 
-    log.info(
-        "Base teacher has {} current groups, {} past groups, {} future groups",
-        currentGroups,
-        pastGroups,
-        futureGroups);
+    apiKeyRepository.save(apiKey);
+    log.info("Created API key: {} for {} (global: {})", name, service, isGlobal);
+  }
 
-    if (currentGroups < 4 && !subjects.isEmpty()) {
-      int needed = 4 - currentGroups;
-      for (int i = 0; i < needed && i < subjects.size(); i++) {
-        Subject subject = subjects.get(i);
-        createBaseTeacherGroup(subject, currentSemester, currentYear, false);
-      }
-    }
+  @Transactional
+  public void createTestsForAllGroups() {
+    log.info("Phase 9: Creating tests for all groups");
 
-    if (pastGroups < 2 && !subjects.isEmpty()) {
-      int needed = 2 - pastGroups;
-      Semester prevSemester =
-          (currentSemester == Semester.WINTER) ? Semester.SUMMER : Semester.WINTER;
-      int prevYear = (prevSemester == Semester.SUMMER) ? currentYear - 1 : currentYear;
+    List<Group> groups = groupRepository.findAll();
+    List<ApiKey> apiKeys = apiKeyRepository.findAll();
+    List<Prompt> prompts = promptRepository.findAll();
 
-      for (int i = 0; i < needed && i < subjects.size(); i++) {
-        Subject subject = subjects.get(subjects.size() - i - 1); // Use different subjects
-        createBaseTeacherGroup(subject, prevSemester, prevYear, true);
-      }
-    }
+    for (Group group : groups) {
+      Subject subject = getSubjectForGroup(group);
+      if (subject == null) continue;
 
-    if (futureGroups < 2 && subjects.size() > 5) {
-      int needed = 2 - futureGroups;
-      Semester nextSemester =
-          (currentSemester == Semester.WINTER) ? Semester.SUMMER : Semester.WINTER;
-      int nextYear = (nextSemester == Semester.WINTER) ? currentYear + 1 : currentYear;
+      for (int i = 0; i < 2; i++) {
+        String testTitle = subject.getShortName() + " - Test " + (i + 1);
 
-      for (int i = 0; i < needed && i < subjects.size() - 5; i++) {
-        Subject subject = subjects.get(i + 5); // Use different subjects
-        createBaseTeacherGroup(subject, nextSemester, nextYear, false);
+        boolean isOpenQuestions = i % 2 == 0;
+        Test test = createTest(testTitle, group);
+
+        createQuestionsForTest(test, subject, isOpenQuestions);
+
+        if (group.isActive() && random.nextDouble() < 0.5) {
+          assignApiKeyAndPromptToTest(test, group, apiKeys, prompts);
+        }
+
+        log.info(
+            "Created test '{}' for group {} (open questions: {})",
+            testTitle,
+            group.getName(),
+            isOpenQuestions);
       }
     }
   }
 
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void createBaseTeacherGroup(
-      Subject subject, Semester semester, int academicYear, boolean isPast) {
+  @Transactional
+  public void createAttemptsAndSubmissions() {
+    log.info("Phase 10: Creating attempts and submissions");
 
-    String groupName = generateGroupName(999, semester, academicYear, 0, subject.getShortName());
-    groupName = "BT-" + groupName;
+    List<Test> tests = testRepository.findAll();
 
-    if (groupRepository.findByName(groupName).isPresent()) {
-      log.info("Skipping existing base teacher group: {}", groupName);
-      return;
+    for (Test test : tests) {
+      Set<Group> testGroups = getGroupsForTest(test);
+
+      for (Group group : testGroups) {
+        if (!group.isActive()) continue;
+
+        Set<User> students = group.getStudents();
+        for (User student : students) {
+          createAttemptWithSubmissions(test, student);
+        }
+      }
     }
+  }
 
-    boolean isActive = true;
-    if (groupActivityService.isGroupInFuture(
-        Group.builder().semester(semester).academicYear(academicYear).build())) {
-      isActive = false;
-    } else if (isPast) {
-      isActive = false;
-    }
-
+  private Group createGroup(
+      String name, Subject subject, User teacher, Semester semester, int year, boolean active) {
     Group group =
         Group.builder()
-            .name(groupName)
-            .teacher(baseTeacher)
+            .name(name)
+            .teacher(teacher)
             .students(new HashSet<>())
             .semester(semester)
-            .academicYear(academicYear)
-            .active(isActive)
+            .academicYear(year)
+            .active(active)
             .tests(new HashSet<>())
             .build();
 
     Group savedGroup = groupRepository.save(group);
 
-    // Add random students
-    Pageable pageable = PageRequest.of(0, 100);
-    var studentPage = userRepository.findByRole(RolesEnum.STUDENT, pageable);
+    subject.getGroups().add(savedGroup);
+    subjectRepository.save(subject);
 
-    List<User> students = new ArrayList<>(studentPage.getContent());
-    int studentCount = 10 + random.nextInt(11);
+    return savedGroup;
+  }
+
+  private void addStudentsToGroup(
+      Group group,
+      List<User> allStudents,
+      Subject subject,
+      Semester semester,
+      int year,
+      int count) {
     Set<User> groupStudents = new HashSet<>();
 
-    for (int i = 0; i < studentCount && i < students.size(); i++) {
-      groupStudents.add(students.get(random.nextInt(students.size())));
+    List<User> availableStudents =
+        allStudents.stream()
+            .filter(s -> !s.equals(baseStudent) && !s.equals(baseTeacher) && !s.equals(baseAdmin))
+            .filter(s -> !isStudentInSubjectGroup(s, subject, semester, year))
+            .collect(Collectors.toList());
+
+    Collections.shuffle(availableStudents);
+    for (int i = 0; i < count && i < availableStudents.size(); i++) {
+      groupStudents.add(availableStudents.get(i));
     }
 
-    // Add base student too
-    if (baseStudent != null) {
-      groupStudents.add(baseStudent);
-    }
-
-    Group managedGroup = groupRepository.findById(savedGroup.getId()).orElse(savedGroup);
-    managedGroup.setStudents(groupStudents);
-    groupRepository.save(managedGroup);
-
-    Subject managedSubject = subjectRepository.findById(subject.getId()).orElse(subject);
-    Set<Group> subjectGroups = new HashSet<>();
-    if (managedSubject.getGroups() != null) {
-      subjectGroups.addAll(managedSubject.getGroups());
-    }
-    subjectGroups.add(managedGroup);
-    managedSubject.setGroups(subjectGroups);
-    subjectRepository.save(managedSubject);
-
-    entityManager.flush();
-    entityManager.clear();
-
-    managedGroup = groupRepository.findById(managedGroup.getId()).orElse(managedGroup);
-    managedSubject = subjectRepository.findById(managedSubject.getId()).orElse(managedSubject);
-
-    // Create tests
-    createTestsForGroup(managedGroup, managedSubject);
-
-    log.info(
-        "Created special base teacher group: {} for {}/{} with {} students - {}",
-        groupName,
-        semester,
-        academicYear,
-        groupStudents.size(),
-        isActive ? GROUP_ACTIVE : "inactive");
+    group.setStudents(groupStudents);
+    groupRepository.save(group);
   }
 
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void ensureBaseStudentGroups(
-      List<Group> baseStudentGroups,
-      List<User> students,
-      List<User> teachers,
-      List<Subject> subjects,
-      Semester currentSemester,
-      int currentYear,
-      Map<String, Set<Long>> studentAssignments) {
+  private boolean isStudentInSubjectGroup(
+      User student, Subject subject, Semester semester, int year) {
+    List<Group> subjectGroups =
+        groupRepository.findAll().stream()
+            .filter(g -> g.getSemester() == semester && g.getAcademicYear() == year)
+            .filter(g -> g.getStudents().contains(student))
+            .filter(
+                g -> {
+                  Subject groupSubject = getSubjectForGroup(g);
+                  return groupSubject != null && groupSubject.equals(subject);
+                })
+            .toList();
 
-    if (baseStudent == null) {
-      log.warn("Base student not found, skipping ensuring base student groups");
-      return;
-    }
-
-    // Ensure base student is in 5-6 groups
-    if (baseStudentGroups.size() < 5 && subjects.size() > 10) {
-      int needed = 5 - baseStudentGroups.size();
-      log.info("Adding base student to {} more groups to reach minimum of 5", needed);
-
-      for (int i = 0; i < needed && i < subjects.size() - 10; i++) {
-        Subject subject = subjects.get(i + 10);
-
-        Subject managedSubject = subjectRepository.findById(subject.getId()).orElse(subject);
-        Set<Group> existingGroups = managedSubject.getGroups();
-
-        List<Group> subjectGroups =
-            existingGroups != null ? new ArrayList<>(existingGroups) : new ArrayList<>();
-
-        Group targetGroup = null;
-
-        if (!subjectGroups.isEmpty()) {
-          for (Group group : subjectGroups) {
-            Set<User> groupStudents = group.getStudents();
-            boolean alreadyInGroup = groupStudents != null && groupStudents.contains(baseStudent);
-            boolean correctSemesterAndYear =
-                group.getSemester() == currentSemester && group.getAcademicYear() == currentYear;
-
-            if (!alreadyInGroup && correctSemesterAndYear) {
-              targetGroup = group;
-              break;
-            }
-          }
-        }
-
-        if (targetGroup != null) {
-          Group managedGroup = groupRepository.findById(targetGroup.getId()).orElse(targetGroup);
-
-          Set<User> groupStudents =
-              managedGroup.getStudents() != null
-                  ? new HashSet<>(managedGroup.getStudents())
-                  : new HashSet<>();
-
-          groupStudents.add(baseStudent);
-          managedGroup.setStudents(groupStudents);
-          groupRepository.save(managedGroup);
-          baseStudentGroups.add(targetGroup);
-
-          log.info("Added base student to existing group: {}", targetGroup.getName());
-          continue;
-        }
-
-        String groupName =
-            "BS-" + generateGroupName(888, currentSemester, currentYear, i, subject.getShortName());
-
-        if (groupRepository.findByName(groupName).isPresent()) {
-          log.info("Skipping existing base student group: {}", groupName);
-        } else {
-          User teacher = teachers.get(random.nextInt(teachers.size()));
-
-          Group group =
-              Group.builder()
-                  .name(groupName)
-                  .teacher(teacher)
-                  .students(new HashSet<>())
-                  .semester(currentSemester)
-                  .academicYear(currentYear)
-                  .active(true)
-                  .tests(new HashSet<>())
-                  .build();
-
-          Set<User> groupStudents = new HashSet<>();
-          groupStudents.add(baseStudent);
-
-          for (int j = 0; j < 15 && j < students.size(); j++) {
-            User student = students.get(random.nextInt(students.size()));
-            if (!student.equals(baseStudent)) {
-              groupStudents.add(student);
-            }
-          }
-
-          group.setStudents(groupStudents);
-          Group savedGroup = groupRepository.save(group);
-          baseStudentGroups.add(savedGroup);
-
-          // Associate with subject
-          managedSubject = subjectRepository.findById(subject.getId()).orElse(subject);
-          Set<Group> subjectGroupSet =
-              managedSubject.getGroups() != null
-                  ? new HashSet<>(managedSubject.getGroups())
-                  : new HashSet<>();
-          subjectGroupSet.add(savedGroup);
-          managedSubject.setGroups(subjectGroupSet);
-          subjectRepository.save(managedSubject);
-
-          // Clear persistence context
-          entityManager.flush();
-          entityManager.clear();
-
-          // Re-fetch for test creation
-          savedGroup = groupRepository.findById(savedGroup.getId()).orElse(savedGroup);
-          managedSubject =
-              subjectRepository.findById(managedSubject.getId()).orElse(managedSubject);
-
-          // Create tests
-          createTestsForGroup(savedGroup, managedSubject);
-
-          log.info(
-              "Created special base student group: {} with {} students",
-              groupName,
-              groupStudents.size());
-        }
-      }
-    }
+    return !subjectGroups.isEmpty();
   }
 
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void createTestsForGroup(Group group, Subject subject) {
-    int baseTestCount = group.isActive() ? 3 : 2;
-    int variance = group.isActive() ? 3 : 1;
-    int testCount = baseTestCount + random.nextInt(variance);
+  private Subject getSubjectForGroup(Group group) {
+    return subjectRepository.findAll().stream()
+        .filter(s -> s.getGroups().contains(group))
+        .findFirst()
+        .orElse(null);
+  }
 
-    for (int i = 0; i < testCount; i++) {
-      String testTitle = getTestTitleForSubject(subject, i);
-      String description =
-          DataConstants.TEST_DESCRIPTIONS.get(i % DataConstants.TEST_DESCRIPTIONS.size());
+  private Set<Group> getGroupsForTest(Test test) {
+    return groupRepository.findAll().stream()
+        .filter(g -> g.getTests().contains(test))
+        .collect(Collectors.toSet());
+  }
 
-      boolean createdByAdmin = i % 3 == 0;
-      boolean allowTeacherEdit = i % 3 == 1 || !createdByAdmin;
+  private Test createTest(String title, Group group) {
+    LocalDateTime startTime = LocalDateTime.now().minusDays(7);
+    LocalDateTime endTime = LocalDateTime.now().plusDays(7);
 
-      LocalDateTime startTime;
-      LocalDateTime endTime;
+    if (!group.isActive()) {
+      startTime = LocalDateTime.now().minusMonths(3);
+      endTime = startTime.plusDays(14);
+    }
 
-      if (!group.isActive() && !groupActivityService.isGroupInFuture(group)) {
-        startTime = LocalDateTime.now().minusMonths(3).plusDays(i * 3L);
-        endTime = startTime.plusDays(14);
-      } else if (groupActivityService.isGroupInFuture(group)) {
-        startTime = LocalDateTime.now().plusMonths(1).plusDays(i * 3L);
-        endTime = startTime.plusDays(14);
-      } else {
-        if (i % 3 == 0) {
-          startTime = LocalDateTime.now().minusDays(30L + random.nextInt(30));
-          endTime = startTime.plusDays(7);
-        } else if (i % 3 == 1) {
-          startTime = LocalDateTime.now().minusDays(3);
-          endTime = LocalDateTime.now().plusDays(4);
-        } else {
-          startTime = LocalDateTime.now().plusDays(7L + random.nextInt(21));
-          endTime = startTime.plusDays(7);
-        }
-      }
+    int duration = 60 + random.nextInt(61);
+    int maxAttempts = 1 + random.nextInt(3);
 
-      // Randomize number of questions between 1-5 for each difficulty
-      int easyCount = 1 + random.nextInt(5);
-      int mediumCount = 1 + random.nextInt(5);
-      int hardCount = 1 + random.nextInt(5);
+    int easyCount = 2 + random.nextInt(3);
+    int mediumCount = 2 + random.nextInt(3);
+    int hardCount = 1 + random.nextInt(2);
 
-      if (i % 3 == 2) {
-        easyCount += 1;
-        mediumCount += 2;
-        hardCount += 1;
-      }
+    Test test =
+        Test.builder()
+            .title(title)
+            .description("Assessment for " + title)
+            .duration(duration)
+            .isOpen(group.isActive())
+            .maxAttempts(maxAttempts)
+            .easyQuestionsCount(easyCount)
+            .mediumQuestionsCount(mediumCount)
+            .hardQuestionsCount(hardCount)
+            .easyQuestionScore(10)
+            .mediumQuestionScore(20)
+            .hardQuestionScore(30)
+            .startTime(startTime)
+            .endTime(endTime)
+            .isCreatedByAdmin(random.nextBoolean())
+            .allowTeacherEdit(true)
+            .build();
 
-      boolean isOpenTest = group.isActive() && i % 2 == 0;
+    Test savedTest = testRepository.save(test);
 
-      Test test =
-          Test.builder()
-              .title(testTitle)
-              .description(description)
-              .duration(30 + (i * 15))
-              .isOpen(isOpenTest)
-              .maxAttempts(1 + i % 3)
-              .easyQuestionsCount(easyCount)
-              .mediumQuestionsCount(mediumCount)
-              .hardQuestionsCount(hardCount)
-              .easyQuestionScore(2 + random.nextInt(3))
-              .mediumQuestionScore(4 + random.nextInt(3))
-              .hardQuestionScore(7 + random.nextInt(4))
-              .startTime(startTime)
-              .endTime(endTime)
-              .isCreatedByAdmin(createdByAdmin)
-              .allowTeacherEdit(allowTeacherEdit)
+    group.getTests().add(savedTest);
+    groupRepository.save(group);
+
+    return savedTest;
+  }
+
+  private void createQuestionsForTest(Test test, Subject subject, boolean isOpenQuestions) {
+    QuestionType questionType =
+        isOpenQuestions ? QuestionType.TEXT_ONLY : QuestionType.MULTIPLE_CHOICE;
+
+    createQuestionsOfDifficulty(
+        test,
+        subject,
+        test.getEasyQuestionsCount() * 2,
+        QuestionDifficulty.EASY,
+        test.getEasyQuestionScore(),
+        questionType);
+    createQuestionsOfDifficulty(
+        test,
+        subject,
+        test.getMediumQuestionsCount() * 2,
+        QuestionDifficulty.MEDIUM,
+        test.getMediumQuestionScore(),
+        questionType);
+    createQuestionsOfDifficulty(
+        test,
+        subject,
+        test.getHardQuestionsCount() * 2,
+        QuestionDifficulty.HARD,
+        test.getHardQuestionScore(),
+        questionType);
+  }
+
+  private void createQuestionsOfDifficulty(
+      Test test,
+      Subject subject,
+      int count,
+      QuestionDifficulty difficulty,
+      int score,
+      QuestionType type) {
+    for (int i = 0; i < count; i++) {
+      String questionText = generateQuestionText(subject, difficulty, i);
+      String correctAnswer = "Model answer for: " + questionText;
+
+      Question question =
+          Question.builder()
+              .questionText(questionText)
+              .score(score)
+              .correctAnswer(correctAnswer)
+              .questionType(type)
+              .difficulty(difficulty)
+              .test(test)
               .build();
 
-      Test savedTest = testRepository.save(test);
+      Question savedQuestion = questionRepository.save(question);
 
-      Group managedGroup = groupRepository.findById(group.getId()).orElse(group);
-      Set<Test> groupTests = new HashSet<>();
-      if (managedGroup.getTests() != null) {
-        groupTests.addAll(managedGroup.getTests());
+      if (type == QuestionType.MULTIPLE_CHOICE) {
+        createOptionsForQuestion(savedQuestion, difficulty);
       }
-      groupTests.add(savedTest);
-      managedGroup.setTests(groupTests);
-      groupRepository.save(managedGroup);
-
-      entityManager.flush();
-      entityManager.clear();
-
-      savedTest = testRepository.findById(savedTest.getId()).orElse(savedTest);
-
-      int questionMultiplier = group.isActive() ? 1 : 0;
-      createQuestionsForTest(savedTest, subject, questionMultiplier);
-
-      // Create test attempts if group is active
-      if (group.isActive() && savedTest.isOpen()) {
-        createTestAttemptsForGroup(savedTest, group);
-      }
-
-      if (group.isActive() && i % 3 == 0 && group.getTeacher().equals(baseTeacher)) {
-        assignApiKeyAndPromptToTest(savedTest, group);
-      }
-
-      String groupStatus;
-      if (group.isActive()) {
-        groupStatus = GROUP_ACTIVE;
-      } else if (groupActivityService.isGroupInFuture(group)) {
-        groupStatus = "future";
-      } else {
-        groupStatus = "past";
-      }
-
-      log.info(
-          "Created test '{}' for group {} - {} ({})",
-          testTitle,
-          managedGroup.getName(),
-          createdByAdmin ? "admin created" : "teacher created",
-          groupStatus);
     }
   }
 
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void assignApiKeyAndPromptToTest(Test test, Group group) {
-    try {
-      ApiKey apiKey = getOrCreateApiKey();
+  private String generateQuestionText(Subject subject, QuestionDifficulty difficulty, int index) {
+    String prefix =
+        switch (difficulty) {
+          case EASY -> "Define";
+          case MEDIUM -> "Explain";
+          case HARD -> "Analyze and discuss";
+        };
 
-      Prompt prompt = getOrCreatePrompt();
-
-      if (apiKey != null && prompt != null) {
-        TestGroupAssignment assignment =
-            TestGroupAssignment.builder()
-                .test(test)
-                .group(group)
-                .apiKey(apiKey)
-                .prompt(prompt)
-                .assignedAt(LocalDateTime.now())
-                .assignedBy(group.getTeacher())
-                .aiEvaluation(true)
-                .build();
-
-        testGroupAssignmentRepository.save(assignment);
-        log.info(
-            "Assigned API key and prompt to test '{}' for group '{}'",
-            test.getTitle(),
-            group.getName());
-      }
-    } catch (Exception e) {
-      log.error("Error assigning API key and prompt to test: {}", e.getMessage());
-    }
+    String topic = subject.getName().toLowerCase().replace(" ", "_") + "_concept_" + index;
+    return prefix + " the " + topic + " in the context of " + subject.getName();
   }
 
-  @Transactional(propagation = Propagation.REQUIRED)
-  public ApiKey getOrCreateApiKey() {
-    List<ApiKey> existingKeys = apiKeyRepository.findAll();
+  private void createOptionsForQuestion(Question question, QuestionDifficulty difficulty) {
+    int optionCount =
+        switch (difficulty) {
+          case EASY -> 3;
+          case MEDIUM -> 4;
+          case HARD -> 5;
+        };
 
-    if (!existingKeys.isEmpty()) {
-      return existingKeys.get(random.nextInt(existingKeys.size()));
-    }
+    for (int i = 0; i < optionCount; i++) {
+      boolean isCorrect = i == 0;
 
-    List<AiServiceName> services = Arrays.asList(AiServiceName.values());
-
-    for (int i = 0; i < 5; i++) {
-      AiServiceName service = services.get(i % services.size());
-      String keyPrefix = generateRandomString(10);
-      String keySuffix = generateRandomString(10);
-
-      String model;
-      switch (service) {
-        case AiServiceName.OPENAI -> model = "gpt-4";
-        case AiServiceName.ANTHROPIC_CLAUDE -> model = "claude-3-opus-20240229";
-        case AiServiceName.GEMINI -> model = "gemini-pro";
-        default -> model = null;
-      }
-
-      User owner = (i % 2 == 0) ? baseAdmin : baseTeacher;
-
-      ApiKey apiKey =
-          ApiKey.builder()
-              .name("API Key " + (i + 1))
-              .encryptedKey(passwordEncoder.encode(keyPrefix + "..." + keySuffix))
-              .keyPrefix(keyPrefix)
-              .keySuffix(keySuffix)
-              .aiServiceName(service)
-              .model(model)
-              .isGlobal(i == 0)
-              .owner(owner)
-              .createdAt(LocalDateTime.now())
-              .description("Test API key for " + service)
-              .isActive(true)
+      Option option =
+          Option.builder()
+              .text(
+                  "Option "
+                      + (i + 1)
+                      + " for question: "
+                      + question.getQuestionText().substring(0, 30)
+                      + "...")
+              .description("")
+              .isCorrect(isCorrect)
+              .question(question)
               .build();
 
-      apiKeyRepository.save(apiKey);
-      log.info("Created API key for service: {}", service);
+      optionRepository.save(option);
+    }
+  }
+
+  private void createAttemptWithSubmissions(Test test, User student) {
+    boolean hasAiGrading =
+        testGroupAssignmentRepository.findAll().stream()
+            .anyMatch(tga -> tga.getTest().equals(test) && tga.isAiEvaluation());
+
+    LocalDateTime startTime = test.getStartTime().plusHours(random.nextInt(24));
+    LocalDateTime endTime = startTime.plusMinutes(random.nextInt(test.getDuration()));
+
+    AttemptStatus status = hasAiGrading ? AttemptStatus.AI_REVIEWED : AttemptStatus.REVIEWED;
+
+    Attempt attempt =
+        Attempt.builder()
+            .attemptNumber(1)
+            .startTime(startTime)
+            .endTime(endTime)
+            .status(status)
+            .test(test)
+            .student(student)
+            .aiGradingSentAt(hasAiGrading ? endTime.plusMinutes(5) : null)
+            .build();
+
+    Attempt savedAttempt = attemptRepository.save(attempt);
+
+    List<Question> selectedQuestions = selectQuestionsForAttempt(test);
+    int totalScore = 0;
+    int aiTotalScore = 0;
+
+    for (int i = 0; i < selectedQuestions.size(); i++) {
+      Question question = selectedQuestions.get(i);
+
+      int maxScore = question.getScore();
+      int score = (int) (maxScore * (0.5 + random.nextDouble() * 0.5));
+      int aiScore = (int) (maxScore * (0.4 + random.nextDouble() * 0.6));
+
+      totalScore += score;
+      aiTotalScore += aiScore;
+
+      Submission submission =
+          Submission.builder()
+              .answerText("Student answer for: " + question.getQuestionText())
+              .score(score)
+              .aiScore(aiScore)
+              .attempt(savedAttempt)
+              .question(question)
+              .orderIndex(i)
+              .aiGraded(hasAiGrading)
+              .aiFeedback(hasAiGrading ? "AI feedback: Good understanding shown" : null)
+              .teacherFeedback("Teacher feedback: Well done")
+              .build();
+
+      submissionRepository.save(submission);
     }
 
-    existingKeys = apiKeyRepository.findAll();
-    return existingKeys.isEmpty() ? null : existingKeys.getFirst();
+    savedAttempt.setScore(totalScore);
+    savedAttempt.setAiScore(aiTotalScore);
+    attemptRepository.save(savedAttempt);
+  }
+
+  private List<Question> selectQuestionsForAttempt(Test test) {
+    List<Question> allQuestions = questionRepository.findByTest(test);
+
+    List<Question> easyQuestions =
+        allQuestions.stream()
+            .filter(q -> q.getDifficulty() == QuestionDifficulty.EASY)
+            .collect(Collectors.toList());
+
+    List<Question> mediumQuestions =
+        allQuestions.stream()
+            .filter(q -> q.getDifficulty() == QuestionDifficulty.MEDIUM)
+            .collect(Collectors.toList());
+
+    List<Question> hardQuestions =
+        allQuestions.stream()
+            .filter(q -> q.getDifficulty() == QuestionDifficulty.HARD)
+            .collect(Collectors.toList());
+
+    List<Question> selectedQuestions = new ArrayList<>();
+
+    Collections.shuffle(easyQuestions);
+    selectedQuestions.addAll(easyQuestions.stream().limit(test.getEasyQuestionsCount()).toList());
+
+    Collections.shuffle(mediumQuestions);
+    selectedQuestions.addAll(
+        mediumQuestions.stream().limit(test.getMediumQuestionsCount()).toList());
+
+    Collections.shuffle(hardQuestions);
+    selectedQuestions.addAll(hardQuestions.stream().limit(test.getHardQuestionsCount()).toList());
+
+    return selectedQuestions;
+  }
+
+  private void assignApiKeyAndPromptToTest(
+      Test test, Group group, List<ApiKey> apiKeys, List<Prompt> prompts) {
+    if (apiKeys.isEmpty() || prompts.isEmpty()) return;
+
+    ApiKey apiKey = apiKeys.get(random.nextInt(apiKeys.size()));
+    Prompt prompt = prompts.get(random.nextInt(prompts.size()));
+
+    TestGroupAssignment assignment =
+        TestGroupAssignment.builder()
+            .test(test)
+            .group(group)
+            .apiKey(apiKey)
+            .prompt(prompt)
+            .assignedAt(LocalDateTime.now())
+            .assignedBy(group.getTeacher())
+            .aiEvaluation(true)
+            .build();
+
+    testGroupAssignmentRepository.save(assignment);
+    log.debug(
+        "Assigned API key and prompt to test '{}' for group '{}'",
+        test.getTitle(),
+        group.getName());
+  }
+
+  private String generateGroupName(String subjectCode, Semester semester, int year, int index) {
+    String semesterCode = semester == Semester.WINTER ? "W" : "S";
+    return String.format("%s-%s%d-%d", subjectCode, semesterCode, year % 100, index + 1);
+  }
+
+  private String generateUsername(String surname) {
+    String prefix = surname.substring(0, Math.min(3, surname.length())).toUpperCase();
+    String username;
+    boolean isUnique;
+
+    do {
+      int randomNumber = 100 + random.nextInt(900);
+      username = String.format("%s%03d", prefix, randomNumber);
+      isUnique = userRepository.findByUsername(username).isEmpty();
+    } while (!isUnique);
+
+    return username;
   }
 
   private String generateRandomString(int length) {
     String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < length; i++) {
-      int index = random.nextInt(chars.length());
-      sb.append(chars.charAt(index));
+      sb.append(chars.charAt(random.nextInt(chars.length())));
     }
     return sb.toString();
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public Prompt getOrCreatePrompt() {
-    Prompt defaultPrompt = promptRepository.findById(1L).orElse(null);
-
-    // Check if we have other prompts
-    List<Prompt> existingPrompts = promptRepository.findAll();
-    if (!existingPrompts.isEmpty() && !existingPrompts.contains(defaultPrompt)) {
-      return existingPrompts.get(random.nextInt(existingPrompts.size()));
-    }
-
-    if (defaultPrompt == null) {
-      createDefaultPrompt();
-      promptRepository.findById(1L);
-    }
-
-    // Create additional prompts
-    createAdditionalPrompts();
-
-    // Return one of the prompts
-    existingPrompts = promptRepository.findAll();
-    return existingPrompts.isEmpty()
-        ? null
-        : existingPrompts.get(random.nextInt(existingPrompts.size()));
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void createTestAttemptsForGroup(Test test, Group group) {
-    try {
-      Test managedTest = testRepository.findById(test.getId()).orElse(test);
-      Group managedGroup = groupRepository.findById(group.getId()).orElse(group);
-
-      Set<User> students = new HashSet<>();
-      if (managedGroup.getStudents() != null) {
-        students.addAll(managedGroup.getStudents());
-      }
-
-      for (User student : students) {
-        if (random.nextDouble() > 0.5 && !student.equals(baseStudent)) {
-          continue;
-        }
-
-        boolean isAiGraded = false;
-
-        for (TestGroupAssignment tga : managedTest.getTestGroupAssignments()) {
-          if (tga.getGroup().equals(managedGroup) && tga.isAiEvaluation()) {
-            isAiGraded = true;
-            break;
-          }
-        }
-
-        int maxAttempts = managedTest.getMaxAttempts() != null ? managedTest.getMaxAttempts() : 1;
-        int attemptsToCreate = 1 + random.nextInt(maxAttempts);
-
-        for (int i = 0; i < attemptsToCreate; i++) {
-          LocalDateTime startTime = managedTest.getStartTime().plusHours(random.nextInt(24));
-          LocalDateTime endTime = null;
-
-          AttemptStatus status;
-          if (i == attemptsToCreate - 1 && random.nextDouble() < 0.2) {
-            status = AttemptStatus.IN_PROGRESS;
-          } else {
-            endTime = startTime.plusMinutes(random.nextInt(managedTest.getDuration()));
-
-            if (isAiGraded && random.nextDouble() < 0.7) {
-              status = AttemptStatus.AI_REVIEWED;
-            } else {
-              status = AttemptStatus.REVIEWED;
-            }
-          }
-
-          Attempt attempt =
-              Attempt.builder()
-                  .attemptNumber(i + 1)
-                  .startTime(startTime)
-                  .endTime(endTime)
-                  .status(status)
-                  .test(managedTest)
-                  .student(student)
-                  .aiGradingSentAt(
-                      status == AttemptStatus.AI_REVIEWED ? endTime.plusMinutes(5) : null)
-                  .build();
-
-          Attempt savedAttempt = attemptRepository.save(attempt);
-
-          if (status != AttemptStatus.IN_PROGRESS) {
-            createSubmissionsForAttempt(savedAttempt, managedTest, isAiGraded);
-          }
-
-          log.debug(
-              "Created attempt {} for student {} on test '{}'",
-              i + 1,
-              student.getUsername(),
-              managedTest.getTitle());
-        }
-      }
-    } catch (Exception e) {
-      log.error("Error creating test attempts: {}", e.getMessage());
-    }
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void createSubmissionsForAttempt(Attempt attempt, Test test, boolean isAiGraded) {
-    try {
-      Attempt managedAttempt = attemptRepository.findById(attempt.getId()).orElse(attempt);
-      Test managedTest = testRepository.findById(test.getId()).orElse(test);
-
-      List<Question> questions = new ArrayList<>();
-      if (managedTest.getQuestions() != null) {
-        questions.addAll(managedTest.getQuestions());
-      }
-
-      int totalScore = 0;
-      int aiTotalScore = 0;
-
-      for (int i = 0; i < questions.size(); i++) {
-        Question question = questions.get(i);
-
-        String answerText = null;
-        List<Option> selectedOptions = new ArrayList<>();
-
-        // Generate student answer based on question type
-        if (question.getQuestionType() == QuestionType.MULTIPLE_CHOICE
-            || question.getQuestionType() == QuestionType.IMAGE_WITH_MULTIPLE_CHOICE) {
-
-          // Get a modifiable list of options
-          List<Option> options = new ArrayList<>();
-          if (question.getOptions() != null) {
-            options.addAll(question.getOptions());
-          }
-
-          // Randomly select correct or incorrect options
-          boolean selectsCorrect = random.nextDouble() < 0.7; // 70% chance of correct
-
-          for (Option option : options) {
-            if (option.isCorrect() && selectsCorrect) {
-              selectedOptions.add(option);
-            } else if (!option.isCorrect()
-                && random.nextDouble() < 0.2) { // sometimes pick wrong ones
-              selectedOptions.add(option);
-            }
-          }
-
-          if (selectedOptions.isEmpty() && !options.isEmpty()) {
-            selectedOptions.add(options.get(random.nextInt(options.size())));
-          }
-
-        } else {
-          answerText = generateStudentAnswer(question, random.nextDouble() < 0.8); // 80% correct
-        }
-
-        int questionMaxScore = question.getScore();
-        int questionScore;
-        int aiQuestionScore;
-
-        if (answerText != null) {
-          double qualityFactor = random.nextDouble();
-          questionScore = (int) (questionMaxScore * (0.5 + qualityFactor * 0.5));
-          aiQuestionScore = (int) (questionMaxScore * (0.4 + qualityFactor * 0.6));
-        } else {
-          boolean allCorrect = true;
-          for (Option option : question.getOptions()) {
-            boolean isCorrect = option.isCorrect();
-            boolean isSelected = selectedOptions.contains(option);
-
-            if ((isCorrect && !isSelected) || (!isCorrect && isSelected)) {
-              allCorrect = false;
-              break;
-            }
-          }
-
-          if (allCorrect) {
-            questionScore = questionMaxScore;
-            aiQuestionScore = questionMaxScore;
-          } else {
-            questionScore = (int) (questionMaxScore * (0.2 + random.nextInt() * 0.5));
-            aiQuestionScore = (int) (questionMaxScore * (0.1 + random.nextInt() * 0.6));
-          }
-        }
-
-        totalScore += questionScore;
-        aiTotalScore += aiQuestionScore;
-
-        Submission submission =
-            Submission.builder()
-                .answerText(answerText)
-                .score(questionScore)
-                .aiScore(aiQuestionScore)
-                .attempt(managedAttempt)
-                .question(question)
-                .orderIndex(i)
-                .build();
-
-        if (managedAttempt.getStatus() == AttemptStatus.REVIEWED
-            || managedAttempt.getStatus() == AttemptStatus.AI_REVIEWED) {
-          submission.setAiFeedback(generateAIFeedback(questionScore, questionMaxScore));
-          submission.setAiGraded(true);
-
-          if (managedAttempt.getStatus() == AttemptStatus.REVIEWED) {
-            submission.setTeacherFeedback(generateTeacherFeedback(questionScore, questionMaxScore));
-          }
-        }
-
-        Submission savedSubmission = submissionRepository.save(submission);
-
-        if (!selectedOptions.isEmpty()) {
-          Submission managedSubmission =
-              submissionRepository.findById(savedSubmission.getId()).orElse(savedSubmission);
-          managedSubmission.setSelectedOptions(selectedOptions);
-          submissionRepository.save(managedSubmission);
-        }
-      }
-
-      // Update attempt with total scores
-      managedAttempt.setScore(totalScore);
-      managedAttempt.setAiScore(aiTotalScore);
-      attemptRepository.save(managedAttempt);
-    } catch (Exception e) {
-      log.error("Error creating submissions: {}", e.getMessage());
-    }
-  }
-
-  private String generateStudentAnswer(Question question, boolean isCorrect) {
-    if (isCorrect) {
-      return "This is a correct student answer that addresses the question about "
-          + question.getQuestionText()
-          + ". The answer includes all key points and demonstrates good understanding of the concept.";
-    } else {
-      return "This is a partially correct answer to the question. Some key points are missing and there are minor misconceptions about "
-          + question
-              .getQuestionText()
-              .substring(0, Math.min(50, question.getQuestionText().length()))
-          + ".";
-    }
-  }
-
-  private String generateAIFeedback(int score, int maxScore) {
-    double percentage = (double) score / maxScore;
-
-    if (percentage > 0.9) {
-      return "Excellent work! Your answer demonstrates a thorough understanding of the concept. All key points are addressed accurately.";
-    } else if (percentage > 0.7) {
-      return "Good job! Your answer shows solid understanding, but could be more comprehensive. Consider elaborating on [specific aspect].";
-    } else if (percentage > 0.5) {
-      return "Satisfactory answer with some good points. However, there are areas that need improvement, particularly regarding [concept].";
-    } else {
-      return "This answer needs significant improvement. Key concepts are missing or misunderstood. Please review [specific topic] in the course materials.";
-    }
-  }
-
-  private String generateTeacherFeedback(int score, int maxScore) {
-    double percentage = (double) score / maxScore;
-
-    if (percentage > 0.8) {
-      return "I'm impressed with your understanding! You've clearly put effort into mastering this material.";
-    } else if (percentage > 0.6) {
-      return "Good effort, but I'd like to see more depth in your explanation. Let's discuss this further in class.";
-    } else {
-      return "I encourage you to revisit this topic and come to office hours if you're having trouble. We can work through this together.";
-    }
-  }
-
-  private String getTestTitleForSubject(Subject subject, int index) {
-    String shortName = subject.getShortName();
-    List<String> testTitles;
-
-    switch (shortName) {
-      case "PF", "DSA", "OOP":
-        testTitles = DataConstants.TEST_TITLES_PROGRAMMING;
-        break;
-      case "DBS":
-        testTitles = DataConstants.TEST_TITLES_DATABASES;
-        break;
-      case "CN", "NSEC":
-        testTitles = DataConstants.TEST_TITLES_NETWORKS;
-        break;
-      case "OS":
-        testTitles = DataConstants.TEST_TITLES_OS;
-        break;
-      case "AI", "ML", "CV", "NLP":
-        testTitles = DataConstants.TEST_TITLES_AI;
-        break;
-      case "SE", "WD":
-        testTitles = DataConstants.TEST_TITLES_SE;
-        break;
-      case "IS", "CYB":
-        testTitles = DataConstants.TEST_TITLES_SECURITY;
-        break;
-      default:
-        return subject.getShortName() + " - Test " + (index + 1);
-    }
-
-    return subject.getShortName() + ": " + testTitles.get(index % testTitles.size());
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void createQuestionsForTest(Test test, Subject subject, int questionMultiplier) {
-    try {
-      Test managedTest = testRepository.findById(test.getId()).orElse(test);
-
-      int easyQuestionsToCreate =
-          Math.max(
-              managedTest.getEasyQuestionsCount() != null
-                  ? managedTest.getEasyQuestionsCount() + 1
-                  : 3,
-              3);
-      int mediumQuestionsToCreate =
-          Math.max(
-              managedTest.getMediumQuestionsCount() != null
-                  ? managedTest.getMediumQuestionsCount() + 2
-                  : 4,
-              4);
-      int hardQuestionsToCreate =
-          Math.max(
-              managedTest.getHardQuestionsCount() != null
-                  ? managedTest.getHardQuestionsCount() + 1
-                  : 2,
-              2);
-
-      if (questionMultiplier > 0) {
-        easyQuestionsToCreate += random.nextInt(3);
-        mediumQuestionsToCreate += random.nextInt(4);
-        hardQuestionsToCreate += random.nextInt(2);
-      }
-
-      int easyQuestionScore =
-          managedTest.getEasyQuestionScore() != null
-              ? managedTest.getEasyQuestionScore()
-              : 2 + random.nextInt(2);
-      int mediumQuestionScore =
-          managedTest.getMediumQuestionScore() != null
-              ? managedTest.getMediumQuestionScore()
-              : 4 + random.nextInt(3);
-      int hardQuestionScore =
-          managedTest.getHardQuestionScore() != null
-              ? managedTest.getHardQuestionScore()
-              : 7 + random.nextInt(4);
-
-      createQuestionsWithDifficulty(
-          managedTest, subject, easyQuestionsToCreate, QuestionDifficulty.EASY, easyQuestionScore);
-
-      entityManager.flush();
-      entityManager.clear();
-
-      managedTest = testRepository.findById(managedTest.getId()).orElse(managedTest);
-
-      createQuestionsWithDifficulty(
-          managedTest,
-          subject,
-          mediumQuestionsToCreate,
-          QuestionDifficulty.MEDIUM,
-          mediumQuestionScore);
-
-      entityManager.flush();
-      entityManager.clear();
-
-      managedTest = testRepository.findById(managedTest.getId()).orElse(managedTest);
-
-      createQuestionsWithDifficulty(
-          managedTest, subject, hardQuestionsToCreate, QuestionDifficulty.HARD, hardQuestionScore);
-
-      log.info(
-          "Created {} questions for test '{}' ({} easy @ {} pts, {} medium @ {} pts, {} hard @ {} pts)",
-          easyQuestionsToCreate + mediumQuestionsToCreate + hardQuestionsToCreate,
-          managedTest.getTitle(),
-          easyQuestionsToCreate,
-          easyQuestionScore,
-          mediumQuestionsToCreate,
-          mediumQuestionScore,
-          hardQuestionsToCreate,
-          hardQuestionScore);
-    } catch (Exception e) {
-      log.error("Error creating questions for test: {}", e.getMessage());
-    }
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void createQuestionsWithDifficulty(
-      Test test, Subject subject, int count, QuestionDifficulty difficulty, int score) {
-    // Create x2 the number of questions of each type as requested
-
-    // Create multiple choice questions
-    for (int i = 0; i < count; i++) {
-      QuestionType questionType = QuestionType.MULTIPLE_CHOICE;
-
-      String questionText = getQuestionTextForDifficulty(subject, i, difficulty);
-      String correctAnswer =
-          "This is the model answer for the multiple choice question: " + questionText;
-
-      Question question =
-          Question.builder()
-              .questionText(questionText)
-              .imagePath(null)
-              .score(score)
-              .correctAnswer(correctAnswer)
-              .questionType(questionType)
-              .difficulty(difficulty)
-              .test(test)
-              .build();
-
-      Question savedQuestion = questionRepository.save(question);
-      createOptionsForQuestion(savedQuestion, subject, i);
-
-      log.debug(
-          "Created {} {} multiple choice question for test '{}'",
-          difficulty,
-          questionType,
-          test.getTitle());
-    }
-
-    // Create text-only questions
-    for (int i = 0; i < count; i++) {
-      QuestionType questionType = QuestionType.TEXT_ONLY;
-
-      String questionText = getQuestionTextForDifficulty(subject, i + 100, difficulty);
-      String correctAnswer =
-          "This is the model answer for the text-only question: "
-              + questionText
-              + " It covers all the key points and demonstrates comprehensive understanding of the topic.";
-
-      Question question =
-          Question.builder()
-              .questionText(questionText)
-              .imagePath(null)
-              .score(score)
-              .correctAnswer(correctAnswer)
-              .questionType(questionType)
-              .difficulty(difficulty)
-              .test(test)
-              .build();
-
-      questionRepository.save(question);
-
-      log.debug(
-          "Created {} {} text-only question for test '{}'",
-          difficulty,
-          questionType,
-          test.getTitle());
-    }
-  }
-
-  private String getQuestionTextForDifficulty(
-      Subject subject, int index, QuestionDifficulty difficulty) {
-    String shortName = subject.getShortName();
-    String difficultyPrefix =
-        switch (difficulty) {
-          case EASY -> "Define";
-          case MEDIUM -> "Explain";
-          case HARD -> "Analyze";
-        };
-
-    List<String> questions;
-
-    switch (shortName) {
-      case "PF", "DSA", "OOP" -> {
-        questions = DataConstants.CODING_QUESTIONS;
-        String baseQuestion = questions.get(index % questions.size());
-        return switch (difficulty) {
-          case QuestionDifficulty.EASY -> "Basic: " + baseQuestion;
-          case QuestionDifficulty.MEDIUM -> "Intermediate: " + baseQuestion;
-          default -> "Advanced: " + baseQuestion;
-        };
-      }
-      case "DBS" -> {
-        questions = DataConstants.DATABASE_QUESTIONS;
-        String baseQuestion = questions.get(index % questions.size());
-        return difficultyPrefix + " - " + baseQuestion;
-      }
-      case "CN", "NSEC" -> {
-        questions = DataConstants.NETWORKING_QUESTIONS;
-        String baseQuestion = questions.get(index % questions.size());
-        return difficultyPrefix + " - " + baseQuestion;
-      }
-      case "AI", "ML", "CV", "NLP" -> {
-        questions = DataConstants.AI_QUESTIONS;
-        String baseQuestion = questions.get(index % questions.size());
-        return difficultyPrefix + " - " + baseQuestion;
-      }
-      case "SE", "WD" -> {
-        questions = DataConstants.SOFTWARE_ENGINEERING_QUESTIONS;
-        String baseQuestion = questions.get(index % questions.size());
-        return difficultyPrefix + " - " + baseQuestion;
-      }
-      default -> {
-        return difficultyPrefix + " the concept of " + getConceptForSubject(subject, index);
-      }
-    }
-  }
-
-  private String getConceptForSubject(Subject subject, int index) {
-    String shortName = subject.getShortName();
-
-    Map<String, List<String>> concepts = new HashMap<>();
-    concepts.put(
-        "OS",
-        Arrays.asList(
-            "process scheduling",
-            "virtual memory",
-            "file systems",
-            "deadlocks",
-            "memory management"));
-    concepts.put(
-        "AI",
-        Arrays.asList(
-            "neural networks",
-            "expert systems",
-            "genetic algorithms",
-            "knowledge representation",
-            "search algorithms"));
-    concepts.put(
-        "ML",
-        Arrays.asList(
-            "supervised learning",
-            "unsupervised learning",
-            "reinforcement learning",
-            "feature extraction",
-            "model evaluation"));
-    concepts.put(
-        "HCI",
-        Arrays.asList(
-            "usability testing",
-            "interaction design",
-            "cognitive models",
-            "user research",
-            "accessibility"));
-    concepts.put(
-        "SE",
-        Arrays.asList(
-            "agile methodology",
-            "requirements gathering",
-            "software testing",
-            "version control",
-            "continuous integration"));
-    concepts.put(
-        "CA",
-        Arrays.asList(
-            "processor architecture",
-            "memory hierarchy",
-            "instruction sets",
-            "pipelining",
-            "cache organization"));
-
-    List<String> subjectConcepts =
-        concepts.getOrDefault(
-            shortName,
-            Arrays.asList(
-                "abstraction",
-                "encapsulation",
-                "modularity",
-                "information hiding",
-                "data structures"));
-
-    return subjectConcepts.get(index % subjectConcepts.size());
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void createOptionsForQuestion(Question question, Subject subject, int questionIndex) {
-    try {
-      Question managedQuestion = questionRepository.findById(question.getId()).orElse(question);
-
-      String shortName = subject.getShortName();
-      List<List<String>> options;
-
-      int optionCount = 4;
-      if (managedQuestion.getDifficulty() == QuestionDifficulty.EASY) {
-        optionCount = 3;
-      } else if (managedQuestion.getDifficulty() == QuestionDifficulty.HARD) {
-        optionCount = 5;
-      }
-
-      switch (shortName) {
-        case "PF", "OOP" -> {
-          options = DataConstants.MULTIPLE_CHOICE_OPTIONS_JAVA;
-          createProgrammingOptions(managedQuestion, options, questionIndex, optionCount);
-        }
-        case "DBS" -> {
-          options = DataConstants.MULTIPLE_CHOICE_OPTIONS_DB;
-          createProgrammingOptions(managedQuestion, options, questionIndex, optionCount);
-        }
-        case "CN", "NSEC" -> {
-          options = DataConstants.MULTIPLE_CHOICE_OPTIONS_NETWORKS;
-          createProgrammingOptions(managedQuestion, options, questionIndex, optionCount);
-        }
-        case "OS" -> {
-          options = DataConstants.MULTIPLE_CHOICE_OPTIONS_OS;
-          createProgrammingOptions(managedQuestion, options, questionIndex, optionCount);
-        }
-        case "AI", "ML", "CV", "NLP" -> {
-          options = DataConstants.MULTIPLE_CHOICE_OPTIONS_AI;
-          createProgrammingOptions(managedQuestion, options, questionIndex, optionCount);
-        }
-        default -> createGenericOptions(managedQuestion, optionCount);
-      }
-    } catch (Exception e) {
-      log.error("Error creating options for question: {}", e.getMessage());
-    }
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void createProgrammingOptions(
-      Question question, List<List<String>> options, int questionIndex, int optionCount) {
-    try {
-      Question managedQuestion = questionRepository.findById(question.getId()).orElse(question);
-      List<String> questionOptions = new ArrayList<>(options.get(questionIndex % options.size()));
-
-      int actualOptionCount = Math.min(questionOptions.size(), optionCount);
-
-      for (int i = 0; i < actualOptionCount; i++) {
-        boolean isCorrect = i == 0;
-
-        if (question.getDifficulty() == QuestionDifficulty.HARD
-            && i == 0
-            && random.nextDouble() < 0.3) {
-          int swapIndex = 1 + random.nextInt(actualOptionCount - 1);
-          String temp = questionOptions.getFirst();
-          questionOptions.set(0, questionOptions.get(swapIndex));
-          questionOptions.set(swapIndex, temp);
-          isCorrect = false;
-        }
-
-        Option option =
-            Option.builder()
-                .text(questionOptions.get(i))
-                .description("")
-                .isCorrect(isCorrect)
-                .question(managedQuestion)
-                .build();
-
-        optionRepository.save(option);
-      }
-    } catch (Exception e) {
-      log.error("Error creating programming options: {}", e.getMessage());
-    }
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void createGenericOptions(Question question, int optionCount) {
-    try {
-      Question managedQuestion = questionRepository.findById(question.getId()).orElse(question);
-
-      String[] words = managedQuestion.getQuestionText().split("\\s+");
-      String baseTerm = words.length > 3 ? words[3] : "concept";
-
-      List<String> options = new ArrayList<>();
-      QuestionDifficulty difficulty = managedQuestion.getDifficulty();
-
-      switch (difficulty) {
-        case QuestionDifficulty.EASY -> {
-          options.add("The " + baseTerm + " is the main concept related to the question");
-          options.add("The " + baseTerm + " is completely unrelated to the question");
-          options.add("The " + baseTerm + " is optional and not important");
-          options.add("The " + baseTerm + " only applies in theoretical situations");
-        }
-        case QuestionDifficulty.MEDIUM -> {
-          options.add("The " + baseTerm + " represents the primary mechanism for data abstraction");
-          options.add(
-              "The " + baseTerm + " is an implementation detail not relevant to the interface");
-          options.add("The " + baseTerm + " is a secondary component used only in specific cases");
-          options.add(
-              "The " + baseTerm + " is a theoretical concept with no practical applications");
-          options.add(
-              "The " + baseTerm + " is deprecated and should not be used in modern systems");
-        }
-        default -> {
-          options.add(
-              "The "
-                  + baseTerm
-                  + " provides an optimal solution by balancing time and space complexity");
-          options.add(
-              "The "
-                  + baseTerm
-                  + " offers better performance but significantly increases complexity");
-          options.add(
-              "The " + baseTerm + " is primarily useful for maintaining backward compatibility");
-          options.add(
-              "The " + baseTerm + " improves maintainability but introduces runtime overhead");
-          options.add(
-              "The "
-                  + baseTerm
-                  + " is considered best practice only in enterprise-scale applications");
-          options.add(
-              "The " + baseTerm + " is useful only when combined with other advanced techniques");
-        }
-      }
-
-      for (int i = 0; i < Math.min(optionCount, options.size()); i++) {
-        boolean isCorrect = i == 0;
-
-        Option option =
-            Option.builder()
-                .text(options.get(i))
-                .description("")
-                .isCorrect(isCorrect)
-                .question(managedQuestion)
-                .build();
-
-        optionRepository.save(option);
-      }
-    } catch (Exception e) {
-      log.error("Error creating generic options: {}", e.getMessage());
-    }
-  }
-
-  @Transactional
-  public void createDefaultPrompt() {
-    if (promptRepository.findById(1L).isPresent()) {
-      log.info("Default grading prompt already exists");
-      return;
-    }
-
-    try {
-      User admin =
-          baseAdmin != null
-              ? baseAdmin
-              : userRepository
-                  .findByUsername(ADMIN_USERNAME)
-                  .orElseThrow(() -> ResourceNotFoundException.user(ADMIN_USERNAME));
-
-      ClassPathResource resource = new ClassPathResource("prompts/grading_prompt.txt");
-      String promptContent;
-
-      try {
-        promptContent =
-            new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-      } catch (Exception e) {
-        promptContent = DataConstants.PROMPT_TEMPLATES.getFirst();
-      }
-
-      Prompt defaultPrompt =
-          Prompt.builder()
-              .title("Default Grading Prompt")
-              .description(
-                  "Standard grading prompt for evaluating student submissions. This prompt provides guidelines for fair and constructive assessment.")
-              .prompt(promptContent)
-              .author(admin)
-              .isPublic(true)
-              .created(LocalDateTime.now())
-              .build();
-
-      promptRepository.save(defaultPrompt);
-      log.info("Created default grading prompt successfully");
-    } catch (Exception e) {
-      log.error("Failed to create default grading prompt: {}", e.getMessage(), e);
-    }
-  }
-
-  @Transactional
-  public void createAdditionalPrompts() {
-    if (baseTeacher == null) {
-      log.warn("Base teacher not found, skipping creating additional prompts");
-      return;
-    }
-
-    int promptCount = (int) promptRepository.count();
-    if (promptCount > 5) {
-      log.info("Already have {} prompts, skipping creating additional prompts", promptCount);
-      return;
-    }
-
-    List<User> teachers = userRepository.findAllByRole(RolesEnum.TEACHER);
-
-    for (int i = 1; i < DataConstants.PROMPT_TEMPLATES.size(); i++) {
-      String promptContent = DataConstants.PROMPT_TEMPLATES.get(i);
-
-      User author = (i <= 2) ? baseTeacher : teachers.get(random.nextInt(teachers.size()));
-      boolean isPublic = random.nextDouble() < 0.7;
-
-      Prompt prompt =
-          Prompt.builder()
-              .title("Prompt " + (i + 1) + " - " + author.getUsername())
-              .description(
-                  "Custom evaluation prompt created by "
-                      + author.getName()
-                      + " "
-                      + author.getSurname())
-              .prompt(promptContent)
-              .author(author)
-              .isPublic(isPublic)
-              .created(LocalDateTime.now())
-              .build();
-
-      promptRepository.save(prompt);
-      log.info("Created prompt for {}: public={}", author.getUsername(), isPublic);
-    }
-  }
-
-  private String generateGroupName(
-      int index, Semester semester, int academicYear, int subjectGroupIndex, String subjectCode) {
-    if (random.nextInt(4) == 0) {
-      String semesterPrefix = semester == Semester.WINTER ? "W" : "S";
-      String yearSuffix = String.valueOf(academicYear).substring(2);
-      return String.format(
-          "%s-%s%s-%d", subjectCode, semesterPrefix, yearSuffix, subjectGroupIndex + 1);
-    } else if (random.nextInt(3) == 0) {
-      String formatPattern =
-          DataConstants.GROUP_NAME_FORMATS.get(index % DataConstants.GROUP_NAME_FORMATS.size());
-
-      if (formatPattern.contains("%s")) {
-        char suffix =
-            DataConstants.GROUP_SUFFIXES.get(
-                (index + subjectGroupIndex) % DataConstants.GROUP_SUFFIXES.size());
-
-        if (formatPattern.equals("%sPRG%d")) {
-          return String.format(formatPattern, suffix, academicYear % 10);
-        } else {
-          return String.format(formatPattern, (index % 5) + 1, suffix);
-        }
-      } else if (formatPattern.contains("%d%d%d")) {
-        return String.format(formatPattern, (index % 3) + 1, (index % 2) + 1, (index % 5) + 1);
-      } else if (formatPattern.contains("%d%d")) {
-        return String.format(formatPattern, (index % 3) + 1, (index % 9) + 1);
-      } else {
-        return String.format(formatPattern, (index % 4) + 1, (index % 3) + 1);
-      }
-    } else {
-      String semesterCode = semester == Semester.WINTER ? "W" : "S";
-      int groupNum = subjectGroupIndex + 1;
-      return String.format("%s-%s%d-%d", subjectCode, semesterCode, academicYear % 100, groupNum);
-    }
   }
 }

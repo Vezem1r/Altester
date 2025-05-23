@@ -1,6 +1,7 @@
 package com.altester.core.config;
 
 import java.nio.file.Paths;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -12,6 +13,9 @@ import org.springframework.web.servlet.resource.PathResourceResolver;
 public class WebMvcConfig implements WebMvcConfigurer {
   @Value("${app.upload.question-images:./question-images}")
   private String uploadDir;
+
+  @Value("#{'${cors.allowed.origins}'.split(',')}")
+  private List<String> allowedOrigins;
 
   @Override
   public void addResourceHandlers(ResourceHandlerRegistry registry) {
@@ -28,7 +32,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
   public void addCorsMappings(CorsRegistry registry) {
     registry
         .addMapping("/question-images/**")
-        .allowedOrigins("http://localhost:5173")
+        .allowedOrigins(allowedOrigins.toArray(new String[0]))
         .allowedMethods("GET", "OPTIONS")
         .allowedHeaders("*");
   }
