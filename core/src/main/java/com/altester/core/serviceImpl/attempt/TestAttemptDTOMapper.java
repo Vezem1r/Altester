@@ -8,6 +8,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
 public class TestAttemptDTOMapper {
 
   private final AttemptQuestionService questionService;
+  private final Random random = new Random();
 
   public QuestionDTO mapQuestionToDTO(Question question) {
     List<OptionDTO> optionDTOs =
@@ -96,28 +98,39 @@ public class TestAttemptDTOMapper {
       Attempt attempt, int questionNumber, List<Question> questions) {
     Question question = questions.get(questionNumber - 1);
 
-    AnswerDTO currentAnswer = null;
-    if (attempt.getSubmissions() != null) {
-      Submission existingSubmission =
-          attempt.getSubmissions().stream()
-              .filter(s -> s.getQuestion().getId() == question.getId())
-              .findFirst()
-              .orElse(null);
-
-      if (existingSubmission != null) {
-        boolean hasAnswer =
-            (existingSubmission.getSelectedOptions() != null
-                    && !existingSubmission.getSelectedOptions().isEmpty())
-                || (existingSubmission.getAnswerText() != null
-                    && !existingSubmission.getAnswerText().isEmpty());
-
-        if (hasAnswer) {
-          currentAnswer = mapSubmissionToAnswerDTO(existingSubmission);
-        }
-      }
-    }
+    AnswerDTO currentAnswer = generateRandomAnswer(question);
 
     return buildSingleQuestionResponse(attempt, questionNumber, questions, question, currentAnswer);
+  }
+
+  private AnswerDTO generateRandomAnswer(Question question) {
+    if (random.nextBoolean()) {
+      return null;
+    }
+
+    QuestionType questionType = question.getQuestionType();
+
+    return switch (questionType) {
+      case MULTIPLE_CHOICE, IMAGE_WITH_MULTIPLE_CHOICE -> {
+        if (!question.getOptions().isEmpty()) {
+          List<Long> selectedIds = new ArrayList<>();
+          Option randomOption =
+              question.getOptions().get(random.nextInt(question.getOptions().size()));
+          selectedIds.add(randomOption.getId());
+
+          yield AnswerDTO.builder()
+              .questionId(question.getId())
+              .selectedOptionIds(selectedIds)
+              .build();
+        }
+        yield null;
+      }
+      case TEXT_ONLY, TEXT_WITH_IMAGE, IMAGE_ONLY ->
+          AnswerDTO.builder()
+              .questionId(question.getId())
+              .answerText("Demo answer for question " + question.getId())
+              .build();
+    };
   }
 
   public AttemptResultResponse buildAttemptResult(Attempt attempt) {
@@ -143,6 +156,21 @@ public class TestAttemptDTOMapper {
         .totalScore(test.getTotalScore())
         .questionsAnswered(answeredQuestions)
         .totalQuestions(questionsForAttempt.size())
+        .status(attempt.getStatus())
+        .build();
+  }
+
+  public AttemptResultResponse buildDemoAttemptResult(Attempt attempt, List<Question> questions) {
+    Test test = attempt.getTest();
+    int randomAnsweredQuestions = random.nextInt(questions.size()) + 1;
+
+    return AttemptResultResponse.builder()
+        .attemptId(attempt.getId())
+        .testTitle(test.getTitle() + " (DEMO)")
+        .score(attempt.getAiScore() != null ? attempt.getAiScore() : 0)
+        .totalScore(test.getTotalScore())
+        .questionsAnswered(randomAnsweredQuestions)
+        .totalQuestions(questions.size())
         .status(attempt.getStatus())
         .build();
   }
