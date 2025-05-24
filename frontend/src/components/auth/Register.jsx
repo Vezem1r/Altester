@@ -143,23 +143,21 @@ export default function Register({ onSwitch, onSuccess }) {
   };
 
   return (
-    <div className="flex flex-col h-full justify-between">
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-gray-700 text-center">
+    <div className="flex flex-col h-full justify-between px-4 sm:px-0">
+      <div className="mb-4 sm:mb-6">
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-700 text-center">
           {t('register.createAccount', 'CREATE ACCOUNT')}
         </h2>
       </div>
 
-      {/* Content */}
       <div className="flex-grow">
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                   <svg
-                    className="w-5 h-5 text-purple-500"
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                     xmlns="http://www.w3.org/2000/svg"
@@ -170,7 +168,7 @@ export default function Register({ onSwitch, onSuccess }) {
                 <input
                   id="name"
                   type="text"
-                  className={`w-full pl-10 px-4 py-2 border ${errors.name ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500`}
+                  className={`w-full pl-8 sm:pl-10 px-3 sm:px-4 py-2 border ${errors.name ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm sm:text-base`}
                   placeholder={t('register.firstName', 'First Name')}
                   value={form.name}
                   onChange={e => setForm({ ...form, name: e.target.value })}
@@ -186,7 +184,7 @@ export default function Register({ onSwitch, onSuccess }) {
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                   <svg
-                    className="w-5 h-5 text-purple-500"
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                     xmlns="http://www.w3.org/2000/svg"
@@ -197,7 +195,7 @@ export default function Register({ onSwitch, onSuccess }) {
                 <input
                   id="surname"
                   type="text"
-                  className={`w-full pl-10 px-4 py-2 border ${errors.surname ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500`}
+                  className={`w-full pl-8 sm:pl-10 px-3 sm:px-4 py-2 border ${errors.surname ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm sm:text-base`}
                   placeholder={t('register.lastName', 'Last Name')}
                   value={form.surname}
                   onChange={e => setForm({ ...form, surname: e.target.value })}
@@ -214,7 +212,7 @@ export default function Register({ onSwitch, onSuccess }) {
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                 <svg
-                  className="w-5 h-5 text-purple-500"
+                  className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                   xmlns="http://www.w3.org/2000/svg"
@@ -226,7 +224,7 @@ export default function Register({ onSwitch, onSuccess }) {
               <input
                 id="email"
                 type="email"
-                className={`w-full pl-10 px-4 py-2 border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500`}
+                className={`w-full pl-8 sm:pl-10 px-3 sm:px-4 py-2 border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm sm:text-base`}
                 placeholder={t('register.emailAddress', 'Email Address')}
                 value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
@@ -242,7 +240,7 @@ export default function Register({ onSwitch, onSuccess }) {
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                 <svg
-                  className="w-5 h-5 text-purple-500"
+                  className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                   xmlns="http://www.w3.org/2000/svg"
@@ -257,7 +255,7 @@ export default function Register({ onSwitch, onSuccess }) {
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
-                className={`w-full pl-10 pr-10 px-4 py-2 border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500`}
+                className={`w-full pl-8 sm:pl-10 pr-8 sm:pr-10 px-3 sm:px-4 py-2 border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm sm:text-base`}
                 placeholder={t('register.password', 'Password')}
                 value={form.password}
                 onChange={e => setForm({ ...form, password: e.target.value })}
@@ -269,7 +267,7 @@ export default function Register({ onSwitch, onSuccess }) {
               >
                 {showPassword ? (
                   <svg
-                    className="w-5 h-5 text-purple-500"
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -284,7 +282,7 @@ export default function Register({ onSwitch, onSuccess }) {
                   </svg>
                 ) : (
                   <svg
-                    className="w-5 h-5 text-purple-500"
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -310,12 +308,11 @@ export default function Register({ onSwitch, onSuccess }) {
               <p className="mt-1 text-xs text-red-500">{errors.password}</p>
             )}
 
-            {/* Password requirements checklist */}
             {form.password && (
               <div className="mt-2 space-y-1">
                 <div className="flex items-center">
                   <div
-                    className={`w-4 h-4 mr-2 rounded-full ${passwordStrength.length ? 'bg-green-500' : 'bg-gray-300'}`}
+                    className={`w-3 h-3 sm:w-4 sm:h-4 mr-2 rounded-full ${passwordStrength.length ? 'bg-green-500' : 'bg-gray-300'}`}
                   />
                   <span className="text-xs text-gray-600">
                     {t(
@@ -326,7 +323,7 @@ export default function Register({ onSwitch, onSuccess }) {
                 </div>
                 <div className="flex items-center">
                   <div
-                    className={`w-4 h-4 mr-2 rounded-full ${passwordStrength.uppercase ? 'bg-green-500' : 'bg-gray-300'}`}
+                    className={`w-3 h-3 sm:w-4 sm:h-4 mr-2 rounded-full ${passwordStrength.uppercase ? 'bg-green-500' : 'bg-gray-300'}`}
                   />
                   <span className="text-xs text-gray-600">
                     {t(
@@ -337,7 +334,7 @@ export default function Register({ onSwitch, onSuccess }) {
                 </div>
                 <div className="flex items-center">
                   <div
-                    className={`w-4 h-4 mr-2 rounded-full ${passwordStrength.number ? 'bg-green-500' : 'bg-gray-300'}`}
+                    className={`w-3 h-3 sm:w-4 sm:h-4 mr-2 rounded-full ${passwordStrength.number ? 'bg-green-500' : 'bg-gray-300'}`}
                   />
                   <span className="text-xs text-gray-600">
                     {t('register.passwordRequirement3', 'At least 1 number')}
@@ -351,7 +348,7 @@ export default function Register({ onSwitch, onSuccess }) {
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                 <svg
-                  className="w-5 h-5 text-purple-500"
+                  className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                   xmlns="http://www.w3.org/2000/svg"
@@ -366,7 +363,7 @@ export default function Register({ onSwitch, onSuccess }) {
               <input
                 id="confirmPassword"
                 type={showConfirmPassword ? 'text' : 'password'}
-                className={`w-full pl-10 pr-10 px-4 py-2 border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500`}
+                className={`w-full pl-8 sm:pl-10 pr-8 sm:pr-10 px-3 sm:px-4 py-2 border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm sm:text-base`}
                 placeholder={t('register.confirmPassword', 'Confirm Password')}
                 value={form.confirmPassword}
                 onChange={e =>
@@ -380,7 +377,7 @@ export default function Register({ onSwitch, onSuccess }) {
               >
                 {showConfirmPassword ? (
                   <svg
-                    className="w-5 h-5 text-purple-500"
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -395,7 +392,7 @@ export default function Register({ onSwitch, onSuccess }) {
                   </svg>
                 ) : (
                   <svg
-                    className="w-5 h-5 text-purple-500"
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -426,20 +423,19 @@ export default function Register({ onSwitch, onSuccess }) {
         </div>
       </div>
 
-      {/* Footer with buttons */}
-      <div className="mt-auto">
+      <div className="mt-auto space-y-3 sm:space-y-4">
         <button
           type="button"
           onClick={handleSubmit}
           disabled={loading}
-          className={`w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-full transition-colors duration-200 mb-4 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+          className={`w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-full transition-colors duration-200 text-sm sm:text-base ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
         >
           {loading
             ? t('register.registering', 'REGISTERING...')
             : t('register.register', 'REGISTER')}
         </button>
 
-        <p className="text-center text-gray-600">
+        <p className="text-center text-gray-600 text-sm">
           {t('register.alreadyHaveAccount', 'Already have an account?')}{' '}
           <button
             type="button"

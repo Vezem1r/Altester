@@ -4,6 +4,7 @@ import {
   createAuthAxios,
   handleApiError,
   buildUrlWithParams,
+  IS_DEMO_MODE,
 } from './apiUtils';
 
 const API_BASE_URL = import.meta.env.VITE_CHAT_URL;
@@ -56,39 +57,16 @@ export class ChatService {
             this.reconnectAttempt = 0;
             onConnectionStatus('connected');
 
+            // Demo version: Only subscribe to initial data via connect message
             this.subscriptions.push(
               this.stompClient.subscribe(
                 '/user/queue/messages',
                 message => {
                   try {
                     const parsedMessage = JSON.parse(message.body);
-                    onMessage(parsedMessage);
-                  } catch {}
-                },
-                headers
-              )
-            );
-
-            this.subscriptions.push(
-              this.stompClient.subscribe(
-                '/user/queue/typing',
-                message => {
-                  try {
-                    const typingUpdate = JSON.parse(message.body);
-                    onMessage(typingUpdate);
-                  } catch {}
-                },
-                headers
-              )
-            );
-
-            this.subscriptions.push(
-              this.stompClient.subscribe(
-                '/topic/status',
-                message => {
-                  try {
-                    const statusUpdate = JSON.parse(message.body);
-                    onMessage(statusUpdate);
+                    if (parsedMessage.type === 'INITIAL_DATA') {
+                      onMessage(parsedMessage);
+                    }
                   } catch {}
                 },
                 headers
@@ -172,18 +150,10 @@ export class ChatService {
   static disconnect() {
     if (this.stompClient && this.stompClient.connected) {
       this.isExplicitDisconnect = true;
-
       this.lastDisconnectTimestamp = new Date().toISOString();
 
       try {
-        this.stompClient.send(
-          '/app/messages.disconnect',
-          {},
-          JSON.stringify({})
-        );
-
         this.clearSubscriptions();
-
         this.stompClient.disconnect(() => {});
       } catch {
       } finally {
@@ -204,7 +174,12 @@ export class ChatService {
     }
   }
 
+  // Demo version: WebSocket operations return resolved promises
   static sendMessageWS(receiverId, content, conversationId = null) {
+    if (IS_DEMO_MODE) {
+      return Promise.resolve();
+    }
+    
     if (!this.stompClient || !this.stompClient.connected) {
       return Promise.reject('Not connected to WebSocket server');
     }
@@ -230,6 +205,10 @@ export class ChatService {
   }
 
   static sendTypingIndicator(receiverId, conversationId, isTyping = true) {
+    if (IS_DEMO_MODE) {
+      return;
+    }
+
     if (!this.stompClient || !this.stompClient.connected) {
       return;
     }
@@ -250,6 +229,10 @@ export class ChatService {
   }
 
   static markMessagesAsReadWS(conversationId) {
+    if (IS_DEMO_MODE) {
+      return Promise.resolve();
+    }
+
     if (!this.stompClient || !this.stompClient.connected) {
       return Promise.reject('Not connected to WebSocket server');
     }
@@ -273,6 +256,10 @@ export class ChatService {
   }
 
   static getUserStatusWS(username) {
+    if (IS_DEMO_MODE) {
+      return Promise.resolve();
+    }
+
     if (!this.stompClient || !this.stompClient.connected) {
       return Promise.reject('Not connected to WebSocket server');
     }
@@ -381,7 +368,7 @@ export class ChatService {
   }
 
   static async sendChatMessage(receiverId, content, conversationId = null) {
-    if (this.stompClient && this.stompClient.connected) {
+    if (this.stompClient && this.stompClient.connected && !IS_DEMO_MODE) {
       try {
         return await this.sendMessageWS(receiverId, content, conversationId);
       } catch {
@@ -393,7 +380,7 @@ export class ChatService {
   }
 
   static async markAsRead(conversationId) {
-    if (this.stompClient && this.stompClient.connected) {
+    if (this.stompClient && this.stompClient.connected && !IS_DEMO_MODE) {
       try {
         return await this.markMessagesAsReadWS(conversationId);
       } catch {

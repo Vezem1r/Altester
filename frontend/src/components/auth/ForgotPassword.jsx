@@ -70,13 +70,12 @@ export default function ForgotPassword({ onSwitch, onSuccess }) {
   };
 
   return (
-    <div className="flex flex-col h-full justify-between">
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-gray-700 text-center">
+    <div className="flex flex-col h-full justify-between px-4 sm:px-0">
+      <div className="mb-4 sm:mb-6">
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-700 text-center">
           {t('forgotPassword.title', 'RESET PASSWORD')}
         </h2>
-        <p className="text-center text-gray-600 mt-2">
+        <p className="text-center text-gray-600 mt-2 text-sm sm:text-base">
           {t(
             'forgotPassword.instructions',
             "Enter your email address and we'll send you a code to reset your password."
@@ -84,14 +83,13 @@ export default function ForgotPassword({ onSwitch, onSuccess }) {
         </p>
       </div>
 
-      {/* Content */}
       <div className="flex-grow">
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                 <svg
-                  className="w-5 h-5 text-purple-500"
+                  className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                   xmlns="http://www.w3.org/2000/svg"
@@ -103,7 +101,7 @@ export default function ForgotPassword({ onSwitch, onSuccess }) {
               <input
                 id="email"
                 type="email"
-                className={`w-full pl-10 px-4 py-2 border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500`}
+                className={`w-full pl-8 sm:pl-10 px-3 sm:px-4 py-2 border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500 text-sm sm:text-base`}
                 placeholder={t('forgotPassword.emailAddress', 'Email Address')}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
@@ -117,20 +115,19 @@ export default function ForgotPassword({ onSwitch, onSuccess }) {
         </div>
       </div>
 
-      {/* Footer with buttons */}
-      <div className="mt-auto">
+      <div className="mt-auto space-y-3 sm:space-y-4">
         <button
           type="button"
           onClick={handleSubmit}
           disabled={loading}
-          className={`w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-full transition-colors duration-200 mb-4 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+          className={`w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-full transition-colors duration-200 text-sm sm:text-base ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
         >
           {loading
             ? t('forgotPassword.sending', 'SENDING...')
             : t('forgotPassword.sendResetCode', 'SEND RESET CODE')}
         </button>
 
-        <p className="text-center text-gray-600">
+        <p className="text-center text-gray-600 text-sm">
           <button
             type="button"
             onClick={onSwitch}

@@ -56,23 +56,6 @@ services:
       retries: 3
       start_period: 40s
 
-  ai-grading-service:
-    container_name: ai-grading-service_container
-    build:
-      context: ./ai-grading-service
-    env_file:
-      - .env
-    environment:
-      - CORE_SERVICE_URL=${CORE_SERVICE_URL}
-      - TZ=Europe/Prague
-    depends_on:
-      - core
-      - db
-    networks:
-      internal:
-    volumes:
-      - ./logs:/app/logs
-
   db:
     image: postgres:15
     container_name: postgres_container

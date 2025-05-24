@@ -5,21 +5,42 @@ import i18n from 'i18next';
 export const BASE_API_URL = import.meta.env.VITE_API_URL;
 export const NOTIFICATION_URL = import.meta.env.VITE_NOTIFICATION_URL;
 
+export const IS_DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
+
 export const createAuthAxios = (contentType = 'application/json') => {
   const token = localStorage.getItem('token');
-  return axios.create({
+  const instance = axios.create({
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': contentType,
     },
     withCredentials: true,
   });
+
+  if (IS_DEMO_MODE) {
+    instance.interceptors.response.use(
+      response => response,
+      error => {
+        return Promise.resolve({
+          data: { success: true, message: 'Demo mode - operation simulated' },
+          status: 200,
+          statusText: 'OK'
+        });
+      }
+    );
+  }
+
+  return instance;
 };
 
 export const useApiUtils = () => {
   const { t } = useTranslation();
 
   const handleApiError = error => {
+    if (IS_DEMO_MODE) {
+      return;
+    }
+
     if (error.response) {
       const { status, data } = error.response;
 
@@ -86,6 +107,10 @@ export const useApiUtils = () => {
   };
 
   const handleAuthError = errorResponse => {
+    if (IS_DEMO_MODE) {
+      return 'Demo mode - authentication simulated';
+    }
+
     if (!errorResponse.response) {
       return t(
         'apiUtils.networkError',
@@ -254,6 +279,10 @@ export const useApiUtils = () => {
 };
 
 export const handleApiError = error => {
+  if (IS_DEMO_MODE) {
+    return;
+  }
+
   const t = i18n.t;
 
   if (error.response) {
@@ -322,6 +351,10 @@ export const handleApiError = error => {
 };
 
 export const handleAuthError = errorResponse => {
+  if (IS_DEMO_MODE) {
+    return 'Demo mode - authentication simulated';
+  }
+
   const t = i18n.t;
 
   if (!errorResponse.response) {
@@ -502,6 +535,10 @@ export const buildUrlWithParams = (baseUrl, params) => {
 
 export const setupGlobalInterceptors = () => {
   const handleLogout = () => {
+    if (IS_DEMO_MODE) {
+      return;
+    }
+    
     localStorage.removeItem('token');
     localStorage.removeItem('userRole');
     localStorage.removeItem('isRegistered');
@@ -512,6 +549,14 @@ export const setupGlobalInterceptors = () => {
   axios.interceptors.response.use(
     response => response,
     responseError => {
+      if (IS_DEMO_MODE) {
+        return Promise.resolve({
+          data: { success: true, message: 'Demo mode - operation simulated' },
+          status: 200,
+          statusText: 'OK'
+        });
+      }
+
       if (
         responseError.response &&
         (responseError.response.status === 401 ||
@@ -545,4 +590,22 @@ export const throttleRequest = async (key, requestFunction) => {
 
   requestTimestamps[key] = Date.now();
   return requestFunction();
+};
+
+export const setupDemoMode = () => {
+  if (IS_DEMO_MODE) {
+    const originalConsole = { ...console };
+    
+    console.log = () => {};
+    console.error = () => {};
+    console.warn = () => {};
+    console.info = () => {};
+    console.debug = () => {};
+    
+    window.restoreConsole = () => {
+      Object.assign(console, originalConsole);
+    };
+    
+    console.info('Demo mode enabled - all errors are suppressed');
+  }
 };

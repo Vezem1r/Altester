@@ -82,20 +82,18 @@ export default function Verify({ email, onLoginRedirect }) {
   };
 
   return (
-    <div className="flex flex-col h-full justify-between">
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-gray-700 text-center">
+    <div className="flex flex-col h-full justify-between px-4 sm:px-0">
+      <div className="mb-4 sm:mb-6">
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-700 text-center">
           {t('verify.title', 'VERIFY YOUR EMAIL')}
         </h2>
       </div>
 
-      {/* Content */}
       <div className="flex-grow">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center w-16 h-16 mx-auto bg-purple-100 rounded-full">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 mx-auto bg-purple-100 rounded-full">
             <svg
-              className="w-8 h-8 text-purple-600"
+              className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -109,18 +107,18 @@ export default function Verify({ email, onLoginRedirect }) {
               />
             </svg>
           </div>
-          <p className="mt-4 text-gray-600">
+          <p className="mt-3 sm:mt-4 text-gray-600 text-sm sm:text-base">
             {t('verify.codeSentMessage', "We've sent a verification code to")}
             <br />
-            <span className="font-medium text-gray-800">{email}</span>
+            <span className="font-medium text-gray-800 text-xs sm:text-sm break-all">{email}</span>
           </p>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <svg
-                className="w-5 h-5 text-purple-500"
+                className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500"
                 fill="currentColor"
                 viewBox="0 0 20 20"
                 xmlns="http://www.w3.org/2000/svg"
@@ -135,7 +133,7 @@ export default function Verify({ email, onLoginRedirect }) {
             <input
               id="verificationCode"
               type="text"
-              className={`w-full pl-10 px-4 py-2 border ${errors.code ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500 tracking-widest text-center`}
+              className={`w-full pl-8 sm:pl-10 px-3 sm:px-4 py-2 border ${errors.code ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500 tracking-widest text-center text-sm sm:text-base`}
               value={code}
               onChange={e => {
                 const value = e.target.value.replace(/[^\d]/g, '').slice(0, 6);
@@ -152,13 +150,12 @@ export default function Verify({ email, onLoginRedirect }) {
         </div>
       </div>
 
-      {/* Footer with buttons */}
-      <div className="mt-auto">
+      <div className="mt-auto space-y-3 sm:space-y-4">
         <button
           type="button"
           onClick={handleVerify}
           disabled={loading}
-          className={`w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-full transition-colors duration-200 mb-4 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+          className={`w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-full transition-colors duration-200 text-sm sm:text-base ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
         >
           {loading
             ? t('verify.verifying', 'VERIFYING...')

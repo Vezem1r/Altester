@@ -9,6 +9,7 @@ import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { NotificationService } from '@/services/NotificationService';
 import { useTranslation } from 'react-i18next';
+import { IS_DEMO_MODE } from '@/services/apiUtils';
 
 const API_BASE_URL = import.meta.env.VITE_NOTIFICATION_URL;
 
@@ -73,35 +74,14 @@ export const NotificationProvider = ({ children }) => {
             try {
               const data = JSON.parse(message.body);
 
-              switch (data.type) {
-                case 'INITIAL_DATA':
-                  if (data.unreadNotifications) {
-                    setNotifications(data.unreadNotifications);
-                  }
-                  if (data.unreadCount !== undefined) {
-                    setUnreadCount(data.unreadCount);
-                  }
-                  break;
-
-                case 'NEW_NOTIFICATION': {
-                  const newNotification = data.notification;
-                  setNotifications(prev => {
-                    const exists = prev.some(n => n.id === newNotification.id);
-                    if (!exists) {
-                      return [newNotification, ...prev];
-                    }
-                    return prev;
-                  });
-                  setUnreadCount(prev => prev + 1);
-                  break;
+              // Demo version: Only handle INITIAL_DATA
+              if (data.type === 'INITIAL_DATA') {
+                if (data.unreadNotifications) {
+                  setNotifications(data.unreadNotifications);
                 }
-
-                case 'UNREAD_COUNT':
+                if (data.unreadCount !== undefined) {
                   setUnreadCount(data.unreadCount);
-                  break;
-
-                default:
-                  break;
+                }
               }
             } catch (error) {}
           },
@@ -179,7 +159,8 @@ export const NotificationProvider = ({ children }) => {
       );
 
       setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (error) {}
+    } catch (error) {
+    }
   }, []);
 
   const markAllAsRead = useCallback(async () => {
@@ -191,7 +172,8 @@ export const NotificationProvider = ({ children }) => {
       );
 
       setUnreadCount(0);
-    } catch (error) {}
+    } catch (error) {
+    }
   }, []);
 
   const handleNotificationClick = useCallback(

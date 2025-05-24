@@ -10,6 +10,7 @@ import { useAuth } from './AuthContext';
 import { ChatService } from '../services/ChatService';
 import { format, isToday, isYesterday } from 'date-fns';
 import { useTranslation } from 'react-i18next';
+import { IS_DEMO_MODE } from '../services/apiUtils';
 
 const ChatContext = createContext({});
 
@@ -106,9 +107,12 @@ export const ChatProvider = ({ children }) => {
         setTotalUnreadCount(unreadCount);
       }
 
-      const onlineUsersData = await ChatService.getOnlineUsers();
-      if (isComponentMountedRef.current) {
-        setOnlineUsers(onlineUsersData || []);
+      // Demo version: Skip online users
+      if (!IS_DEMO_MODE) {
+        const onlineUsersData = await ChatService.getOnlineUsers();
+        if (isComponentMountedRef.current) {
+          setOnlineUsers(onlineUsersData || []);
+        }
       }
     } catch {}
   }, []);
@@ -126,7 +130,7 @@ export const ChatProvider = ({ children }) => {
         handleError,
         status => {
           if (isComponentMountedRef.current) {
-            setIsConnected(status);
+            setIsConnected(status === 'connected');
           }
         }
       );
@@ -144,139 +148,6 @@ export const ChatProvider = ({ children }) => {
 
   const handleError = useCallback(error => {}, []);
 
-  const handleNewMessage = useCallback(message => {
-    if (!isComponentMountedRef.current || !message) return;
-
-    const currentActiveConversation = activeConversationRef.current;
-    const currentUser = userRef.current;
-
-    if (currentActiveConversation) {
-      const messageConvId = String(message.conversationId || '');
-      const activeConvId = String(currentActiveConversation.id || '');
-
-      const isForActiveConversation = messageConvId === activeConvId;
-
-      const isForTempConversation =
-        !currentActiveConversation.id &&
-        ((message.senderId === currentActiveConversation.participant1Id &&
-          message.receiverId === currentActiveConversation.participant2Id) ||
-          (message.senderId === currentActiveConversation.participant2Id &&
-            message.receiverId === currentActiveConversation.participant1Id));
-
-      if (isForActiveConversation || isForTempConversation) {
-        setMessages(prevMessages => {
-          const exists = prevMessages.some(m => m.id === message.id);
-          if (exists) return prevMessages;
-
-          return [...prevMessages, message].sort(
-            (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
-          );
-        });
-
-        if (message.senderId !== currentUser?.username) {
-          const messageConvId = String(message.conversationId || '');
-          const activeConvId = String(currentActiveConversation.id || '');
-
-          if (messageConvId === activeConvId && isNearBottomRef.current) {
-            setTimeout(() => {
-              if (message.conversationId && isComponentMountedRef.current) {
-                functionRefs.current.markConversationAsRead(
-                  message.conversationId
-                );
-              }
-            }, 1000);
-          }
-        }
-
-        if (
-          isForTempConversation &&
-          !currentActiveConversation.id &&
-          message.conversationId
-        ) {
-          setActiveConversation(prev => ({
-            ...prev,
-            id: message.conversationId,
-          }));
-        }
-      }
-    }
-
-    setConversations(prevConversations => {
-      const conversationExists = prevConversations.some(
-        c => String(c.id) === String(message.conversationId)
-      );
-
-      if (conversationExists) {
-        return prevConversations.map(c => {
-          if (String(c.id) === String(message.conversationId)) {
-            const isIncoming = message.senderId !== currentUser?.username;
-
-            const isActiveConversation =
-              currentActiveConversation &&
-              String(currentActiveConversation.id) ===
-                String(message.conversationId) &&
-              isNearBottomRef.current;
-
-            const newUnreadCount =
-              isIncoming && !isActiveConversation
-                ? (c.unreadCount || 0) + 1
-                : c.unreadCount || 0;
-
-            const updatedMessages = c.messages ? [...c.messages] : [];
-            const messageExists = updatedMessages.some(
-              m => m.id === message.id
-            );
-            if (!messageExists) {
-              updatedMessages.push(message);
-            }
-
-            return {
-              ...c,
-              lastMessageContent: message.content,
-              lastMessageTime: message.timestamp,
-              unreadCount: newUnreadCount,
-              messages: updatedMessages,
-            };
-          }
-          return c;
-        });
-      } else if (message.conversationId) {
-        const otherParticipantId =
-          message.senderId !== currentUser?.username
-            ? message.senderId
-            : message.receiverId;
-
-        const isIncoming = message.senderId !== currentUser?.username;
-
-        const newConversation = {
-          id: message.conversationId,
-          participant1Id: currentUser?.username,
-          participant2Id: otherParticipantId,
-          lastMessageContent: message.content,
-          lastMessageTime: message.timestamp,
-          unreadCount: isIncoming ? 1 : 0,
-          messages: [message],
-        };
-
-        return [...prevConversations, newConversation];
-      }
-
-      return prevConversations;
-    });
-
-    if (message.senderId !== currentUser?.username) {
-      const isViewingConversation =
-        activeConversationRef.current &&
-        String(activeConversationRef.current.id) ===
-          String(message.conversationId) &&
-        isNearBottomRef.current;
-
-      if (!isViewingConversation) {
-        setTotalUnreadCount(prev => prev + 1);
-      }
-    }
-  }, []);
-
   const handleWebSocketMessage = useCallback(
     data => {
       if (!isComponentMountedRef.current) return;
@@ -285,49 +156,13 @@ export const ChatProvider = ({ children }) => {
         return;
       }
 
-      switch (data.type) {
-        case 'INITIAL_DATA':
-          handleInitialData(data);
-          break;
-
-        case 'NEW_MESSAGE':
-          handleNewMessage(data.message);
-          break;
-
-        case 'UNREAD_COUNT':
-          handleUnreadCountUpdate(data);
-          break;
-
-        case 'TYPING_INDICATOR':
-          handleTypingIndicator(data);
-          break;
-
-        case 'MESSAGE_READ_STATUS':
-          handleMessageReadStatus(data);
-          break;
-
-        case 'USER_STATUS_CHANGE':
-          handleUserStatusChange(data);
-          break;
-
-        case 'ONLINE_USERS':
-          handleOnlineUsers(data.users);
-          break;
-
-        case 'CONVERSATION_UPDATE':
-          handleConversationUpdate(data);
-          break;
-
-        case 'MESSAGE_SENT':
-          break;
-
-        case 'MESSAGES_MARKED_READ':
-          break;
-
-        default:
+      // Demo version: Only handle INITIAL_DATA
+      if (data.type === 'INITIAL_DATA') {
+        handleInitialData(data);
       }
+      // All other message types are ignored in demo mode
     },
-    [handleNewMessage]
+    []
   );
 
   const handleInitialData = useCallback(data => {
@@ -345,134 +180,10 @@ export const ChatProvider = ({ children }) => {
       setAvailableUsers(data.availableUsers.users);
     }
 
-    if (data.onlineUsers) {
+    // Demo version: Skip online users
+    if (!IS_DEMO_MODE && data.onlineUsers) {
       setOnlineUsers(data.onlineUsers);
     }
-  }, []);
-
-  const handleConversationUpdate = useCallback(data => {
-    if (!isComponentMountedRef.current) return;
-
-    if (!data.conversationId) return;
-
-    const conversationId = String(data.conversationId);
-
-    if (isComponentMountedRef.current) {
-      ChatService.getConversationById(conversationId)
-        .then(updatedConversation => {
-          setConversations(prevConversations => {
-            return prevConversations.map(c =>
-              String(c.id) === conversationId ? updatedConversation : c
-            );
-          });
-        })
-        .catch(error => {});
-    }
-  }, []);
-
-  const handleUnreadCountUpdate = useCallback(data => {
-    if (!isComponentMountedRef.current) return;
-
-    if (data.conversationId === null) {
-      setTotalUnreadCount(data.unreadCount || 0);
-
-      if (data.conversationBreakdown) {
-        setConversations(prevConversations =>
-          prevConversations.map(c => {
-            const conversationId = String(c.id);
-            if (data.conversationBreakdown[conversationId] !== undefined) {
-              return {
-                ...c,
-                unreadCount: data.conversationBreakdown[conversationId],
-              };
-            }
-            return c;
-          })
-        );
-      }
-      return;
-    }
-
-    const conversationId = String(data.conversationId);
-
-    setConversations(prevConversations => {
-      return prevConversations.map(c =>
-        String(c.id) === conversationId
-          ? { ...c, unreadCount: data.unreadCount }
-          : c
-      );
-    });
-  }, []);
-
-  const handleTypingIndicator = useCallback(data => {
-    if (!isComponentMountedRef.current) return;
-
-    if (typingTimeoutRef.current[data.conversationId]) {
-      clearTimeout(typingTimeoutRef.current[data.conversationId]);
-    }
-
-    setIsTyping(prev => ({
-      ...prev,
-      [data.conversationId]: {
-        username: data.senderUsername,
-        isTyping: data.isTyping,
-      },
-    }));
-
-    if (data.isTyping) {
-      typingTimeoutRef.current[data.conversationId] = setTimeout(() => {
-        if (isComponentMountedRef.current) {
-          setIsTyping(prev => ({
-            ...prev,
-            [data.conversationId]: {
-              username: data.senderUsername,
-              isTyping: false,
-            },
-          }));
-        }
-      }, 3000);
-    }
-  }, []);
-
-  const handleMessageReadStatus = useCallback(data => {
-    if (!isComponentMountedRef.current) return;
-
-    setMessages(prevMessages =>
-      prevMessages.map(m =>
-        m.id === data.messageId ? { ...m, read: data.isRead } : m
-      )
-    );
-  }, []);
-
-  const handleUserStatusChange = useCallback(data => {
-    if (!isComponentMountedRef.current) return;
-
-    if (data.online) {
-      setOnlineUsers(prev =>
-        prev.includes(data.username) ? prev : [...prev, data.username]
-      );
-    } else {
-      setOnlineUsers(prev =>
-        prev.filter(username => username !== data.username)
-      );
-    }
-
-    setConversations(prevConversations =>
-      prevConversations.map(conv => {
-        if (
-          conv.participant1Id === data.username ||
-          conv.participant2Id === data.username
-        ) {
-          return { ...conv, online: data.online };
-        }
-        return conv;
-      })
-    );
-  }, []);
-
-  const handleOnlineUsers = useCallback(users => {
-    if (!isComponentMountedRef.current) return;
-    setOnlineUsers(users || []);
   }, []);
 
   const calculateTotalUnreadCount = useCallback(() => {
@@ -578,6 +289,7 @@ export const ChatProvider = ({ children }) => {
       try {
         await ChatService.sendChatMessage(receiverId, content, conversationId);
       } catch (error) {
+        // Demo version: Remove temp message if send fails
         setMessages(prevMessages =>
           prevMessages.filter(m => m.id !== tempMessage.id)
         );
@@ -588,7 +300,7 @@ export const ChatProvider = ({ children }) => {
 
   const sendTypingIndicator = useCallback(
     (receiverId, conversationId, isTyping = true) => {
-      if (!isComponentMountedRef.current) return;
+      if (!isComponentMountedRef.current || IS_DEMO_MODE) return;
 
       try {
         ChatService.sendTypingIndicator(receiverId, conversationId, isTyping);
@@ -671,6 +383,8 @@ export const ChatProvider = ({ children }) => {
 
   const isUserOnline = useCallback(
     username => {
+      // Demo version: Always return false for online status
+      if (IS_DEMO_MODE) return false;
       return onlineUsers.includes(username);
     },
     [onlineUsers]

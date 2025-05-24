@@ -3,6 +3,7 @@ import {
   BASE_API_URL,
   handleAuthError,
   setupGlobalInterceptors,
+  IS_DEMO_MODE,
 } from './apiUtils';
 
 const API_URL = `${BASE_API_URL}/auth`;
@@ -61,6 +62,26 @@ export const AuthService = {
       const message = handleAuthError(error);
       throw new Error(message);
     }
+  },
+
+  demoLogin: async role => {
+    if (!IS_DEMO_MODE) {
+      throw new Error('Demo mode is not enabled');
+    }
+
+    const passwords = {
+      admin: import.meta.env.VITE_DEMO_ADMIN_PASSWORD,
+      teacher: import.meta.env.VITE_DEMO_TEACHER_PASSWORD,
+      student: import.meta.env.VITE_DEMO_STUDENT_PASSWORD,
+    };
+
+    const data = {
+      usernameOrEmail: role,
+      password: passwords[role],
+      rememberMe: false,
+    };
+
+    return await AuthService.login(data);
   },
 
   ldapLogin: async credentials => {
@@ -125,9 +146,9 @@ export const AuthService = {
 };
 
 export const AUTH_MODES = {
-  ALL: 'ALL', // Both standard and LDAP authentication
-  LDAP_ONLY: 'LDAP_ONLY', // Only LDAP authentication
-  STANDARD_ONLY: 'STANDARD_ONLY', // Only standard authentication
+  ALL: 'ALL',
+  LDAP_ONLY: 'LDAP_ONLY',
+  STANDARD_ONLY: 'STANDARD_ONLY',
 };
 
 export const AUTH_MODE = import.meta.env.VITE_AUTH_MODE || AUTH_MODES.ALL;

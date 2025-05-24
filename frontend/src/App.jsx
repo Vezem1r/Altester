@@ -17,6 +17,26 @@ import { ChatProvider } from '@/context/ChatContext';
 import ChatModal from '@/components/chat/ChatModal';
 import { NotificationProvider } from '@/context/NotificationContext';
 import '@/i18n/i18n';
+import { setupDemoMode } from '@/services/apiUtils';
+
+setupDemoMode();
+
+const IS_DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
+
+if (IS_DEMO_MODE) {
+  window.onerror = () => true;
+  
+  window.onunhandledrejection = (event) => {
+    event.preventDefault();
+    return true;
+  };
+  
+  window.addEventListener('error', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  });
+}
 
 const SESSION_TOKEN_VALIDATED = 'token_validated_session';
 
@@ -38,6 +58,11 @@ const TokenValidator = () => {
   const validationPerformedRef = useRef(false);
 
   useEffect(() => {
+    if (IS_DEMO_MODE) {
+      sessionStorage.setItem(SESSION_TOKEN_VALIDATED, 'true');
+      return;
+    }
+
     const token = localStorage.getItem('token');
     const sessionValidated = sessionStorage.getItem(SESSION_TOKEN_VALIDATED);
 
@@ -56,7 +81,9 @@ const TokenValidator = () => {
         await api.get('/auth/validate-token');
         sessionStorage.setItem(SESSION_TOKEN_VALIDATED, 'true');
       } catch {
-        logout(true);
+        if (!IS_DEMO_MODE) {
+          logout(true);
+        }
       }
     };
 

@@ -11,8 +11,11 @@ import {
   ThreeBackground,
   AIBackground,
 } from '@/components/auth';
+import DemoLoginBlock from '@/components/auth/DemoLoginBlock';
+import ProjectInfoModal from '@/components/auth/ProjectInfoModal';
 import { useAuth } from '@/context/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { IS_DEMO_MODE } from '@/services/apiUtils';
 import SimpleLanguageSwitcher from '@/components/common/SimpleLanguageSwitcher';
 
 export default function AuthPage() {
@@ -21,6 +24,7 @@ export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [animating, setAnimating] = useState(false);
   const [prevStep, setPrevStep] = useState(null);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const { isAuthenticated, userRole, authConfig, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -51,6 +55,16 @@ export default function AuthPage() {
       }
     }
   }, [authConfig, isLoading]);
+
+  useEffect(() => {
+    if (IS_DEMO_MODE) {
+      const hasShownWelcome = localStorage.getItem('altester-welcome-shown');
+      if (!hasShownWelcome) {
+        setShowWelcomeModal(true);
+        localStorage.setItem('altester-welcome-shown', 'true');
+      }
+    }
+  }, []);
 
   const changeForm = (newStep, emailValue = null) => {
     if (step !== newStep) {
@@ -114,121 +128,130 @@ export default function AuthPage() {
       </div>
 
       <div className="relative z-10 flex items-center justify-center h-full w-full">
-        <div className="w-full max-w-5xl flex overflow-hidden rounded-lg shadow-2xl">
-          <div className="w-1/2 p-12 flex flex-col justify-center relative">
-            <div className="absolute inset-0 overflow-hidden">
-              <AIBackground />
+        <div className="w-full max-w-5xl flex flex-col overflow-hidden rounded-lg shadow-2xl">
+          <div className="flex flex-1">
+            <div className="w-1/2 p-12 flex flex-col justify-center relative">
+              <div className="absolute inset-0 overflow-hidden">
+                <AIBackground />
+              </div>
+
+              <h1 className="text-4xl font-bold text-white mb-4 relative z-10">
+                {t('authPage.title', 'AI-Powered Test Evaluation')}
+              </h1>
+              <p className="text-gray-100 relative z-10">
+                {t(
+                  'authPage.description',
+                  'Welcome to our intelligent testing platform that combines traditional assessment with AI evaluation. Create, assign, and grade tests with the help of advanced language models. Designed for educators and students to streamline the assessment process.'
+                )}
+              </p>
             </div>
 
-            <h1 className="text-4xl font-bold text-white mb-4 relative z-10">
-              {t('authPage.title', 'AI-Powered Test Evaluation')}
-            </h1>
-            <p className="text-gray-100 relative z-10">
-              {t(
-                'authPage.description',
-                'Welcome to our intelligent testing platform that combines traditional assessment with AI evaluation. Create, assign, and grade tests with the help of advanced language models. Designed for educators and students to streamline the assessment process.'
-              )}
-            </p>
-          </div>
+            <div
+              className="w-1/2 bg-white p-12 relative"
+              style={{ height: '600px' }}
+            >
+              <div className="h-full relative">
+                {animating && prevStep === 'login' && (
+                  <div className="absolute inset-0 transition-all duration-300 transform opacity-0 translate-x-12">
+                    <Login
+                      onSwitch={() => {}}
+                      onLdapSwitch={() => {}}
+                      onForgotPassword={() => {}}
+                      prefillEmail={email}
+                    />
+                  </div>
+                )}
+                {animating && prevStep === 'register' && (
+                  <div className="absolute inset-0 transition-all duration-300 transform opacity-0 translate-x-12">
+                    <Register onSwitch={() => {}} onSuccess={() => {}} />
+                  </div>
+                )}
+                {animating && prevStep === 'verify' && (
+                  <div className="absolute inset-0 transition-all duration-300 transform opacity-0 translate-x-12">
+                    <Verify email={email} onLoginRedirect={() => {}} />
+                  </div>
+                )}
+                {animating && prevStep === 'ldap' && (
+                  <div className="absolute inset-0 transition-all duration-300 transform opacity-0 translate-x-12">
+                    <LdapLogin onSwitch={() => {}} />
+                  </div>
+                )}
+                {animating && prevStep === 'forgotPassword' && (
+                  <div className="absolute inset-0 transition-all duration-300 transform opacity-0 translate-x-12">
+                    <ForgotPassword onSwitch={() => {}} onSuccess={() => {}} />
+                  </div>
+                )}
+                {animating && prevStep === 'resetPassword' && (
+                  <div className="absolute inset-0 transition-all duration-300 transform opacity-0 translate-x-12">
+                    <ResetPassword email={email} onSuccess={() => {}} />
+                  </div>
+                )}
 
-          <div
-            className="w-1/2 bg-white p-12 relative"
-            style={{ height: '600px' }}
-          >
-            <div className="h-full relative">
-              {animating && prevStep === 'login' && (
-                <div className="absolute inset-0 transition-all duration-300 transform opacity-0 translate-x-12">
-                  <Login
-                    onSwitch={() => {}}
-                    onLdapSwitch={() => {}}
-                    onForgotPassword={() => {}}
-                    prefillEmail={email}
-                  />
+                <div
+                  className={`absolute inset-0 transition-all duration-300 transform ${animating ? 'opacity-0 -translate-x-12' : 'opacity-100 translate-x-0'} overflow-y-auto`}
+                >
+                  {step === 'login' && authConfig.standardAuthEnabled && (
+                    <Login
+                      onSwitch={() =>
+                        authConfig.registrationEnabled && changeForm('register')
+                      }
+                      onLdapSwitch={() =>
+                        authConfig.ldapAuthEnabled && changeForm('ldap')
+                      }
+                      onForgotPassword={handleForgotPassword}
+                      prefillEmail={email}
+                      showRegisterOption={authConfig.registrationEnabled}
+                      showLdapOption={authConfig.ldapAuthEnabled}
+                    />
+                  )}
+                  {step === 'register' && authConfig.registrationEnabled && (
+                    <Register
+                      onSwitch={() => changeForm('login')}
+                      onSuccess={email => {
+                        setEmail(email);
+                        changeForm('verify', email);
+                      }}
+                    />
+                  )}
+                  {step === 'verify' && (
+                    <Verify
+                      email={email}
+                      onLoginRedirect={handleVerificationSuccess}
+                    />
+                  )}
+                  {step === 'ldap' && authConfig.ldapAuthEnabled && (
+                    <LdapLogin
+                      onSwitch={() =>
+                        authConfig.standardAuthEnabled && changeForm('login')
+                      }
+                      showStandardLoginOption={authConfig.standardAuthEnabled}
+                    />
+                  )}
+                  {step === 'forgotPassword' && (
+                    <ForgotPassword
+                      onSwitch={() => changeForm('login')}
+                      onSuccess={handleResetCodeSent}
+                    />
+                  )}
+                  {step === 'resetPassword' && (
+                    <ResetPassword
+                      email={email}
+                      onSuccess={handlePasswordResetSuccess}
+                    />
+                  )}
                 </div>
-              )}
-              {animating && prevStep === 'register' && (
-                <div className="absolute inset-0 transition-all duration-300 transform opacity-0 translate-x-12">
-                  <Register onSwitch={() => {}} onSuccess={() => {}} />
-                </div>
-              )}
-              {animating && prevStep === 'verify' && (
-                <div className="absolute inset-0 transition-all duration-300 transform opacity-0 translate-x-12">
-                  <Verify email={email} onLoginRedirect={() => {}} />
-                </div>
-              )}
-              {animating && prevStep === 'ldap' && (
-                <div className="absolute inset-0 transition-all duration-300 transform opacity-0 translate-x-12">
-                  <LdapLogin onSwitch={() => {}} />
-                </div>
-              )}
-              {animating && prevStep === 'forgotPassword' && (
-                <div className="absolute inset-0 transition-all duration-300 transform opacity-0 translate-x-12">
-                  <ForgotPassword onSwitch={() => {}} onSuccess={() => {}} />
-                </div>
-              )}
-              {animating && prevStep === 'resetPassword' && (
-                <div className="absolute inset-0 transition-all duration-300 transform opacity-0 translate-x-12">
-                  <ResetPassword email={email} onSuccess={() => {}} />
-                </div>
-              )}
-
-              <div
-                className={`absolute inset-0 transition-all duration-300 transform ${animating ? 'opacity-0 -translate-x-12' : 'opacity-100 translate-x-0'} overflow-y-auto`}
-              >
-                {step === 'login' && authConfig.standardAuthEnabled && (
-                  <Login
-                    onSwitch={() =>
-                      authConfig.registrationEnabled && changeForm('register')
-                    }
-                    onLdapSwitch={() =>
-                      authConfig.ldapAuthEnabled && changeForm('ldap')
-                    }
-                    onForgotPassword={handleForgotPassword}
-                    prefillEmail={email}
-                    showRegisterOption={authConfig.registrationEnabled}
-                    showLdapOption={authConfig.ldapAuthEnabled}
-                  />
-                )}
-                {step === 'register' && authConfig.registrationEnabled && (
-                  <Register
-                    onSwitch={() => changeForm('login')}
-                    onSuccess={email => {
-                      setEmail(email);
-                      changeForm('verify', email);
-                    }}
-                  />
-                )}
-                {step === 'verify' && (
-                  <Verify
-                    email={email}
-                    onLoginRedirect={handleVerificationSuccess}
-                  />
-                )}
-                {step === 'ldap' && authConfig.ldapAuthEnabled && (
-                  <LdapLogin
-                    onSwitch={() =>
-                      authConfig.standardAuthEnabled && changeForm('login')
-                    }
-                    showStandardLoginOption={authConfig.standardAuthEnabled}
-                  />
-                )}
-                {step === 'forgotPassword' && (
-                  <ForgotPassword
-                    onSwitch={() => changeForm('login')}
-                    onSuccess={handleResetCodeSent}
-                  />
-                )}
-                {step === 'resetPassword' && (
-                  <ResetPassword
-                    email={email}
-                    onSuccess={handlePasswordResetSuccess}
-                  />
-                )}
               </div>
             </div>
           </div>
+          
+          <DemoLoginBlock />
         </div>
       </div>
+
+      <ProjectInfoModal 
+        isOpen={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+      />
     </div>
   );
 }
