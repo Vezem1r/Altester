@@ -18,9 +18,11 @@ Altester is a robust and scalable educational platform developed as part of a ba
 </p>
 
 <div align="center">
-
-[![Live Demo](https://img.shields.io/badge/Live_Demo-Preview-brightgreen)](https://.com)
-
+  <h3>💻 Demo Platform</h3>
+  <a href="https://altester.vezem1r.com/">
+    <img src="https://img.shields.io/badge/🔗_LIVE_DEMO-💜View_Platform-8b5cf6?style=for-the-badge&logo=external-link&logoColor=white" alt="Live Demo" height="45"/>
+  </a>
+  <p><em>Best viewed on desktop/laptop devices</em></p>
 </div>
 
 ### Key Features
