@@ -56,4 +56,9 @@ public class AuthController {
     authService.resendVerificationCode(email);
     return ResponseEntity.ok("Verification code resend");
   }
+
+  @GetMapping("/health")
+  public ResponseEntity<String> health() {
+    return ResponseEntity.ok("healthy");
+  }
 }
