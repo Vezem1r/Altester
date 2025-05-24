@@ -63,8 +63,6 @@ services:
       POSTGRES_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
       POSTGRES_DB: ${SPRING_DATASOURCE_DB}
       TZ: Europe/Prague
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -74,8 +72,6 @@ services:
     image: redis:7-alpine
     container_name: redis_container
     restart: always
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -117,6 +113,21 @@ services:
       - "8083:8083"
     volumes:
       - ./logs:/app/logs
+
+  frontend:
+    container_name: frontend-container
+    build:
+      context: ./frontend
+    env_file:
+      - ./frontend/.env
+    environment:
+      - TZ=Europe/Prague
+    depends_on:
+      - core
+    networks:
+      - internal
+    ports:
+      - "5173:9533"
 
 networks:
   internal:
