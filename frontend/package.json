@@ -15,9 +15,10 @@
     
     "code:check": "npm run lint:check && npm run format:check",
     "code:fix": "npm run lint:fix && npm run format",
-    
+
     "preview": "vite preview",
-    "extract-translations": "i18next -c i18next-parser.config.cjs"
+    "extract-translations": "i18next -c i18next-parser.config.cjs",
+    "server": "node server.js"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

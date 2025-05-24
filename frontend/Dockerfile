@@ -10,4 +10,6 @@ ENV PORT=$PORT
 
 EXPOSE $PORT
 
-ENTRYPOINT exec npx vite --port $PORT --host 0.0.0.0
+RUN npm run build
+
+ENTRYPOINT exec npm run server
