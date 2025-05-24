@@ -18,9 +18,11 @@ Altester is a robust and scalable educational platform developed as part of a ba
 </p>
 
 <div align="center">
-
-[![Live Demo](https://img.shields.io/badge/Live_Demo-Preview-brightgreen)](https://.com)
-
+  <h3>💻 Demo Platform</h3>
+  <a href="https://altester.vezem1r.com/">
+    <img src="https://img.shields.io/badge/🔗_LIVE_DEMO-💜View_Platform-8b5cf6?style=for-the-badge&logo=external-link&logoColor=white" alt="Live Demo" height="45"/>
+  </a>
+  <p><em>Best viewed on desktop/laptop devices</em></p>
 </div>
 
 ### Key Features
@@ -307,6 +309,11 @@ Application is configured via environment variables in `.env` file. See our [det
 cp .env.example .env
 # Edit your .env file with appropriate values
 nano .env
+
+# Also configure frontend environment as needed
+cp ./fronend/.env.example ./frontend/.env
+nano ./fronend/.env
+
 # Start the services
 docker-compose up -d
 ```
@@ -320,6 +327,7 @@ cd Altester
 
 # Configure environment
 cp .env.example .env
+cp ./fronend/.env.example .env
 # Edit variables as needed
 
 # Build and run
@@ -337,7 +345,16 @@ open http://localhost:5173
 </div>
 
 <details open>
-<summary><b>1. API Gateway Implementation</b></summary>
+<summary><b>1. AI Feature Implementation</b></summary>
+<br>
+
+**Planned Features:**
+- Teacher can request AI regrade for concrete test
+- Teacher can generate questions for test using AI
+</details>
+
+<details open>
+<summary><b>2. API Gateway Implementation</b></summary>
 <br>
 
 **Planned Features:**
@@ -347,7 +364,7 @@ open http://localhost:5173
 </details>
 
 <details open>
-<summary><b>2. Advanced Cache Management</b></summary>
+<summary><b>3. Advanced Cache Management</b></summary>
 <br>
 
 **Improvements:**
@@ -357,7 +374,7 @@ open http://localhost:5173
 </details>
 
 <details open>
-<summary><b>3. Future Enhancements</b></summary>
+<summary><b>4. Future Enhancements</b></summary>
 <br>
 
 **Under Consideration:**
