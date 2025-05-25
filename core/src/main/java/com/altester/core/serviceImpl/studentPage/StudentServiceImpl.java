@@ -245,7 +245,7 @@ public class StudentServiceImpl implements StudentService {
 
     accessValidator.validateAttemptOwnership(attempt, student);
 
-    if (attempt.getStatus() != AttemptStatus.REVIEWED) {
+    if (attempt.getStatus() != AttemptStatus.AI_REVIEWED) {
       throw new StateConflictException(
           "attempt", "not_reviewed", "Can only request regrade for reviewed attempts");
     }
