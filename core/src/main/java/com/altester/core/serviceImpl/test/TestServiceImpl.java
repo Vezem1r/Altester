@@ -288,12 +288,26 @@ public class TestServiceImpl implements TestService {
 
     test.setEasyQuestionsCount(
         createTestDTO.getEasyQuestionsCount() != null ? createTestDTO.getEasyQuestionsCount() : 0);
+
+    if (createTestDTO.getEasyQuestionsCount() != null) {
+      test.setEasyQuestionScore(createTestDTO.getEasyQuestionScore());
+    } else test.setEasyQuestionScore(0);
+
     test.setMediumQuestionsCount(
         createTestDTO.getMediumQuestionsCount() != null
             ? createTestDTO.getMediumQuestionsCount()
             : 0);
+
+    if (createTestDTO.getMediumQuestionsCount() != null) {
+      test.setMediumQuestionScore(createTestDTO.getMediumQuestionScore());
+    } else test.setMediumQuestionScore(0);
+
     test.setHardQuestionsCount(
         createTestDTO.getHardQuestionsCount() != null ? createTestDTO.getHardQuestionsCount() : 0);
+
+    if (createTestDTO.getHardQuestionsCount() != null) {
+      test.setHardQuestionScore(createTestDTO.getHardQuestionScore());
+    } else test.setHardQuestionScore(0);
 
     test.setStartTime(createTestDTO.getStartTime());
     test.setEndTime(createTestDTO.getEndTime());
