@@ -25,4 +25,9 @@ public class AuthController {
     LoginResponse loginResponse = authService.signIn(loginUserDto);
     return ResponseEntity.ok(loginResponse);
   }
+
+  @GetMapping("/health")
+  public ResponseEntity<String> health() {
+    return ResponseEntity.ok("healthy");
+  }
 }

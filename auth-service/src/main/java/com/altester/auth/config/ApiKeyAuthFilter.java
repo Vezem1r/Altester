@@ -24,7 +24,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
   private final AntPathMatcher antPathMatcher;
 
   private static final String API_KEY_HEADER = "x-api-key";
-  private static final String[] WHITELIST_PATH = {"/actuator/**"};
+  private static final String[] WHITELIST_PATH = {"/auth/health"};
 
   @Override
   protected void doFilterInternal(

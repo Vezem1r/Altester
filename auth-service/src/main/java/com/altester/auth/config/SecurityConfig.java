@@ -19,7 +19,7 @@ public class SecurityConfig {
 
   private final ApiKeyAuthFilter apiKeyAuthFilter;
 
-  private final String[] WHITE_LIST = {"/auth/signin", "/actuator/**"};
+  private final String[] WHITE_LIST = {"/auth/signin", "/auth/health"};
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
