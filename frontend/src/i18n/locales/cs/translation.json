@@ -281,7 +281,7 @@
   "chatModal.messages": "Zprávy",
   "chatModal.reconnecting": "Připojuje se znovu...",
   "common.adminDashboard": "AITester Správce",
-  "common.appName": "",
+  "common.appName": "AITester",
   "createGroupPageAcademicYear": "Akademický rok",
   "createGroupPageAcademicYearDescription": "Zadejte první rok (např. 2024 pro 2024-2025)",
   "createGroupPageAcademicYearRequired": "Akademický rok je povinný",
@@ -1692,5 +1692,73 @@
   "verify.title": "OVĚŘTE SVŮJ EMAIL",
   "verify.verifyAccount": "OVĚŘIT ÚČET",
   "verify.verifying": "Ověřuje se...",
-  "header.selectLanguage": "Vyberte jazyk"
+  "header.selectLanguage": "Vyberte jazyk",
+  "demo": {
+    "title": "Demo přístup",
+    "subtitle": "Vyzkoušejte platformu okamžitě",
+    "loginSuccess": "Přihlášen jako {{role}}",
+    "loginError": "Nepodařilo se přihlásit jako {{role}}",
+    "about": "O aplikaci",
+    "roles": {
+      "admin": "Admin",
+      "teacher": "Učitel",
+      "student": "Student"
+    }
+  },
+  "projectInfo": {
+    "welcome": "Vítejte v Altester",
+    "subtitle": "AI-powered vzdělávací testovací platforma",
+    "aboutPlatform": {
+      "title": "O platformě",
+      "description": "Komplexní vzdělávací platforma postavená na architektuře mikroslužeb. Kombinuje tradiční hodnocení s nejmodernějšími možnostmi AI vyhodnocování a zjednodušuje celý životní cyklus testů od vytvoření po klasifikaci."
+    },
+    "architecture": {
+      "title": "Architektura",
+      "authService": "Autorizační služba",
+      "chatService": "Chat služba",
+      "notificationService": "Notifikační služba",
+      "aiGradingService": "AI klasifikační služba",
+      "coreService": "Hlavní služba"
+    },
+    "userRoles": {
+      "title": "Uživatelské role",
+      "administrator": "Administrátor",
+      "teacher": "Učitel",
+      "student": "Student"
+    },
+    "keyFeatures": {
+      "title": "Klíčové funkce",
+      "aiGrading": "AI-powered klasifikace",
+      "realTimeCommunication": "Komunikace v reálném čase",
+      "ldapIntegration": "LDAP integrace",
+      "testManagement": "Pokročilá správa testů"
+    },
+    "techStack": {
+      "title": "Technologický stack",
+      "backend": "Backend",
+      "backendTech": "Java 21 • Spring Boot 3.4.5",
+      "backendDb": "PostgreSQL • Redis • WebSockets",
+      "frontend": "Frontend",
+      "frontendTech": "React • Tailwind CSS",
+      "frontendClient": "WebSocket klient",
+      "aiIntegration": "AI integrace",
+      "aiTech1": "LangChain4j • OpenAI",
+      "aiTech2": "Anthropic • Google Gemini"
+    },
+    "capabilities": {
+      "title": "Schopnosti",
+      "testCreation": "Vytváření testů",
+      "autoGrading": "Automatické hodnocení",
+      "chatSystem": "Chat systém",
+      "notifications": "Notifikace",
+      "userManagement": "Správa uživatelů",
+      "analytics": "Analytika"
+    },
+    "footer": {
+      "thesisProject": "Projekt bakalářské práce",
+      "features": "Mikroslužby • AI integrace • Komunikace v reálném čase",
+      "githubRepository": "GitHub repozitář",
+      "startExploring": "Začít prozkoumávat"
+    }
+  }
 }
