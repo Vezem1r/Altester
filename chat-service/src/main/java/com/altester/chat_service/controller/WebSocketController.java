@@ -102,17 +102,14 @@ public class WebSocketController {
   }
 
   @MessageMapping("/messages.send")
-  @SendToUser("/queue/messages")
-  public Map<String, Object> sendMessage(
-      @Payload MessageRequest messageRequest, Principal principal) {
+  public void sendMessage(@Payload MessageRequest messageRequest, Principal principal) {
     log.debug(
         "Received message from {} to {}: {}",
         principal.getName(),
         messageRequest.getReceiverId(),
         messageRequest.getContent());
 
-    ChatMessageDTO message = chatService.sendMessage(principal.getName(), messageRequest);
-    return WebSocketUtils.createMessageSentResponse(message);
+    chatService.sendMessage(principal.getName(), messageRequest);
   }
 
   @MessageMapping("/messages.markRead")

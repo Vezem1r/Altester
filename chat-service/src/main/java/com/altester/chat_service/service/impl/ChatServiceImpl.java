@@ -155,6 +155,9 @@ public class ChatServiceImpl implements ChatService {
 
     webSocketService.sendChatMessage(receiverId, messageDTO);
 
+    ChatMessageDTO senderMessageDTO = chatDTOMapper.mapToChatMessageDTO(savedMessage, receiverId);
+    webSocketService.sendChatMessage(senderId, senderMessageDTO);
+
     try {
       long unreadCount =
           chatMessageRepository.countUnreadMessagesByConversation(conversation.getId(), receiverId);

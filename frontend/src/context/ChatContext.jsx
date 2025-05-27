@@ -65,10 +65,10 @@ export const ChatProvider = ({ children }) => {
 
     const setupConnection = async () => {
       if (
-        isAuthenticated &&
-        user &&
-        !wsConnected &&
-        isComponentMountedRef.current
+          isAuthenticated &&
+          user &&
+          !wsConnected &&
+          isComponentMountedRef.current
       ) {
         wsConnected = true;
         await connectWebSocket();
@@ -120,15 +120,15 @@ export const ChatProvider = ({ children }) => {
       const token = await getToken();
 
       await ChatService.connect(
-        token,
-        handleConnect,
-        handleWebSocketMessage,
-        handleError,
-        status => {
-          if (isComponentMountedRef.current) {
-            setIsConnected(status);
+          token,
+          handleConnect,
+          handleWebSocketMessage,
+          handleError,
+          status => {
+            if (isComponentMountedRef.current) {
+              setIsConnected(status);
+            }
           }
-        }
       );
     } catch {}
   }, [getToken]);
@@ -157,19 +157,31 @@ export const ChatProvider = ({ children }) => {
       const isForActiveConversation = messageConvId === activeConvId;
 
       const isForTempConversation =
-        !currentActiveConversation.id &&
-        ((message.senderId === currentActiveConversation.participant1Id &&
-          message.receiverId === currentActiveConversation.participant2Id) ||
-          (message.senderId === currentActiveConversation.participant2Id &&
-            message.receiverId === currentActiveConversation.participant1Id));
+          !currentActiveConversation.id &&
+          ((message.senderId === currentActiveConversation.participant1Id &&
+                  message.receiverId === currentActiveConversation.participant2Id) ||
+              (message.senderId === currentActiveConversation.participant2Id &&
+                  message.receiverId === currentActiveConversation.participant1Id));
 
       if (isForActiveConversation || isForTempConversation) {
         setMessages(prevMessages => {
-          const exists = prevMessages.some(m => m.id === message.id);
+          const isFromCurrentUser = message.senderId === currentUser?.username;
+          if (isFromCurrentUser) {
+            const filteredMessages = prevMessages.filter(
+                m => !String(m.id).startsWith('temp-')
+            );
+            const exists = filteredMessages.some(m => String(m.id) === String(message.id));
+            if (exists) return filteredMessages;
+            return [...filteredMessages, message].sort(
+                (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+            );
+          }
+
+          const exists = prevMessages.some(m => String(m.id) === String(message.id));
           if (exists) return prevMessages;
 
           return [...prevMessages, message].sort(
-            (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+              (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
           );
         });
 
@@ -181,7 +193,7 @@ export const ChatProvider = ({ children }) => {
             setTimeout(() => {
               if (message.conversationId && isComponentMountedRef.current) {
                 functionRefs.current.markConversationAsRead(
-                  message.conversationId
+                    message.conversationId
                 );
               }
             }, 1000);
@@ -189,9 +201,9 @@ export const ChatProvider = ({ children }) => {
         }
 
         if (
-          isForTempConversation &&
-          !currentActiveConversation.id &&
-          message.conversationId
+            isForTempConversation &&
+            !currentActiveConversation.id &&
+            message.conversationId
         ) {
           setActiveConversation(prev => ({
             ...prev,
@@ -203,7 +215,7 @@ export const ChatProvider = ({ children }) => {
 
     setConversations(prevConversations => {
       const conversationExists = prevConversations.some(
-        c => String(c.id) === String(message.conversationId)
+          c => String(c.id) === String(message.conversationId)
       );
 
       if (conversationExists) {
@@ -212,19 +224,29 @@ export const ChatProvider = ({ children }) => {
             const isIncoming = message.senderId !== currentUser?.username;
 
             const isActiveConversation =
-              currentActiveConversation &&
-              String(currentActiveConversation.id) ===
+                currentActiveConversation &&
+                String(currentActiveConversation.id) ===
                 String(message.conversationId) &&
-              isNearBottomRef.current;
+                isNearBottomRef.current;
 
             const newUnreadCount =
-              isIncoming && !isActiveConversation
-                ? (c.unreadCount || 0) + 1
-                : c.unreadCount || 0;
+                isIncoming && !isActiveConversation
+                    ? (c.unreadCount || 0) + 1
+                    : c.unreadCount || 0;
 
             const updatedMessages = c.messages ? [...c.messages] : [];
+
+            if (message.senderId === currentUser?.username) {
+              const tempIndex = updatedMessages.findIndex(
+                  m => String(m.id).startsWith('temp-')
+              );
+              if (tempIndex !== -1) {
+                updatedMessages.splice(tempIndex, 1);
+              }
+            }
+
             const messageExists = updatedMessages.some(
-              m => m.id === message.id
+                m => String(m.id) === String(message.id)
             );
             if (!messageExists) {
               updatedMessages.push(message);
@@ -242,9 +264,9 @@ export const ChatProvider = ({ children }) => {
         });
       } else if (message.conversationId) {
         const otherParticipantId =
-          message.senderId !== currentUser?.username
-            ? message.senderId
-            : message.receiverId;
+            message.senderId !== currentUser?.username
+                ? message.senderId
+                : message.receiverId;
 
         const isIncoming = message.senderId !== currentUser?.username;
 
@@ -266,10 +288,10 @@ export const ChatProvider = ({ children }) => {
 
     if (message.senderId !== currentUser?.username) {
       const isViewingConversation =
-        activeConversationRef.current &&
-        String(activeConversationRef.current.id) ===
+          activeConversationRef.current &&
+          String(activeConversationRef.current.id) ===
           String(message.conversationId) &&
-        isNearBottomRef.current;
+          isNearBottomRef.current;
 
       if (!isViewingConversation) {
         setTotalUnreadCount(prev => prev + 1);
@@ -278,56 +300,59 @@ export const ChatProvider = ({ children }) => {
   }, []);
 
   const handleWebSocketMessage = useCallback(
-    data => {
-      if (!isComponentMountedRef.current) return;
+      data => {
+        if (!isComponentMountedRef.current) return;
 
-      if (!data || !data.type) {
-        return;
-      }
+        if (!data || !data.type) {
+          return;
+        }
 
-      switch (data.type) {
-        case 'INITIAL_DATA':
-          handleInitialData(data);
-          break;
+        switch (data.type) {
+          case 'INITIAL_DATA':
+            handleInitialData(data);
+            break;
 
-        case 'NEW_MESSAGE':
-          handleNewMessage(data.message);
-          break;
+          case 'NEW_MESSAGE':
+            handleNewMessage(data.message);
+            break;
 
-        case 'UNREAD_COUNT':
-          handleUnreadCountUpdate(data);
-          break;
+          case 'UNREAD_COUNT':
+            handleUnreadCountUpdate(data);
+            break;
 
-        case 'TYPING_INDICATOR':
-          handleTypingIndicator(data);
-          break;
+          case 'TYPING_INDICATOR':
+            handleTypingIndicator(data);
+            break;
 
-        case 'MESSAGE_READ_STATUS':
-          handleMessageReadStatus(data);
-          break;
+          case 'MESSAGE_READ_STATUS':
+            handleMessageReadStatus(data);
+            break;
 
-        case 'USER_STATUS_CHANGE':
-          handleUserStatusChange(data);
-          break;
+          case 'USER_STATUS_CHANGE':
+            handleUserStatusChange(data);
+            break;
 
-        case 'ONLINE_USERS':
-          handleOnlineUsers(data.users);
-          break;
+          case 'ONLINE_USERS':
+            handleOnlineUsers(data.users);
+            break;
 
-        case 'CONVERSATION_UPDATE':
-          handleConversationUpdate(data);
-          break;
+          case 'CONVERSATION_UPDATE':
+            handleConversationUpdate(data);
+            break;
 
-        case 'MESSAGE_SENT':
-          break;
+          case 'MESSAGE_SENT':
+            if (data.message) {
+              handleNewMessage(data.message);
+            }
+            break;
 
-        case 'MESSAGES_MARKED_READ':
-          break;
+          case 'MESSAGES_MARKED_READ':
+            break;
 
-        default:
-      }
-    },
-    [handleNewMessage]
+          default:
+        }
+      },
+      [handleNewMessage]
   );
 
   const handleInitialData = useCallback(data => {
@@ -359,14 +384,14 @@ export const ChatProvider = ({ children }) => {
 
     if (isComponentMountedRef.current) {
       ChatService.getConversationById(conversationId)
-        .then(updatedConversation => {
-          setConversations(prevConversations => {
-            return prevConversations.map(c =>
-              String(c.id) === conversationId ? updatedConversation : c
-            );
-          });
-        })
-        .catch(error => {});
+          .then(updatedConversation => {
+            setConversations(prevConversations => {
+              return prevConversations.map(c =>
+                  String(c.id) === conversationId ? updatedConversation : c
+              );
+            });
+          })
+          .catch(error => {});
     }
   }, []);
 
@@ -378,16 +403,16 @@ export const ChatProvider = ({ children }) => {
 
       if (data.conversationBreakdown) {
         setConversations(prevConversations =>
-          prevConversations.map(c => {
-            const conversationId = String(c.id);
-            if (data.conversationBreakdown[conversationId] !== undefined) {
-              return {
-                ...c,
-                unreadCount: data.conversationBreakdown[conversationId],
-              };
-            }
-            return c;
-          })
+            prevConversations.map(c => {
+              const conversationId = String(c.id);
+              if (data.conversationBreakdown[conversationId] !== undefined) {
+                return {
+                  ...c,
+                  unreadCount: data.conversationBreakdown[conversationId],
+                };
+              }
+              return c;
+            })
         );
       }
       return;
@@ -397,9 +422,9 @@ export const ChatProvider = ({ children }) => {
 
     setConversations(prevConversations => {
       return prevConversations.map(c =>
-        String(c.id) === conversationId
-          ? { ...c, unreadCount: data.unreadCount }
-          : c
+          String(c.id) === conversationId
+              ? { ...c, unreadCount: data.unreadCount }
+              : c
       );
     });
   }, []);
@@ -438,9 +463,9 @@ export const ChatProvider = ({ children }) => {
     if (!isComponentMountedRef.current) return;
 
     setMessages(prevMessages =>
-      prevMessages.map(m =>
-        m.id === data.messageId ? { ...m, read: data.isRead } : m
-      )
+        prevMessages.map(m =>
+            String(m.id) === String(data.messageId) ? { ...m, read: data.isRead } : m
+        )
     );
   }, []);
 
@@ -449,24 +474,24 @@ export const ChatProvider = ({ children }) => {
 
     if (data.online) {
       setOnlineUsers(prev =>
-        prev.includes(data.username) ? prev : [...prev, data.username]
+          prev.includes(data.username) ? prev : [...prev, data.username]
       );
     } else {
       setOnlineUsers(prev =>
-        prev.filter(username => username !== data.username)
+          prev.filter(username => username !== data.username)
       );
     }
 
     setConversations(prevConversations =>
-      prevConversations.map(conv => {
-        if (
-          conv.participant1Id === data.username ||
-          conv.participant2Id === data.username
-        ) {
-          return { ...conv, online: data.online };
-        }
-        return conv;
-      })
+        prevConversations.map(conv => {
+          if (
+              conv.participant1Id === data.username ||
+              conv.participant2Id === data.username
+          ) {
+            return { ...conv, online: data.online };
+          }
+          return conv;
+        })
     );
   }, []);
 
@@ -479,8 +504,8 @@ export const ChatProvider = ({ children }) => {
     if (!isComponentMountedRef.current) return;
 
     const count = conversations.reduce(
-      (total, conv) => total + (conv.unreadCount || 0),
-      0
+        (total, conv) => total + (conv.unreadCount || 0),
+        0
     );
     setTotalUnreadCount(count);
   }, [conversations]);
@@ -511,7 +536,7 @@ export const ChatProvider = ({ children }) => {
     setIsLoading(true);
     try {
       const firstUnreadResponse = await ChatService.getFirstUnreadMessageId(
-        conversation.id
+          conversation.id
       );
       const firstUnread = firstUnreadResponse.messageId;
 
@@ -529,7 +554,7 @@ export const ChatProvider = ({ children }) => {
       setMessages(messageList);
 
       setFirstUnreadMessageId(
-        firstUnread && firstUnread > 0 ? firstUnread : null
+          firstUnread && firstUnread > 0 ? firstUnread : null
       );
 
       if (conversation.unreadCount > 0 || (firstUnread && firstUnread > 0)) {
@@ -538,11 +563,11 @@ export const ChatProvider = ({ children }) => {
             functionRefs.current.markConversationAsRead(conversation.id);
 
             setConversations(prevConversations =>
-              prevConversations.map(c =>
-                String(c.id) === String(conversation.id)
-                  ? { ...c, unreadCount: 0 }
-                  : c
-              )
+                prevConversations.map(c =>
+                    String(c.id) === String(conversation.id)
+                        ? { ...c, unreadCount: 0 }
+                        : c
+                )
             );
 
             functionRefs.current.calculateTotalUnreadCount();
@@ -558,59 +583,89 @@ export const ChatProvider = ({ children }) => {
   }, []);
 
   const sendMessage = useCallback(
-    async (receiverId, content, conversationId = null) => {
-      if (!isComponentMountedRef.current) return;
+      async (receiverId, content, conversationId = null) => {
+        if (!isComponentMountedRef.current) return;
 
-      const currentUser = userRef.current;
+        const currentUser = userRef.current;
 
-      const tempMessage = {
-        id: `temp-${Date.now()}`,
-        content,
-        senderId: currentUser?.username,
-        receiverId,
-        conversationId,
-        timestamp: new Date().toISOString(),
-        read: false,
-      };
+        const tempMessage = {
+          id: `temp-${Date.now()}`,
+          content,
+          senderId: currentUser?.username,
+          receiverId,
+          conversationId,
+          timestamp: new Date().toISOString(),
+          read: false,
+        };
 
-      setMessages(prevMessages => [...prevMessages, tempMessage]);
+        setMessages(prevMessages => [...prevMessages, tempMessage]);
 
-      try {
-        await ChatService.sendChatMessage(receiverId, content, conversationId);
-      } catch (error) {
-        setMessages(prevMessages =>
-          prevMessages.filter(m => m.id !== tempMessage.id)
+        setConversations(prevConversations =>
+            prevConversations.map(conv => {
+              if (String(conv.id) === String(conversationId)) {
+                const updatedMessages = [...(conv.messages || []), tempMessage];
+                return {
+                  ...conv,
+                  lastMessageContent: content,
+                  lastMessageTime: tempMessage.timestamp,
+                  messages: updatedMessages,
+                };
+              }
+              return conv;
+            })
         );
-      }
-    },
-    []
+
+        try {
+          await ChatService.sendChatMessage(receiverId, content, conversationId);
+        } catch (error) {
+          setMessages(prevMessages =>
+              prevMessages.filter(m => String(m.id) !== String(tempMessage.id))
+          );
+
+          setConversations(prevConversations =>
+              prevConversations.map(conv => {
+                if (String(conv.id) === String(conversationId)) {
+                  const updatedMessages = (conv.messages || []).filter(
+                      m => String(m.id) !== String(tempMessage.id)
+                  );
+                  return {
+                    ...conv,
+                    messages: updatedMessages,
+                  };
+                }
+                return conv;
+              })
+          );
+        }
+      },
+      []
   );
 
   const sendTypingIndicator = useCallback(
-    (receiverId, conversationId, isTyping = true) => {
-      if (!isComponentMountedRef.current) return;
+      (receiverId, conversationId, isTyping = true) => {
+        if (!isComponentMountedRef.current) return;
 
-      try {
-        ChatService.sendTypingIndicator(receiverId, conversationId, isTyping);
+        try {
+          ChatService.sendTypingIndicator(receiverId, conversationId, isTyping);
 
-        if (isTyping) {
-          if (typingTimeoutRef.current[conversationId]) {
-            clearTimeout(typingTimeoutRef.current[conversationId]);
-          }
-
-          typingTimeoutRef.current[conversationId] = setTimeout(() => {
-            if (isComponentMountedRef.current) {
-              ChatService.sendTypingIndicator(
-                receiverId,
-                conversationId,
-                false
-              );
+          if (isTyping) {
+            if (typingTimeoutRef.current[conversationId]) {
+              clearTimeout(typingTimeoutRef.current[conversationId]);
             }
-          }, 5000);
-        }
-      } catch (error) {}
-    },
-    []
+
+            typingTimeoutRef.current[conversationId] = setTimeout(() => {
+              if (isComponentMountedRef.current) {
+                ChatService.sendTypingIndicator(
+                    receiverId,
+                    conversationId,
+                    false
+                );
+              }
+            }, 5000);
+          }
+        } catch (error) {}
+      },
+      []
   );
 
   const markConversationAsRead = useCallback(async conversationId => {
@@ -622,9 +677,9 @@ export const ChatProvider = ({ children }) => {
       setMessages(prev => prev.map(m => ({ ...m, read: true })));
 
       setConversations(prev =>
-        prev.map(c =>
-          String(c.id) === String(conversationId) ? { ...c, unreadCount: 0 } : c
-        )
+          prev.map(c =>
+              String(c.id) === String(conversationId) ? { ...c, unreadCount: 0 } : c
+          )
       );
 
       functionRefs.current.calculateTotalUnreadCount();
@@ -636,62 +691,62 @@ export const ChatProvider = ({ children }) => {
   }, [markConversationAsRead]);
 
   const openChatWithUser = useCallback(
-    username => {
-      if (!isComponentMountedRef.current) return;
+      username => {
+        if (!isComponentMountedRef.current) return;
 
-      const currentUser = userRef.current;
+        const currentUser = userRef.current;
 
-      const existingConversation = conversations.find(
-        c =>
-          (c.participant1Id === username &&
-            c.participant2Id === currentUser?.username) ||
-          (c.participant1Id === currentUser?.username &&
-            c.participant2Id === username)
-      );
+        const existingConversation = conversations.find(
+            c =>
+                (c.participant1Id === username &&
+                    c.participant2Id === currentUser?.username) ||
+                (c.participant1Id === currentUser?.username &&
+                    c.participant2Id === username)
+        );
 
-      if (existingConversation) {
-        selectConversation(existingConversation);
-      } else {
-        const tempConversation = {
-          id: null,
-          participant1Id: currentUser?.username,
-          participant2Id: username,
-          lastMessageContent: '',
-          lastMessageTime: new Date().toISOString(),
-          unreadCount: 0,
-          messages: [],
-        };
+        if (existingConversation) {
+          selectConversation(existingConversation);
+        } else {
+          const tempConversation = {
+            id: null,
+            participant1Id: currentUser?.username,
+            participant2Id: username,
+            lastMessageContent: '',
+            lastMessageTime: new Date().toISOString(),
+            unreadCount: 0,
+            messages: [],
+          };
 
-        setActiveConversation(tempConversation);
-        setMessages([]);
-      }
-    },
-    [conversations, selectConversation]
+          setActiveConversation(tempConversation);
+          setMessages([]);
+        }
+      },
+      [conversations, selectConversation]
   );
 
   const isUserOnline = useCallback(
-    username => {
-      return onlineUsers.includes(username);
-    },
-    [onlineUsers]
+      username => {
+        return onlineUsers.includes(username);
+      },
+      [onlineUsers]
   );
 
   const formatMessageTime = useCallback(
-    timestamp => {
-      if (!timestamp) return '';
+      timestamp => {
+        if (!timestamp) return '';
 
-      const date = new Date(timestamp);
+        const date = new Date(timestamp);
 
-      if (isToday(date)) {
-        return format(date, 'HH:mm');
-      } else if (isYesterday(date)) {
-        return t('chatContext.yesterday', 'Yesterday');
-      } else if (date > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) {
-        return format(date, 'EEEE');
-      }
-      return format(date, 'dd/MM/yyyy');
-    },
-    [t]
+        if (isToday(date)) {
+          return format(date, 'HH:mm');
+        } else if (isYesterday(date)) {
+          return t('chatContext.yesterday', 'Yesterday');
+        } else if (date > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) {
+          return format(date, 'EEEE');
+        }
+        return format(date, 'dd/MM/yyyy');
+      },
+      [t]
   );
 
   const contextValue = {
@@ -719,7 +774,7 @@ export const ChatProvider = ({ children }) => {
   };
 
   return (
-    <ChatContext.Provider value={contextValue}>{children}</ChatContext.Provider>
+      <ChatContext.Provider value={contextValue}>{children}</ChatContext.Provider>
   );
 };
 
@@ -728,10 +783,10 @@ export const useChat = () => {
   const { t } = useTranslation();
   if (context === undefined) {
     throw new Error(
-      t(
-        'chatContext.errorUseChat',
-        'useChat must be used within a ChatProvider'
-      )
+        t(
+            'chatContext.errorUseChat',
+            'useChat must be used within a ChatProvider'
+        )
     );
   }
   return context;
